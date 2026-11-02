@@ -1,0 +1,11 @@
+# Copy to .dev.vars for local development. Generate secrets with:
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+SESSION_SECRET=
+ENCRYPTION_KEY=
+# Local only: sign in without Google, and use a fake Google Calendar stored in local D1.
+DEV_LOGIN=1
+FAKE_GOOGLE=1
+# Fill these in to test real Google sign-in and calendars locally (and remove the two lines above):
+# GOOGLE_OAUTH_CLIENT_ID=
+# GOOGLE_OAUTH_CLIENT_SECRET=
+# GOOGLE_SERVICE_ACCOUNT_JSON={"client_email":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"}
