@@ -1,4 +1,4 @@
-// Local development server: `npm run dev`. On Vercel, src/index.ts is used instead and public/ is served by the CDN.
+// Local development server: `npm run dev`. On Vercel, `npm run build` compiles the app to dist/app.js and public/ is served by the CDN.
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';

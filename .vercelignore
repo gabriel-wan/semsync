@@ -1,0 +1,8 @@
+# Never upload local secrets or the local database when deploying from this folder with the Vercel CLI.
+.env
+.env.*
+!.env.example
+local.db*
+node_modules
+.check
+dist

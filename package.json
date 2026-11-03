@@ -4,13 +4,14 @@
   "private": true,
   "description": "Canvas deadlines, NUSMods classes and exams, synced into Google Calendar.",
   "type": "module",
+  "main": "dist/app.js",
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env.local src/dev.ts",
     "start": "tsx --env-file-if-exists=.env.local src/dev.ts",
-    "build": "tsx scripts/migrate.ts --production-build-only",
+    "build": "tsc -p tsconfig.build.json && tsx scripts/migrate.ts --production-build-only",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts",
@@ -24,7 +25,7 @@
     "@hono/node-server": "^2.1.6",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
     "vitest": "^5.1.0"
   }
 }

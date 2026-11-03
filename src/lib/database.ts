@@ -1,4 +1,4 @@
-import { createClient, type Client, type InValue } from '@libsql/client';
+import type { Client, InValue } from '@libsql/client';
 
 /**
  * The small, D1-style database API the app uses. It's backed by libSQL: a local SQLite file in development
@@ -21,7 +21,7 @@ export interface Db {
 
 class LibsqlStatement implements Statement {
   constructor(
-    private client: Client,
+    private client: Promise<Client>,
     readonly sql: string,
     readonly args: InValue[] = [],
   ) {}
@@ -36,22 +36,22 @@ class LibsqlStatement implements Statement {
   }
 
   async all<T>(): Promise<{ results: T[] }> {
-    const rs = await this.client.execute({ sql: this.sql, args: this.args });
+    const rs = await (await this.client).execute({ sql: this.sql, args: this.args });
     return { results: rs.rows.map((row) => Object.fromEntries(rs.columns.map((col, i) => [col, row[i]])) as T) };
   }
 
   async run(): Promise<{ changes: number }> {
-    const rs = await this.client.execute({ sql: this.sql, args: this.args });
+    const rs = await (await this.client).execute({ sql: this.sql, args: this.args });
     return { changes: rs.rowsAffected };
   }
 }
 
-export function libsqlDb(client: Client): Db {
+export function libsqlDb(client: Promise<Client>): Db {
   return {
     prepare: (sql) => new LibsqlStatement(client, sql),
     async batch(statements) {
       if (statements.length === 0) return;
-      await client.batch(
+      await (await client).batch(
         statements.map((s) => {
           const st = s as LibsqlStatement;
           return { sql: st.sql, args: st.args };
@@ -59,10 +59,18 @@ export function libsqlDb(client: Client): Db {
         'write',
       );
     },
-    exec: (sql) => client.executeMultiple(sql),
+    exec: async (sql) => (await client).executeMultiple(sql),
   };
 }
 
 export function openDb(url: string, authToken?: string): Db {
-  return libsqlDb(createClient({ url, authToken }));
+  // Turso URLs go through libSQL's fetch-based web client, so the Vercel function never loads libSQL's native
+  // binary. Only a local file or :memory: database needs the native client.
+  const local = url.startsWith('file:') || url === ':memory:';
+  const client = (local ? import('@libsql/client') : import('@libsql/client/web')).then(({ createClient }) =>
+    createClient({ url, authToken }),
+  );
+  // A bad URL then fails the first query instead of crashing the process as an unhandled rejection.
+  client.catch(() => {});
+  return libsqlDb(client);
 }

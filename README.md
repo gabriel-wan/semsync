@@ -36,9 +36,12 @@ NUSMods API ─────────┘     (src/lib/canvas.ts,        (src/l
 
 ## Stack
 
-- **[Hono](https://hono.dev)** on **Vercel** (zero config: `src/index.ts` exports the app; `public/` is served by the CDN).
-- **[Turso](https://turso.tech)** (hosted SQLite) for the database, through `@libsql/client`. Locally it's a plain file,
-  `local.db`, so development needs no account.
+- **[Hono](https://hono.dev)** on **Vercel**. `npm run build` compiles `src/` to `dist/`, and Vercel runs `dist/app.js`
+  (the `main` in `package.json`); `public/` is served by the CDN. We compile ourselves because Vercel's per-file
+  TypeScript step can't follow a `./x.js` import to a `.tsx` file.
+- **[Turso](https://turso.tech)** (hosted SQLite) for the database, through `@libsql/client` (its fetch-based web client
+  for Turso, so the function needs no native binary). Locally it's a plain file, `local.db`, so development needs no
+  account.
 - **Hourly sync:** `GET /api/cron`, protected by `CRON_SECRET`. A free GitHub Action calls it every hour, and Vercel Cron
   calls it once a day as a backup (Vercel's Hobby plan only allows daily cron jobs).
 

@@ -1,0 +1,13 @@
+{
+  // `npm run build` compiles src/ to plain JavaScript in dist/, and Vercel runs dist/app.js (package.json "main").
+  // Vercel's own per-file TypeScript step can't follow a './x.js' import to a .tsx file, so we compile it ourselves.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "sourceMap": true
+  },
+  "include": ["src"],
+  "exclude": ["src/dev.ts"]
+}
