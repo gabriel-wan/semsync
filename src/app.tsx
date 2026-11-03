@@ -1,20 +1,20 @@
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
-import { allowedCanvasHosts, isDev, type Env } from './env';
-import { validateCanvasFeedUrl } from './lib/canvas';
-import { encrypt, safeEqual } from './lib/crypto';
+import { allowedCanvasHosts, getEnv, isDev, type Env } from './env.js';
+import { validateCanvasFeedUrl } from './lib/canvas.js';
+import { encrypt, safeEqual } from './lib/crypto.js';
 import {
   deleteUserData, eventCounts, getUser, saveSources, setMode, setRefreshToken, upcomingEvents, upsertUserOnLogin, type UserRow,
-} from './lib/db';
-import { UserError } from './lib/errors';
-import type { CalendarMode } from './lib/events';
-import { authorizationUrl, CALENDAR_SCOPE, exchangeCode, type AuthPurpose } from './lib/googleSignIn';
-import { parseNusmodsLink } from './lib/nusmods';
-import { csrfToken, readSession, sessionValue, SESSION_MAX_AGE } from './lib/session';
-import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser } from './lib/sync';
+} from './lib/db.js';
+import { UserError } from './lib/errors.js';
+import type { CalendarMode } from './lib/events.js';
+import { authorizationUrl, CALENDAR_SCOPE, exchangeCode, type AuthPurpose } from './lib/googleSignIn.js';
+import { parseNusmodsLink } from './lib/nusmods.js';
+import { csrfToken, readSession, sessionValue, SESSION_MAX_AGE } from './lib/session.js';
+import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser } from './lib/sync.js';
 import {
   DevCalendar, DevLogin, Foundations, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms, type SetupErrors,
-} from './views/pages';
+} from './views/pages.js';
 
 type AppEnv = { Bindings: Env; Variables: { user: UserRow | null } };
 type Ctx = Context<AppEnv>;
@@ -33,6 +33,8 @@ const FLASH: Record<string, string> = {
 const app = new Hono<AppEnv>();
 
 app.use('*', async (c, next) => {
+  // Settings come from environment variables on Vercel (and .env.local in development), not platform bindings.
+  c.env = getEnv();
   const uid = await readSession(c.env.SESSION_SECRET, getCookie(c, SESSION_COOKIE));
   c.set('user', uid ? await getUser(c.env.DB, uid) : null);
   await next();
@@ -317,6 +319,16 @@ app.get('/dev/calendar', async (c) => {
   return c.html(<DevCalendar label={label} events={events} />);
 });
 
+// --- Scheduled sync ---
+
+// Called hourly by the GitHub Action (.github/workflows/hourly-sync.yml) and daily by Vercel Cron as a backup.
+// Both send "Authorization: Bearer <CRON_SECRET>".
+app.get('/api/cron', async (c) => {
+  const secret = c.env.CRON_SECRET;
+  if (!secret || !safeEqual(c.req.header('authorization') ?? '', `Bearer ${secret}`)) return c.json({ error: 'unauthorized' }, 401);
+  return c.json(await runDueSyncs(c.env));
+});
+
 app.notFound((c) => c.html(<NotFound signedIn={!!c.get('user')} />, 404));
 
 app.onError((err, c) => {
@@ -324,9 +336,4 @@ app.onError((err, c) => {
   return c.html(<Message title="Something went wrong" body="Semsync hit an error. Try again in a minute." action={{ href: '/', label: 'Back to Semsync' }} />, 500);
 });
 
-export default {
-  fetch: app.fetch,
-  scheduled(_event, env, ctx) {
-    ctx.waitUntil(runDueSyncs(env));
-  },
-} satisfies ExportedHandler<Env>;
+export default app;

@@ -1,4 +1,4 @@
-import { SPACING, tokensCss } from './tokens';
+import { SPACING, tokensCss } from './tokens.js';
 
 // Component styles. Every colour is a Color System token, every padding, gap and margin a spacing token, every radius
 // a radius token, and every text element uses a named text style class from tokens.ts. Rules from the

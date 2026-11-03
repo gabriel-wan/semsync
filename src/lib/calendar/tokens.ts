@@ -1,7 +1,7 @@
-import type { Env } from '../../env';
-import { b64url, decrypt, encrypt } from '../crypto';
-import type { UserRow } from '../db';
-import { UserError } from '../errors';
+import type { Env } from '../../env.js';
+import { b64url, decrypt, encrypt } from '../crypto.js';
+import type { UserRow } from '../db.js';
+import { UserError } from '../errors.js';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 

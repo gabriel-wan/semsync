@@ -1,6 +1,6 @@
-import { UserError } from './errors';
-import type { CalEvent } from './events';
-import { parseIcs, parseIcsTime, unescapeText } from './ics';
+import { UserError } from './errors.js';
+import type { CalEvent } from './events.js';
+import { parseIcs, parseIcsTime, unescapeText } from './ics.js';
 
 const MAX_FEED_BYTES = 2_000_000;
 

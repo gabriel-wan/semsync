@@ -1,4 +1,4 @@
-import type { GoogleEventBody } from '../events';
+import type { GoogleEventBody } from '../events.js';
 
 export type EventOp =
   | { type: 'insert'; eventId: string; body: GoogleEventBody }

@@ -1,11 +1,11 @@
 import type { Child, FC, PropsWithChildren } from 'hono/jsx';
 import { raw } from 'hono/html';
-import { TESTIMONIAL } from '../config';
-import type { UpcomingRow, UserRow } from '../lib/db';
-import type { CalendarMode } from '../lib/events';
-import { GoogleMark, Icon } from './icons';
-import { CSS, SCRIPT } from './styles';
-import { CORE, RADIUS, SPACING, SYSTEM, SYSTEM_SPEC, TEXT_STYLES } from './tokens';
+import { TESTIMONIAL } from '../config.js';
+import type { UpcomingRow, UserRow } from '../lib/db.js';
+import type { CalendarMode } from '../lib/events.js';
+import { GoogleMark, Icon } from './icons.js';
+import { CSS, SCRIPT } from './styles.js';
+import { CORE, RADIUS, SPACING, SYSTEM, SYSTEM_SPEC, TEXT_STYLES } from './tokens.js';
 
 const FAVICON =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%239e5021'/%3E%3Cpath d='M9 12h14M9 17h9M9 22h6' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E";
@@ -520,7 +520,7 @@ export const Privacy: FC<{ signedIn?: boolean; origin?: string }> = ({ signedIn,
       <p class="body-3">Your Gmail, Drive or Canvas password. It reads only the calendar feed Canvas gives you, and public course data from NUSMods.</p>
       <h2 class="heading-6">Where data lives</h2>
       <p class="body-3">
-        Semsync runs on Cloudflare Workers and stores data in a Cloudflare D1 database. Google user data is used only to provide this
+        Semsync runs on Vercel and stores data in a Turso database, both in Singapore. Google user data is used only to provide this
         feature. Nothing is sold, used for ads, or shared with anyone else.
       </p>
       <h2 class="heading-6">Deleting your data</h2>

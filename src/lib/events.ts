@@ -1,4 +1,4 @@
-import { TIME_ZONE, TZ_OFFSET } from '../config';
+import { TIME_ZONE, TZ_OFFSET } from '../config.js';
 
 export type CalTime = { date: string } | { dateTime: string };
 

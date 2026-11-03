@@ -1,12 +1,12 @@
-import { findTerm } from '../config';
-import { isDev, type Env } from '../env';
-import { SAMPLE_CANVAS_FEED } from '../fixtures/sampleCanvas';
-import { FakeCalendar } from './calendar/fake';
-import { GoogleCalendar } from './calendar/google';
-import { ReconnectNeeded, revokeToken, serviceAccountTokens, userTokens } from './calendar/tokens';
-import type { CalendarBackend, EventOp } from './calendar/types';
-import { canvasEvents, fetchCanvasFeed } from './canvas';
-import { decrypt } from './crypto';
+import { findTerm } from '../config.js';
+import { isDev, type Env } from '../env.js';
+import { SAMPLE_CANVAS_FEED } from '../fixtures/sampleCanvas.js';
+import { FakeCalendar } from './calendar/fake.js';
+import { GoogleCalendar } from './calendar/google.js';
+import { ReconnectNeeded, revokeToken, serviceAccountTokens, userTokens } from './calendar/tokens.js';
+import type { CalendarBackend, EventOp } from './calendar/types.js';
+import { canvasEvents, fetchCanvasFeed } from './canvas.js';
+import { decrypt } from './crypto.js';
 import {
   cachedModuleFetcher,
   clearCalendar,
@@ -19,12 +19,13 @@ import {
   trackedEvents,
   type TrackedRow,
   type UserRow,
-} from './db';
-import { UserError } from './errors';
+} from './db.js';
+import type { Db } from './database.js';
+import { UserError } from './errors.js';
 import {
   eventId, hashBody, startMs, toGoogleEvent, type CalEvent, type CalendarMode, type EventKind, type GoogleEventBody,
-} from './events';
-import { fetchModuleFromApi, nusmodsEvents, parseNusmodsLink } from './nusmods';
+} from './events.js';
+import { fetchModuleFromApi, nusmodsEvents, parseNusmodsLink } from './nusmods.js';
 
 const DAY_MS = 24 * 3600_000;
 // Per sync run, so a first sync of a big semester spreads over a few runs instead of hitting limits.
@@ -117,7 +118,7 @@ export async function applyPlan(backend: CalendarBackend, calendarId: string, pl
   };
 }
 
-async function storeApplied(db: D1Database, userId: string, applied: { upserts: PlannedUpsert[]; deletes: string[] }) {
+async function storeApplied(db: Db, userId: string, applied: { upserts: PlannedUpsert[]; deletes: string[] }) {
   const statements = [
     ...applied.upserts.map((u) =>
       db
@@ -237,7 +238,24 @@ export async function disconnectCalendar(env: Env, user: UserRow) {
   user.google_refresh_enc = null;
 }
 
-export async function runDueSyncs(env: Env) {
+// Vercel Hobby functions get up to 300 s; stop picking up new users well before that.
+const RUN_BUDGET_MS = 240_000;
+
+/** Syncs every user who is due (last synced over 55 minutes ago), in batches, until none are left or time runs out. */
+export async function runDueSyncs(env: Env, budgetMs = RUN_BUDGET_MS) {
+  const deadline = Date.now() + budgetMs;
   const batch = Math.max(1, Number(env.SYNC_BATCH) || 1);
-  for (const user of await dueUsers(env.DB, 55 * 60_000, batch)) await syncUser(env, user);
+  let synced = 0;
+  let failed = 0;
+  while (Date.now() < deadline) {
+    const users = await dueUsers(env.DB, 55 * 60_000, batch);
+    if (users.length === 0) break;
+    for (const user of users) {
+      if (Date.now() >= deadline) break;
+      // syncUser records every attempt, so a user who fails isn't picked again in this run.
+      if (await syncUser(env, user)) synced++;
+      else failed++;
+    }
+  }
+  return { synced, failed, timedOut: Date.now() >= deadline };
 }

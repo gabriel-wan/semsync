@@ -1,4 +1,4 @@
-import { b64url, b64urlDecodeString, hmac, safeEqual } from './crypto';
+import { b64url, b64urlDecodeString, hmac, safeEqual } from './crypto.js';
 
 const SESSION_DAYS = 30;
 

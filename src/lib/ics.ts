@@ -1,6 +1,6 @@
 // A small iCalendar (.ics) reader: enough for Canvas feeds, cheap on CPU.
-import { TZ_OFFSET } from '../config';
-import type { CalTime } from './events';
+import { TZ_OFFSET } from '../config.js';
+import type { CalTime } from './events.js';
 
 export type IcsProp = { name: string; params: Record<string, string>; value: string };
 /** Properties of one VEVENT, keyed by name (first occurrence wins). */

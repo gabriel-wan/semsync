@@ -1,6 +1,6 @@
-import { NO_CLASS_DATES, addDays, teachingWeekDate, TZ_OFFSET, type Term } from '../config';
-import { UserError } from './errors';
-import type { CalEvent } from './events';
+import { NO_CLASS_DATES, addDays, teachingWeekDate, TZ_OFFSET, type Term } from '../config.js';
+import { UserError } from './errors.js';
+import type { CalEvent } from './events.js';
 
 export type LessonChoice = { lessonType: string; classNos: string[]; indices: number[] };
 export type ModuleChoice = { code: string; lessons: LessonChoice[] };

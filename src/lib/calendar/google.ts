@@ -1,6 +1,6 @@
-import { TIME_ZONE } from '../../config';
-import type { TokenProvider } from './tokens';
-import type { CalendarBackend, EventOp, OpResult } from './types';
+import { TIME_ZONE } from '../../config.js';
+import type { TokenProvider } from './tokens.js';
+import type { CalendarBackend, EventOp, OpResult } from './types.js';
 
 const API = 'https://www.googleapis.com/calendar/v3';
 const BATCH_URL = 'https://www.googleapis.com/batch/calendar/v3';

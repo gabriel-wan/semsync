@@ -1,24 +1,30 @@
 {
   "name": "semsync",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Canvas deadlines, NUSMods classes and exams, synced into one shared Google Calendar.",
+  "description": "Canvas deadlines, NUSMods classes and exams, synced into Google Calendar.",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "dev": "wrangler dev --test-scheduled",
-    "deploy": "wrangler deploy",
+    "dev": "tsx watch --env-file-if-exists=.env.local src/dev.ts",
+    "start": "tsx --env-file-if-exists=.env.local src/dev.ts",
+    "build": "tsx scripts/migrate.ts --production-build-only",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "db:migrate:local": "wrangler d1 migrations apply semsync --local",
-    "db:migrate:remote": "wrangler d1 migrations apply semsync --remote"
+    "db:migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts",
+    "sql": "tsx --env-file-if-exists=.env.local scripts/sql.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "hono": "^4.13.16"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261102.1",
+    "@hono/node-server": "^2.1.6",
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0",
-    "wrangler": "^4.156.2"
+    "vitest": "^5.1.0"
   }
 }

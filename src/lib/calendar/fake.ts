@@ -1,12 +1,13 @@
-import type { CalendarBackend, EventOp, OpResult } from './types';
+import type { Db } from '../database.js';
+import type { CalendarBackend, EventOp, OpResult } from './types.js';
 
 /**
- * Stand-in for Google Calendar in local development (FAKE_GOOGLE=1), stored in D1.
+ * Stand-in for Google Calendar in local development (FAKE_GOOGLE=1), stored in the local database.
  * Mirrors Google's behaviour that matters to the sync: deleted events stay as "cancelled",
  * inserting an existing id returns 409, and updating a missing id returns 404.
  */
 export class FakeCalendar implements CalendarBackend {
-  constructor(private db: D1Database) {}
+  constructor(private db: Db) {}
 
   async createCalendar(summary: string): Promise<string> {
     const id = `fake_${crypto.randomUUID().replace(/-/g, '')}@group.calendar.google.com`;
