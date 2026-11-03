@@ -35,7 +35,8 @@ const app = new Hono<AppEnv>();
 app.use('*', async (c, next) => {
   // Settings come from environment variables on Vercel (and .env.local in development), not platform bindings.
   c.env = getEnv();
-  const uid = await readSession(c.env.SESSION_SECRET, getCookie(c, SESSION_COOKIE));
+  const cookie = getCookie(c, SESSION_COOKIE);
+  const uid = cookie ? await readSession(c.env.SESSION_SECRET, cookie) : null;
   c.set('user', uid ? await getUser(c.env.DB, uid) : null);
   await next();
   c.header('X-Content-Type-Options', 'nosniff');

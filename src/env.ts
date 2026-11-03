@@ -29,15 +29,26 @@ export function getEnv(): Env {
     if (!value) throw new Error(`${name} is not set`);
     return value;
   };
-  // On Vercel the file system is temporary, so production must use Turso.
-  const dbUrl = e.VERCEL ? required('TURSO_DATABASE_URL') : (e.TURSO_DATABASE_URL ?? 'file:local.db');
+  // The database and secrets are read when first used, so a missing one fails that request with a clear error
+  // while the public pages (home, privacy, terms) still load on a deployment that isn't fully set up yet.
+  let db: Db | undefined;
   env = {
-    DB: openDb(dbUrl, e.TURSO_AUTH_TOKEN),
+    get DB() {
+      // On Vercel the file system is temporary, so production must use Turso.
+      return (db ??= openDb(
+        e.VERCEL ? required('TURSO_DATABASE_URL') : (e.TURSO_DATABASE_URL ?? 'file:local.db'),
+        e.TURSO_AUTH_TOKEN,
+      ));
+    },
     APP_NAME: e.APP_NAME ?? 'Semsync',
     SYNC_BATCH: e.SYNC_BATCH ?? '10',
     ALLOWED_CANVAS_HOSTS: e.ALLOWED_CANVAS_HOSTS ?? 'canvas.nus.edu.sg',
-    SESSION_SECRET: required('SESSION_SECRET'),
-    ENCRYPTION_KEY: required('ENCRYPTION_KEY'),
+    get SESSION_SECRET() {
+      return required('SESSION_SECRET');
+    },
+    get ENCRYPTION_KEY() {
+      return required('ENCRYPTION_KEY');
+    },
     CRON_SECRET: e.CRON_SECRET,
     GOOGLE_OAUTH_CLIENT_ID: e.GOOGLE_OAUTH_CLIENT_ID,
     GOOGLE_OAUTH_CLIENT_SECRET: e.GOOGLE_OAUTH_CLIENT_SECRET,
