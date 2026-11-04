@@ -38,11 +38,18 @@ export function numberPlaceholders(sql: string): string {
   return sql.replace(/'(?:[^']|'')*'|\?/g, (match) => (match === '?' ? `$${++n}` : match));
 }
 
+/**
+ * The connections in use, with a way to start over. A query that timed out may have left its connection waiting for an
+ * answer that never comes, and every later query on it would wait too, so after a timeout the old connections are
+ * dropped and fresh ones opened.
+ */
+type Pool = { current: () => Sql; reset: (stale: Sql) => void };
+
 class PgStatement implements Statement {
   readonly text: string;
 
   constructor(
-    private sql: Sql,
+    private pool: Pool,
     text: string,
     readonly args: unknown[] = [],
   ) {
@@ -51,7 +58,7 @@ class PgStatement implements Statement {
 
   bind(...args: unknown[]): Statement {
     // this.text has no `?` left, so numbering it again changes nothing.
-    return new PgStatement(this.sql, this.text, args.map((a) => (a === undefined ? null : a)));
+    return new PgStatement(this.pool, this.text, args.map((a) => (a === undefined ? null : a)));
   }
 
   async first<T>(): Promise<T | null> {
@@ -70,8 +77,12 @@ class PgStatement implements Statement {
   }
 
   private execute() {
-    const query = this.sql.unsafe(this.text, this.args as Params);
-    return within(QUERY_MS, `The database (${short(this.text)})`, query, () => void query.cancel());
+    const sql = this.pool.current();
+    const query = sql.unsafe(this.text, this.args as Params);
+    return within(QUERY_MS, `The database (${short(this.text)})`, query, () => {
+      void query.cancel();
+      this.pool.reset(sql);
+    });
   }
 }
 
@@ -90,7 +101,7 @@ export function openDb(url: string): Db {
   // postgres.js would send any other URL parameter (Supabase adds `supa=…`) to the server as a setting.
   parsed.search = '';
 
-  const sql: Sql = postgres(parsed.href, {
+  const connect = (): Sql => postgres(parsed.href, {
     ssl: sslmode === 'disable' ? false : (sslmode as 'require'),
     // Supabase's pooler runs in transaction mode, which can't keep named prepared statements.
     prepare: false,
@@ -108,16 +119,28 @@ export function openDb(url: string): Db {
     onnotice: () => {},
   });
 
+  let sql = connect();
+  const pool: Pool = {
+    current: () => sql,
+    reset(stale) {
+      if (stale !== sql) return; // already replaced by another query that timed out
+      sql = connect();
+      console.warn('database connections reset after a query timed out');
+      void stale.end({ timeout: 0 }).catch(() => {});
+    },
+  };
+
   return {
-    prepare: (text) => new PgStatement(sql, text),
+    prepare: (text) => new PgStatement(pool, text),
     async batch(statements) {
       if (statements.length === 0) return;
-      await within(TRANSACTION_MS, `The database (${statements.length} writes)`, sql.begin(async (tx) => {
-        for (const s of statements as PgStatement[]) await tx.unsafe(s.text, s.args as Params);
-      }));
+      const s = pool.current();
+      await within(TRANSACTION_MS, `The database (${statements.length} writes)`, s.begin(async (tx) => {
+        for (const st of statements as PgStatement[]) await tx.unsafe(st.text, st.args as Params);
+      }), () => pool.reset(s));
     },
     async exec(script) {
-      await sql.begin((tx) => tx.unsafe(script).simple());
+      await pool.current().begin((tx) => tx.unsafe(script).simple());
     },
     close: () => sql.end({ timeout: 5 }),
   };

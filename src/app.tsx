@@ -29,6 +29,7 @@ const FLASH: Record<string, string> = {
   updated: 'Saved and synced.',
   synced: 'Synced.',
   recent: 'Synced less than a minute ago, so this one was skipped.',
+  saved: "Saved. The sync didn't finish this time, so your calendar catches up on the next one.",
 };
 
 const app = new Hono<AppEnv>();
@@ -249,8 +250,8 @@ app.post('/setup', async (c) => {
   }
   if (mode === 'shared' && user.mode !== 'shared') await switchToShared(c.env, user);
 
-  await syncUser(c.env, (await getUser(c.env.DB, user.id))!);
-  return c.redirect(`/home?done=${editing ? 'updated' : 'created'}`);
+  const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!);
+  return c.redirect(ok ? `/home?done=${editing ? 'updated' : 'created'}` : '/home');
 });
 
 app.get('/home', async (c) => {
@@ -272,8 +273,9 @@ app.post('/sync', async (c) => {
   const user = c.get('user');
   if (!user || !(await validCsrf(c, user, await c.req.parseBody()))) return c.redirect('/');
   if (user.last_sync_at && Date.now() - user.last_sync_at < 60_000) return c.redirect('/home?done=recent');
-  await syncUser(c.env, user);
-  return c.redirect('/home?done=synced');
+  // Only say it worked when it did; a failed sync shows its own message on the page.
+  const ok = await syncUser(c.env, user);
+  return c.redirect(ok ? '/home?done=synced' : '/home');
 });
 
 // The course switches on the Semsync page: save them, then sync so switched off courses leave the calendar now.
@@ -285,8 +287,8 @@ app.post('/courses', async (c) => {
   const shown = new Set([form.show ?? []].flat().map(String));
   const hidden = jsonList<Course>(user.courses).map((k) => k.key).filter((k) => !shown.has(k));
   await saveCourseSettings(c.env.DB, user.id, hidden, form.weeks === '1');
-  await syncUser(c.env, (await getUser(c.env.DB, user.id))!);
-  return c.redirect('/home?done=updated');
+  const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!);
+  return c.redirect(ok ? '/home?done=updated' : '/home?done=saved');
 });
 
 // The confirmation as a page, for when JavaScript is off and the confirmation dialog can't open.
