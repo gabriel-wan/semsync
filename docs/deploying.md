@@ -10,7 +10,8 @@ The live copy runs at https://getsemsync.vercel.app. These are the steps to set 
    needed. Open it → Keys → Add key → JSON. Keep this file secret; it's `GOOGLE_SERVICE_ACCOUNT_JSON`.
 4. **Consent screen:** Google Auth Platform → Branding/Audience → External. App name "Semsync", your support email,
    homepage and privacy page on your domain. Don't upload a logo yet (it adds a brand review).
-   Under **Data access**, add `openid`, `email`, `profile` and `https://www.googleapis.com/auth/calendar.events.owned`.
+   Under **Data access**, add `openid`, `email`, `profile` and `https://www.googleapis.com/auth/calendar.app.created`
+   (non-sensitive: it only covers calendars the app makes).
    Under **Audience**, set publishing status to **In production**. In "Testing" mode, refresh tokens expire after
    7 days and everyone would have to reconnect every week.
 5. **Clients → Create client → Web application.** One authorised redirect URI per host:
@@ -58,29 +59,14 @@ On GitHub, open the repo's **Settings → Secrets and variables → Actions** an
 Then **Actions → Hourly sync → Run workflow** once to check it works. After that it runs every hour on its own.
 (Vercel also calls the same endpoint once a day, as a backup.)
 
-## 4. Google's review (to lift the 100-user cap)
+## 4. Publish the app (no Google review needed)
 
-`calendar.events.owned` is a **sensitive** scope. Until Google verifies the app:
+Semsync asks only for `openid`, `email`, `profile` and `calendar.app.created`, and Google classes all four as
+non-sensitive. So once the app is published (**Audience → Publish app**), anyone can sign in, with no "Google hasn't
+verified this app" screen and no 100-user cap, and there's nothing to submit for review.
 
-- People who connect their calendar see "Google hasn't verified this app" and choose Advanced → Go to Semsync
-  (the setup page tells them).
-- At most **100 people** can grant calendar access. The shared-calendar option has no cap, so point extra users there.
-
-Verification is free, needs no security audit (that's only for restricted scopes like Gmail), and Google says it can take
-up to about 10 days. You need:
-
-1. A domain you own, verified in Google Search Console, serving the homepage. Add it in Vercel under
-   **Settings → Domains**, then use it for the Branding links and redirect URI.
-2. The privacy page on that same domain (it's at `/privacy`). It has no contact line yet: if Google asks for one, add a
-   Contact section to `Privacy` in `src/views/pages.tsx` with an address you're happy to publish.
-3. An unlisted YouTube video showing: the consent screen with the app name, your OAuth client ID in the browser's address
-   bar, and events appearing in Google Calendar after connecting.
-4. A justification for the scope, for example: "Semsync adds a student's Canvas deadlines, class timetable and exam dates
-   to their primary Google Calendar and keeps them updated hourly. It only creates, updates and deletes events it created
-   (tagged with a private extended property). `calendar.events.owned` is the narrowest scope that can write to the user's
-   primary calendar; `calendar.app.created` only covers secondary calendars the app creates."
-
-Then submit from Google Auth Platform → Verification centre.
+Two things would bring the review back: adding a sensitive scope (like `calendar.events.owned`, which Semsync used
+before it made its own calendar), or uploading an app logo in **Branding**, which needs a lighter brand check.
 
 ## Limits to know
 

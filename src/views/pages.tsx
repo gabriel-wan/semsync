@@ -417,9 +417,8 @@ function words(text: string) {
 
 const FAQ: [string, string][] = [
   ['Is this an official NUS app?', "No. It's made by a student and isn't affiliated with NUS or Instructure. It only reads the calendar feed Canvas already gives you."],
-  ['What does it do in my calendar?', 'It adds your deadlines, classes and exams, and keeps them up to date. Every event it adds is tagged, and it only ever changes or removes those. It never reads or edits your other events.'],
-  ['Do I have to give calendar access?', 'No. During setup you can pick a separate shared calendar instead. It shows up as "NUS semester" next to your own calendars, and needs no calendar permission at all.'],
-  ["Why does Google say the app isn't verified?", "Google reviews apps that ask for calendar access, and Semsync is still waiting for that review. Until then Google shows a warning: choose Advanced, then Go to Semsync. The separate shared calendar option doesn't show it."],
+  ['What does it do in my calendar?', 'It puts your deadlines, classes and exams in their own "NUS semester" calendar and keeps them up to date. You see them alongside your other calendars, and can hide or show them with one tick. It never sees or changes your other calendars or events.'],
+  ['What can Semsync access in my Google account?', 'Only calendars it makes itself. Google\'s permission is "Make secondary Google calendars, and see, create, change and delete events on them": Semsync makes one, "NUS semester", and can\'t see anything else. Or pick the shared calendar, which needs no permission at all.'],
   ['Can I leave a course out?', 'Yes. On your Semsync page, switch off any course under "What goes in" and its upcoming events come out. You can turn off the "Week 7" labels there too.'],
   ['How quickly do changes show up?', 'Semsync checks Canvas about once an hour. If a deadline moves, your calendar follows within the hour.'],
   ['Do I get reminders?', 'Yes: 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam. With the shared calendar, you set reminders yourself in Google Calendar settings.'],
@@ -646,8 +645,8 @@ export const Setup: FC<{ user: UserRow; csrf: string; values: SetupValues; error
               <span>
                 <span class="title-3">Straight into my Google Calendar</span>
                 <span class="hint caption-2">
-                  Recommended. You'll allow calendar access next, and deadlines get reminders. Semsync only touches the events it adds.
-                  Google may say the app isn't verified yet: choose Advanced, then Go to Semsync.
+                  Recommended. Semsync makes an "NUS semester" calendar in your Google account, with reminders and a colour per module.
+                  It can only touch that calendar, never your own events.
                 </span>
               </span>
             </label>
@@ -771,7 +770,7 @@ const Destination: FC<{ user: UserRow; addUrl: string | null; needsConnect: bool
       <section class="panel panel-glow dest" aria-labelledby="dest">
         <span class="dest-icon warn"><Icon name="warningCircle" /></span>
         <h2 id="dest" class="title-1">Connect Google Calendar</h2>
-        <p class="caption-2 text-secondary">Semsync needs permission to add events to your calendar. It only ever touches the events it adds.</p>
+        <p class="caption-2 text-secondary">Semsync keeps your events in their own "NUS semester" calendar in your Google account. Connect once to let it make that calendar; it can't see your other calendars.</p>
         <div class="dest-actions">
           <a class="btn btn-primary button-md" href="/connect">Connect Google Calendar</a>
           <a class="btn btn-tertiary button-md" href="/setup?edit=1">Use a separate calendar</a>
@@ -784,7 +783,7 @@ const Destination: FC<{ user: UserRow; addUrl: string | null; needsConnect: bool
       <section class="panel panel-glow dest" aria-labelledby="dest">
         <span class="dest-icon"><Icon name="calendarCheck" /></span>
         <h2 id="dest" class="title-1">In your Google Calendar</h2>
-        <p class="caption-2 text-secondary">Reminders 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam.</p>
+        <p class="caption-2 text-secondary">In its own "NUS semester" calendar, with reminders 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam.</p>
         <div class="dest-actions">
           <a class="btn btn-primary button-md" href={dev ? '/dev/calendar' : 'https://calendar.google.com/calendar/r'} target="_blank" rel="noopener">
             Open Google Calendar<Icon name="arrowRight" size={16} />
@@ -910,8 +909,8 @@ const DeleteConfirm: FC<{ user: UserRow; csrf: string; total: number; dialog?: b
     <ul class="confirm-list body-6">
       {user.mode === 'main' ? (
         <>
-          <li>Removes the {total} events Semsync added to your Google Calendar. Your own events stay.</li>
-          <li>Revokes Semsync's access to your calendar.</li>
+          <li>Deletes the "NUS semester" calendar and its {total} events from your Google account. Your own calendars aren't touched.</li>
+          <li>Revokes Semsync's access to your Google account.</li>
         </>
       ) : (
         <li>Deletes the "NUS semester" calendar and its {total} events. Your own calendar isn't touched.</li>
@@ -1033,16 +1032,16 @@ export const Privacy: FC<{ signedIn?: boolean; origin?: string }> = ({ signedIn,
       <h2 class="heading-6">What Semsync stores</h2>
       <ul class="body-3">
         <li>Your Google account ID, name and email address, from "Continue with Google".</li>
-        <li>If you put events in your own calendar: a Google access token that lets Semsync manage events in calendars you own, encrypted.</li>
+        <li>If you put events in your own Google account: a Google access token that lets Semsync manage only the calendar it made there, encrypted.</li>
         <li>Your Canvas calendar feed link, encrypted.</li>
         <li>Your NUSMods share link, if you add one.</li>
         <li>A list of the events it has added for you (title, type and start time), so each sync only sends changes.</li>
       </ul>
       <h2 class="heading-6">What Semsync does with calendar access</h2>
       <p class="body-3">
-        Google's permission is called "See, create, change, and delete events on Google calendars you own". Semsync uses it only to add your
-        deadlines, classes and exams to your main calendar, and to update or remove those same events. Each one is tagged and says
-        "Added by Semsync". It never reads, changes or deletes your other events.
+        Google's permission is called "Make secondary Google calendars, and see, create, change and delete events on them". Semsync uses it
+        to make one calendar in your account, "NUS semester", and to add your deadlines, classes and exams to it and keep them up to date.
+        That permission doesn't let it see, change or delete any other calendar or event.
       </p>
       <p class="body-3">
         If you pick the separate shared calendar instead, Semsync gets no calendar permission at all: it creates "NUS semester" in its own

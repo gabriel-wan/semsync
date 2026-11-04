@@ -8,7 +8,9 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SIGN_IN_SCOPE = 'openid email profile';
 // Asked separately, only when someone wants events in their own calendar. The narrowest scope that
 // can write to their primary calendar; it's "sensitive", so it needs Google's review to lift the user cap.
-export const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events.owned';
+// Lets Semsync make calendars of its own in the user's account and manage events on those, and nothing else: it can't
+// see or change any other calendar. Google classes it as non-sensitive, so there's no "unverified app" screen.
+export const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.app.created';
 
 export type AuthPurpose = 'signin' | 'connect';
 

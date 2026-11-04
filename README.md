@@ -9,8 +9,9 @@ https://github.com/user-attachments/assets/32ada096-2538-4f55-8997-1c42293b7316
 
 Sign in with Google, paste your Canvas calendar feed and, if you like, your NUSMods share link, then pick where events go:
 
-- **Your own Google Calendar** (the default), with reminders 1 day and 3 hours before deadlines and 1 week and 1 day
-  before exams. Calendar access (`calendar.events.owned`) is asked for separately; sign-in only asks for your name and email.
+- **Your own Google account** (the default): Semsync makes an "NUS semester" calendar there, with reminders 1 day and 3
+  hours before deadlines and 1 week and 1 day before exams, and a colour per module. It asks for `calendar.app.created`,
+  which only covers calendars it makes itself; Google classes it as non-sensitive, so there's no unverified app screen.
 - **A separate "NUS semester" calendar** that Semsync shares with you. It needs no calendar permission.
 
 On your Semsync page you can switch off any course, and turn off the "Week 7" labels Semsync puts on each Monday. With

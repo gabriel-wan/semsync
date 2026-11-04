@@ -161,7 +161,7 @@ app.get('/auth/callback', async (c) => {
     if (!result.scopes.includes(CALENDAR_SCOPE) || !result.refreshToken) {
       return c.html(
         <Message title="Calendar access is needed" signedIn
-          body='On the Google screen, tick the box that lets Semsync manage events in your calendar. Or use a separate shared calendar instead.'
+          body='On the Google screen, tick the box that lets Semsync make its own calendar. Or use a separate shared calendar instead.'
           action={{ href: '/connect', label: 'Try again' }} />, 400,
       );
     }
@@ -338,9 +338,9 @@ app.get('/dev/calendar', async (c) => {
     .sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
   const label = !user.calendar_id
     ? 'No calendar yet.'
-    : shared
-      ? `Shared calendar "${shared.summary}", shared with ${shared.shared_with ?? 'nobody'}`
-      : `${user.email}'s own calendar`;
+    : user.mode === 'shared'
+      ? `Shared calendar "${shared?.summary}", shared with ${shared?.shared_with ?? 'nobody'}`
+      : `"${shared?.summary ?? 'NUS semester'}" in ${user.email}'s own Google account`;
   return c.html(<DevCalendar label={label} events={events} />);
 });
 

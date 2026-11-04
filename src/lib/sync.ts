@@ -232,8 +232,12 @@ export async function ensureCalendar(env: Env, backend: CalendarBackend, user: U
   let calendarId: string;
   if (user.mode === 'main') {
     if (!hasCalendarAccess(user)) throw new ReconnectNeeded();
-    // The fake calendar keeps each user's "primary" calendar separate.
-    calendarId = env.FAKE_GOOGLE === '1' ? `primary:${user.id}` : 'primary';
+    // A calendar of its own in the user's account: they own it, so its reminders and colours show, and Semsync can't
+    // reach anything else. Google adds it to their calendar list by itself.
+    calendarId = await backend.createCalendar(
+      'NUS semester',
+      `Canvas deadlines, classes and exams, kept up to date by ${env.APP_NAME}.`,
+    );
   } else {
     calendarId = await backend.createCalendar(
       'NUS semester',
@@ -246,7 +250,27 @@ export async function ensureCalendar(env: Env, backend: CalendarBackend, user: U
   return calendarId;
 }
 
+/** Whether this user's events are still in their main calendar, from before Semsync made a calendar of its own. */
+const inMainCalendar = (user: UserRow) => user.mode === 'main' && !!user.calendar_id?.startsWith('primary');
+
+/**
+ * Moves someone from the old main calendar setup: takes Semsync's events back out of their main calendar with the old
+ * permission, then revokes it. Their page then asks them to connect once more, which grants the new, narrower
+ * permission and creates their "NUS semester" calendar.
+ */
+async function moveOffMainCalendar(env: Env, user: UserRow) {
+  await removeFromCalendar(env, user);
+  await disconnectCalendar(env, user);
+  await recordSync(env.DB, user.id, false,
+    'Semsync now keeps your events in their own "NUS semester" calendar, so it no longer needs access to your main one. Connect Google Calendar once more to set it up.');
+  console.log('moved off the main calendar', user.id);
+}
+
 export async function syncUser(env: Env, user: UserRow, backend = calendarFor(env, user)) {
+  if (inMainCalendar(user)) {
+    await moveOffMainCalendar(env, user);
+    return null;
+  }
   // Each step logs how long it took, so a slow or stuck service shows up by name in the logs.
   let step = 'start';
   const timed = async <T>(name: string, run: () => Promise<T>): Promise<T> => {
@@ -291,7 +315,8 @@ export async function removeFromCalendar(env: Env, user: UserRow): Promise<boole
   if (user.calendar_id) {
     try {
       const backend = calendarFor(env, user);
-      if (user.mode === 'shared') {
+      if (!inMainCalendar(user)) {
+        // The shared calendar, or the user's own "NUS semester": Semsync made it, so it can delete it whole.
         await backend.deleteCalendar(user.calendar_id);
       } else {
         const ops = (await trackedEventIds(env.DB, user.id)).map((eventId): EventOp => ({ type: 'delete', eventId }));
