@@ -82,7 +82,9 @@ export function openDb(url: string): Db {
     ssl: sslmode === 'disable' ? false : (sslmode as 'require'),
     // Supabase's pooler runs in transaction mode, which can't keep named prepared statements.
     prepare: false,
-    max: 5,
+    // Locally the database is PGlite, which serves every connection from one session, so two connections running at once
+    // can replace each other's unnamed statement. One connection keeps queries in order there.
+    max: local ? 1 : 5,
     idle_timeout: 20,
     connect_timeout: 10,
     fetch_types: false,

@@ -28,18 +28,22 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .narrow { max-width: 640px; }
 .divider { height: 1px; background: var(--border-primary); }
 
+/* A compact bar floating off the top edge, sized to its content, translucent over a blur. */
 .nav { position: sticky; top: var(--space-100); z-index: 5; display: flex; justify-content: center; padding: var(--space-100) var(--space-200) 0; }
-.nav-bar { display: flex; align-items: center; gap: var(--space-300); padding: var(--space-50) var(--space-50) var(--space-50) var(--space-200);
-  border-radius: var(--radius-full); border: 1px solid var(--border-primary);
+.nav-bar { display: flex; align-items: center; gap: var(--space-200); padding: var(--space-50) var(--space-50) var(--space-50) var(--space-200);
+  border-radius: var(--radius-full); border: 1px solid var(--border-primary); box-shadow: 0 8px 24px var(--overlay-xs);
   background: color-mix(in srgb, var(--surface-primary-subtle) 80%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .nav-bar.solo { padding-right: var(--space-200); }
 .brand { display: flex; align-items: center; gap: var(--space-75); min-height: 44px; text-decoration: none; }
-.brand-mark { width: 24px; height: 24px; border-radius: var(--radius-6); display: grid; place-items: center;
-  background: var(--action-primary); color: var(--text-inverted); }
+.brand-mark { width: 28px; height: 28px; border-radius: var(--radius-8); display: grid; place-items: center;
+  background: var(--surface-brand); color: var(--text-on-brand); }
+.nav-links { display: flex; align-items: center; gap: var(--space-25); }
 .nav-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--space-200); border-radius: var(--radius-full);
-  text-decoration: none; transition: background-color 300ms var(--ease); }
-.nav-link:hover { background: var(--surface-primary-hover); }
-.nav-link[aria-current="page"] { background: var(--surface-secondary); }
+  text-decoration: none; color: var(--text-secondary); transition: background-color 300ms var(--ease), color 300ms var(--ease); }
+.nav-link:hover { background: var(--surface-primary-hover); color: var(--text-primary); }
+.nav-link[aria-current="page"] { background: var(--surface-secondary); color: var(--text-primary); }
+.nav-bar .btn { border-radius: var(--radius-full); }
+@media (max-width: 640px) { .nav-bar { gap: var(--space-75); } .nav-link { padding: 0 var(--space-75); } }
 
 /* Buttons: Type (Primary | Secondary | Tertiary | Error | Warning) × State (Default | Hover | Pressed | Focus | Disabled),
    in three sizes. The .is-* classes force a state, for the Foundations page. The skill gives Error and Warning no
@@ -74,10 +78,10 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .btn-warning:disabled { background: var(--action-warning-disabled); }
 .btn[aria-busy="true"] { cursor: progress; }
 .btn svg { flex: none; }
-/* Google's sign-in branding asks for its outlined button (white, grey outline, dark label); these tokens match it. */
-.btn-google { background: var(--surface-primary-subtle); color: var(--text-primary); border-color: var(--border-action-secondary); }
-.btn-google:hover { background: var(--surface-primary-hover); }
-.btn-google:active { background: var(--surface-primary-selected); }
+/* The sign in button is the page's one pink action. Google's branding keeps its G in full colour on white, so the G
+   sits on a white disc. Inside the 8px button with 8px padding the disc is round rather than nested (8 - 8 = 0). */
+.btn-signin { padding-left: var(--space-75); }
+.g-badge { width: 32px; height: 32px; border-radius: var(--radius-full); display: grid; place-items: center; background: var(--surface-white); }
 
 /* Inputs: Default | Hover | Pressed | Focus | Filled | Error | Disabled */
 .input { display: block; width: 100%; min-height: 44px; margin-top: var(--space-75); padding: var(--space-75) var(--space-100);
@@ -91,57 +95,131 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .input:disabled { background: var(--surface-secondary-subtle); color: var(--text-secondary-disabled); border-color: var(--border-primary-disabled);
   cursor: not-allowed; }
 
-.hero { padding: var(--space-800) 0 var(--space-700); text-align: center; }
+.hero { padding-top: var(--space-800); text-align: center; }
 .hero-title { max-width: 680px; margin: 0 auto; color: transparent; -webkit-background-clip: text; background-clip: text;
   background-image: linear-gradient(90deg, var(--text-hero-from), var(--text-hero-to)); }
 .hero-sub { max-width: 680px; margin: var(--space-300) auto 0; color: var(--text-secondary); }
 .cta { margin-top: var(--space-400); display: flex; flex-direction: column; align-items: center; gap: var(--space-100); }
-.proof { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-75) var(--space-300);
+.proof { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-75);
   margin-top: var(--space-400); color: var(--text-secondary); }
 .proof blockquote { margin: 0; max-width: 520px; }
+.works-item { display: inline-flex; align-items: center; gap: var(--space-75); padding: var(--space-50) var(--space-100);
+  border-radius: var(--radius-full); background: var(--surface-primary-subtle); border: 1px solid var(--border-primary); color: var(--text-primary); }
+.works-item svg { color: var(--icon-info); }
 @media (max-width: 640px) {
   .hero { padding-top: var(--space-600); }
   .hero-title { font-size: 36px; line-height: 40px; } /* heading-3 on phones */
   .hero-title br { display: none; }
 }
 
-.week { margin: var(--space-600) auto 0; max-width: 760px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-75); padding: var(--space-100); border-radius: var(--radius-16); background: var(--surface-primary-subtle);
-  border: 1px solid var(--border-primary); text-align: left; }
-.day { display: flex; flex-direction: column; gap: var(--space-50); min-height: 160px; }
-.day-name { color: var(--text-secondary); padding: 0 var(--space-50) var(--space-50); }
-/* Inside the 16px card with 12px padding, the nested radius is 16 - 12 = 4. */
-.chip { border-radius: var(--radius-4); padding: var(--space-50) var(--space-75); overflow-wrap: anywhere; }
+/* The hero picture: one week of Google Calendar on a flat sky blue panel, with a reminder floating over the edge. */
+.showcase { position: relative; margin-top: var(--space-600); padding: var(--space-600); border-radius: var(--radius-24);
+  background: var(--surface-brand); }
+.cal { max-width: 880px; margin: 0 auto; border-radius: var(--radius-16); background: var(--surface-primary-subtle);
+  border: 1px solid var(--border-primary); overflow: hidden; text-align: left; box-shadow: 0 24px 48px var(--overlay-md); }
+.cal-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-200); padding: var(--space-100) var(--space-200); }
+.cal-legend { display: flex; flex-wrap: wrap; gap: var(--space-50); }
+/* Grid lines are the 1px gaps showing the border colour behind the cells, so no cell has a one sided border. */
+.cal-grid { display: grid; grid-template-columns: 56px repeat(5, minmax(0, 1fr)); grid-template-rows: auto auto repeat(9, 40px);
+  gap: 1px; background: var(--border-primary); }
+.cal-grid > .cell, .cal-grid > .cal-day, .cal-grid > .cal-time { background: var(--surface-primary-subtle); }
+.cal-day { display: flex; flex-direction: column; align-items: center; gap: var(--space-25); padding: var(--space-75) var(--space-50); color: var(--text-secondary); }
+.cal-date { width: 32px; height: 32px; border-radius: var(--radius-full); display: grid; place-items: center; color: var(--text-primary); }
+.cal-date.today { background: var(--surface-accent); color: var(--text-inverted); }
+.cal-time { padding: var(--space-25) var(--space-75) 0 0; text-align: right; color: var(--text-secondary); }
+.ev { margin: var(--space-25); border-radius: var(--radius-6); padding: var(--space-25) var(--space-75); overflow: hidden; min-width: 0;
+  display: flex; flex-direction: column; }
+.ev span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c1 { grid-column: 2; } .c2 { grid-column: 3; } .c3 { grid-column: 4; } .c4 { grid-column: 5; } .c5 { grid-column: 6; }
+.toast { position: absolute; right: var(--space-400); bottom: calc(-1 * var(--space-400)); width: 320px; display: flex; gap: var(--space-100);
+  align-items: center; padding: var(--space-100) var(--space-200); border-radius: var(--radius-16); text-align: left;
+  background: var(--surface-primary-subtle); border: 1px solid var(--border-primary); box-shadow: 0 16px 32px var(--overlay-md); }
+.toast-icon { flex: none; width: 40px; height: 40px; border-radius: var(--radius-full); display: grid; place-items: center;
+  background: var(--surface-accent-subtle); color: var(--text-accent); }
+.toast .caption-5 { color: var(--text-secondary); }
+@media (max-width: 768px) {
+  .showcase { padding: var(--space-200); }
+  .cal { border-radius: var(--radius-8); } /* nested: 24 - 16 = 8 */
+  .cal-grid { grid-template-columns: 44px repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto repeat(9, 36px); }
+  .c1, .c2 { display: none; }
+  .c3 { grid-column: 2; } .c4 { grid-column: 3; } .c5 { grid-column: 4; }
+  .cal-head { flex-direction: column; align-items: flex-start; }
+  /* Narrow columns: let titles wrap onto two lines and drop the start time, which the time column already shows. */
+  .ev span { white-space: normal; overflow-wrap: anywhere; }
+  .ev .mono { display: none; }
+  .toast { position: static; width: auto; margin-top: var(--space-200); }
+}
+
+/* Event chips, in the hero picture and on your Semsync page: classes sky blue, deadlines tinted pink, exams solid pink. */
+.chip { border-radius: var(--radius-6); padding: var(--space-50) var(--space-75); overflow-wrap: anywhere; }
 .chip .mono { display: block; }
-.chip-class { background: var(--surface-accent-subtle); color: var(--text-accent); }
-.chip-deadline { background: var(--surface-info-subtle); color: var(--text-info); }
-.chip-exam { background: var(--surface-error-subtle); color: var(--text-error); }
-@media (max-width: 640px) { .week { grid-template-columns: repeat(3, minmax(0, 1fr)); } .day:nth-child(n+4) { display: none; } }
+.chip-class { background: var(--surface-info-subtle); color: var(--text-info); }
+.chip-deadline { background: var(--surface-accent-subtle); color: var(--text-accent); }
+.chip-exam { background: var(--surface-accent); color: var(--text-inverted); }
 
 section { padding: var(--space-700) 0; }
-.split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--space-600); align-items: start; }
-.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-75); }
-.step { display: flex; gap: var(--space-200); padding: var(--space-300); border-radius: var(--radius-16); background: var(--surface-primary-subtle);
-  border: 1px solid var(--border-primary); }
-.step-no { flex: none; width: 32px; height: 32px; border-radius: var(--radius-full); display: grid; place-items: center;
-  background: var(--surface-info-subtle); color: var(--text-info); }
-.card { background: var(--surface-primary-subtle); border: 1px solid var(--border-primary); border-radius: var(--radius-16); padding: var(--space-300); }
-.card p { color: var(--text-secondary); margin-top: var(--space-75); }
+header.hero + section { padding-top: var(--space-900); } /* room for the reminder hanging off the hero picture */
+.section-head { max-width: 680px; }
+.section-head .body-7 { margin-top: var(--space-200); color: var(--text-secondary); }
+@media (max-width: 640px) {
+  section { padding: var(--space-600) 0; }
+  header.hero + section { padding-top: var(--space-700); }
+  .section-title { font-size: 30px; line-height: 36px; } /* heading-4 on phones */
+}
+
 /* Bento: 2 + 1 + 1 on the first row, 2 + 2 on the second, so no row has three equal cards. */
-.bento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-200); margin-top: var(--space-400); }
+.card { display: flex; flex-direction: column; background: var(--surface-primary-subtle); border: 1px solid var(--border-primary);
+  border-radius: var(--radius-16); padding: var(--space-300); }
+.card > p { color: var(--text-secondary); margin-top: var(--space-75); }
+.card-visual { margin-top: auto; padding-top: var(--space-300); display: flex; flex-direction: column; gap: var(--space-75); }
+.bento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-200); margin-top: var(--space-600); }
 .bento > .card:nth-child(1), .bento > .card:nth-child(4), .bento > .card:nth-child(5) { grid-column: span 2; }
-.before-after { display: flex; flex-direction: column; gap: var(--space-75); margin-top: var(--space-200); }
-.before-after .was { color: var(--text-secondary); text-decoration: line-through; }
+.was { color: var(--text-secondary); text-decoration: line-through; }
+.week-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-100); }
+.week-row.skipped { color: var(--text-secondary); }
+.week-row.skipped .chip { text-decoration: line-through; background: var(--surface-secondary); color: var(--text-secondary); }
+.card-visual.pills { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+.pill { display: inline-flex; align-items: center; gap: var(--space-50); padding: var(--space-50) var(--space-100); border-radius: var(--radius-full);
+  background: var(--surface-secondary); color: var(--text-primary); }
+.pill svg { color: var(--icon-info); }
 @media (max-width: 768px) {
-  .split { grid-template-columns: minmax(0, 1fr); gap: var(--space-300); }
   .bento { grid-template-columns: minmax(0, 1fr); }
   .bento > .card:nth-child(n) { grid-column: auto; }
 }
 
-.tagline { max-width: 760px; }
+/* How it works: steps on one side, the setup page they lead to on the other. */
+.zig { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-700); align-items: center; }
+.steps { list-style: none; margin: var(--space-400) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-300); }
+.step { display: flex; gap: var(--space-200); align-items: flex-start; }
+.step-no { flex: none; width: 40px; height: 40px; border-radius: var(--radius-full); display: grid; place-items: center;
+  background: var(--surface-info-subtle); color: var(--text-info); }
+.mock { padding: var(--space-300); border-radius: var(--radius-24); background: var(--surface-info-subtle); }
+/* Inside the 24px panel with 24px padding the formula gives 24 - 24 = 0, and below 2 the skill leaves the inner shape unchanged, so the card keeps 16. */
+.mock-card { padding: var(--space-300); border-radius: var(--radius-16); background: var(--surface-primary-subtle); border: 1px solid var(--border-primary);
+  box-shadow: 0 16px 32px var(--overlay-xs); }
+.mock-field { margin-top: var(--space-200); }
+.mock-input { display: flex; align-items: center; justify-content: space-between; gap: var(--space-75); margin-top: var(--space-75);
+  min-height: 44px; padding: var(--space-75) var(--space-100); border-radius: var(--radius-8); border: 1px solid var(--border-action-secondary);
+  background: var(--surface-primary-subtle); }
+.mock-input span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-input svg { flex: none; color: var(--icon-success); }
+.mock-btn { display: inline-flex; margin-top: var(--space-300); min-height: 44px; align-items: center; padding: var(--space-75) var(--space-100);
+  border-radius: var(--radius-8); background: var(--action-primary); color: var(--text-inverted); }
+@media (max-width: 768px) { .zig { grid-template-columns: minmax(0, 1fr); gap: var(--space-500); } }
+
+/* Tagline reveal: its own large type moment on the brand sky blue. */
+.band { border-radius: var(--radius-24); background: var(--surface-brand); color: var(--text-on-brand); padding: var(--space-900) var(--space-600);
+  text-align: center; }
+.tagline { max-width: 680px; margin: 0 auto; text-wrap: balance; }
 .tagline .w { opacity: 0.3; transition: opacity 600ms var(--ease); }
 .tagline .w.lit { opacity: 1; }
-@media (max-width: 640px) { .tagline { font-size: 30px; line-height: 36px; } } /* heading-4 on phones */
+@media (max-width: 640px) {
+  .band { padding: var(--space-700) var(--space-300); }
+  .tagline { font-size: 30px; line-height: 36px; } /* heading-4 on phones */
+}
+
+.final { border-radius: var(--radius-24); background: var(--surface-info-subtle); padding: var(--space-800) var(--space-300); text-align: center; }
+.final .section-title { max-width: 680px; margin: 0 auto; }
 
 .reveal { opacity: 0; transform: translateY(32px); transition: opacity 700ms var(--ease), transform 700ms var(--ease); }
 .reveal.in { opacity: 1; transform: none; }
@@ -151,10 +229,17 @@ section { padding: var(--space-700) 0; }
   .btn { transition: none; }
 }
 
-details.faq { background: var(--surface-primary-subtle); border: 1px solid var(--border-primary); border-radius: var(--radius-12); }
-details.faq + details.faq { margin-top: var(--space-75); }
-details.faq summary { cursor: pointer; padding: var(--space-200); min-height: 44px; }
-details.faq p { color: var(--text-secondary); padding: 0 var(--space-200) var(--space-200); }
+/* FAQ: heading on the left, questions on the right, divided by 1px rules. The plus turns into a cross when open. */
+.faq-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-700); align-items: start; }
+details.faq summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: var(--space-200);
+  min-height: 44px; padding: var(--space-200) 0; cursor: pointer; text-wrap: balance; }
+details.faq summary::-webkit-details-marker { display: none; }
+.faq-icon { flex: none; width: 32px; height: 32px; border-radius: var(--radius-full); display: grid; place-items: center;
+  background: var(--surface-info-subtle); color: var(--icon-info); transition: transform 500ms var(--ease); }
+details.faq[open] .faq-icon { transform: rotate(45deg); }
+details.faq p { color: var(--text-secondary); padding: 0 var(--space-600) var(--space-200) 0; }
+@media (max-width: 768px) { .faq-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-300); } details.faq p { padding-right: 0; } }
+@media (prefers-reduced-motion: reduce) { .faq-icon { transition: none; } }
 
 footer { margin-top: var(--space-600); }
 .footer-row { display: flex; flex-wrap: wrap; gap: var(--space-200); justify-content: space-between; align-items: center;

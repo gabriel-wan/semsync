@@ -8,7 +8,7 @@ import { CSS, SCRIPT } from './styles.js';
 import { CORE, RADIUS, SPACING, SYSTEM, SYSTEM_SPEC, TEXT_STYLES } from './tokens.js';
 
 const FAVICON =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%239e5021'/%3E%3Cpath d='M9 12h14M9 17h9M9 22h6' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230593c6'/%3E%3Cpath d='M9 12h14M9 17h9M9 22h6' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E";
 
 const FONTS = 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500&display=swap';
 
@@ -47,15 +47,23 @@ export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn,
       <body>
         <a class="skip body-5" href="#main">Skip to content</a>
         <nav class="nav" aria-label="Main">
-          <div class={`nav-bar${!signedIn && !navCta ? ' solo' : ''}`}>
+          <div class={`nav-bar${!signedIn && !navCta && current !== 'landing' ? ' solo' : ''}`}>
             <a class="brand title-3" href="/" aria-current={current === 'landing' ? 'page' : undefined}>
-              <span class="brand-mark"><Icon name="calendar" size={14} /></span>Semsync
+              <span class="brand-mark"><Icon name="calendar" size={16} /></span>Semsync
             </a>
-            {signedIn ? (
-              <a class="nav-link title-4" href="/home" aria-current={current === 'home' ? 'page' : undefined}>Your calendar</a>
-            ) : (
-              navCta && <a class="nav-link title-4" href="/auth/google">Sign in</a>
-            )}
+            <div class="nav-links">
+              {current === 'landing' && (
+                <>
+                  <a class="nav-link section-link title-4" href="#how">How it works</a>
+                  <a class="nav-link section-link title-4" href="#faq">Questions</a>
+                </>
+              )}
+              {signedIn ? (
+                <a class="nav-link title-4" href="/home" aria-current={current === 'home' ? 'page' : undefined}>Your calendar</a>
+              ) : (
+                navCta && <a class="btn btn-secondary button-sm" href="/auth/google">Sign in</a>
+              )}
+            </div>
           </div>
         </nav>
         <main id="main">{children}</main>
@@ -76,8 +84,8 @@ export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn,
 };
 
 const SignInButton: FC = () => (
-  <a class="btn btn-google btn-lg button-lg" href="/auth/google">
-    <GoogleMark />Continue with Google
+  <a class="btn btn-primary btn-lg btn-signin button-lg" href="/auth/google">
+    <span class="g-badge"><GoogleMark /></span>Continue with Google
   </a>
 );
 
@@ -91,11 +99,84 @@ const Proof: FC = () =>
   ) : (
     <p class="proof" aria-label="Works with Canvas, NUSMods and Google Calendar">
       <span class="caption-2">Works with</span>
-      <span class="title-3">Canvas</span>
-      <span class="title-3">NUSMods</span>
-      <span class="title-3">Google Calendar</span>
+      <span class="works-item title-4"><Icon name="graduationCap" size={16} />Canvas</span>
+      <span class="works-item title-4"><Icon name="calendarDots" size={16} />NUSMods</span>
+      <span class="works-item title-4"><Icon name="calendarCheck" size={16} />Google Calendar</span>
     </p>
   );
+
+// The hero picture: Week 12 of Semester 1 (2 to 6 Nov 2026) as Semsync puts it in Google Calendar.
+const DAYS = [['Mon', '2'], ['Tue', '3'], ['Wed', '4'], ['Thu', '5'], ['Fri', '6']] as const;
+const TODAY = 4;
+const FIRST_HOUR = 9;
+const HOURS = Array.from({ length: 9 }, (_, i) => FIRST_HOUR + i);
+const CLASSES = [
+  { day: 1, from: 10, to: 11, title: 'CS2040 Tutorial 05' },
+  { day: 2, from: 9, to: 11, title: 'ES2660 Sectional G01' },
+  { day: 2, from: 14, to: 16, title: 'MA1521 Lecture' },
+  { day: 3, from: 10, to: 12, title: 'CS2040 Lecture' },
+  { day: 4, from: 9, to: 10, title: 'MA1521 Tutorial T12' },
+  { day: 4, from: 16, to: 18, title: 'CS2040 Lab 4A' },
+  { day: 5, from: 9, to: 11, title: 'ES2660 Sectional G01' },
+];
+const DUE = [{ day: 1, title: '[UTC2402] Reflection 2' }, { day: 5, title: '[CS2040] Problem Set 5' }];
+const hourRow = (h: number) => 3 + h - FIRST_HOUR;
+const pad = (h: number) => `${String(h).padStart(2, '0')}:00`;
+
+const Showcase: FC = () => (
+  <div class="showcase" role="img" aria-label="A week in Google Calendar with classes from NUSMods, Canvas deadlines, and a Semsync reminder">
+    <div class="cal">
+      <div class="cal-head">
+        <div>
+          <p class="title-3">November 2026</p>
+          <p class="caption-5 text-secondary">Week 12 · Semester 1</p>
+        </div>
+        <div class="cal-legend">
+          <span class="chip chip-class caption-4">Class</span>
+          <span class="chip chip-deadline caption-4">Deadline</span>
+          <span class="chip chip-exam caption-4">Exam</span>
+        </div>
+      </div>
+      <div class="divider" />
+      <div class="cal-grid">
+        <div class="cal-day" style="grid-column: 1; grid-row: 1;" />
+        {DAYS.map(([name, date], i) => (
+          <div class={`cal-day c${i + 1}`} style="grid-row: 1;">
+            <span class="caption-4">{name}</span>
+            <span class={`cal-date title-3${i + 1 === TODAY ? ' today' : ''}`}>{date}</span>
+          </div>
+        ))}
+        <div class="cal-time caption-5" style="grid-column: 1; grid-row: 2;">Due</div>
+        {DAYS.map((_, i) => <div class={`cell c${i + 1}`} style="grid-row: 2; min-height: var(--space-600);" />)}
+        {HOURS.map((h) => (
+          <>
+            <div class="cal-time caption-5 mono" style={`grid-column: 1; grid-row: ${hourRow(h)};`}>{pad(h)}</div>
+            {DAYS.map((_, i) => <div class={`cell c${i + 1}`} style={`grid-row: ${hourRow(h)};`} />)}
+          </>
+        ))}
+        {DUE.map((d) => (
+          <div class={`ev chip-deadline c${d.day}`} style="grid-row: 2;">
+            <span class="caption-3">{d.title}</span>
+            <span class="caption-5 mono">23:59</span>
+          </div>
+        ))}
+        {CLASSES.map((c) => (
+          <div class={`ev chip-class c${c.day}`} style={`grid-row: ${hourRow(c.from)} / span ${c.to - c.from};`}>
+            <span class="caption-3">{c.title}</span>
+            <span class="caption-5 mono">{pad(c.from)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+    <div class="toast">
+      <span class="toast-icon"><Icon name="bell" size={20} /></span>
+      <div>
+        <p class="title-4">[CS2040] Problem Set 5 is due tonight</p>
+        <p class="caption-5">Semsync reminder · 23:59, in 3 hours</p>
+      </div>
+    </div>
+  </div>
+);
 
 /** FAQ structured data, so search engines and answer engines can read the questions directly. */
 const faqSchema = (faq: [string, string][]) =>
@@ -148,68 +229,123 @@ export const Landing: FC<{ origin?: string }> = ({ origin }) => (
           <p class="caption-2 text-secondary">Free. Only touches the events it adds. Delete anytime.</p>
         </div>
         <Proof />
-        <div class="week" role="img" aria-label="Example week with classes, Canvas deadlines and a final exam">
-          <div class="day"><span class="day-name caption-4">Mon</span><Chip kind="class" title="CS2040 Tutorial 05" time="10:00" /></div>
-          <div class="day"><span class="day-name caption-4">Tue</span><Chip kind="class" title="ES2660 Sectional G01" time="09:00" /></div>
-          <div class="day"><span class="day-name caption-4">Wed</span><Chip kind="class" title="CS2040 Lecture" time="09:00" /><Chip kind="deadline" title="[UTC2402] Reflection" time="23:59" /></div>
-          <div class="day"><span class="day-name caption-4">Thu</span><Chip kind="class" title="CS2040 Lecture" time="09:00" /></div>
-          <div class="day"><span class="day-name caption-4">Fri</span><Chip kind="deadline" title="[CS2040] Problem Set 5" time="23:59" /><Chip kind="exam" title="MA1521 final exam" time="17:00" /></div>
-        </div>
+        <Showcase />
       </header>
 
-      <section class="reveal split" aria-labelledby="how">
-        <div>
-          <h2 id="how" class="heading-4">Set up in about a minute</h2>
-          <p class="body-3 text-secondary mt-75">Three steps, then it runs on its own.</p>
-        </div>
-        <ol class="steps">
-          <li class="step"><span class="step-no title-4">1</span><div><h3 class="title-3">Sign in with Google</h3><p class="body-6 text-secondary mt-25">Just your name and email to start.</p></div></li>
-          <li class="step"><span class="step-no title-4">2</span><div><h3 class="title-3">Paste two links</h3><p class="body-6 text-secondary mt-25">Your Canvas calendar feed and, if you like, your NUSMods share link.</p></div></li>
-          <li class="step"><span class="step-no title-4">3</span><div><h3 class="title-3">Allow calendar access</h3><p class="body-6 text-secondary mt-25">Everything lands in your Google Calendar and keeps itself up to date. Prefer not to? Pick a separate shared calendar instead.</p></div></li>
-        </ol>
-      </section>
-
-      <section aria-label="Why">
-        <p class="tagline heading-3">
-          {words('Stop copying deadlines into your calendar.')}<br />{words('Spend that time actually doing them.')}
-        </p>
-      </section>
-
       <section class="reveal" aria-labelledby="what">
-        <h2 id="what" class="heading-4">Your whole semester, tidy</h2>
+        <div class="section-head">
+          <h2 id="what" class="heading-2 section-title">Your whole semester, sorted</h2>
+          <p class="body-7">Deadlines from Canvas, classes and exams from NUSMods, all in the calendar you already check.</p>
+        </div>
         <div class="bento">
           <div class="card">
             <h3 class="title-2">Module code up front</h3>
             <p class="body-6">Short titles you can scan, instead of the full Canvas course name in brackets.</p>
-            <div class="before-after">
+            <div class="card-visual">
               <span class="caption-2 was">Problem Set 5 [CS2040 Data Structures and Algorithms [2610]]</span>
-              <span class="chip chip-deadline caption-4" style="align-self: flex-start;">[CS2040] Problem Set 5 <span class="mono">23:59</span></span>
+              <span class="chip chip-deadline caption-3" style="align-self: flex-start;">[CS2040] Problem Set 5 <span class="mono caption-5">Fri 23:59</span></span>
             </div>
           </div>
-          <div class="card"><h3 class="title-2">Classes on the right weeks</h3><p class="body-6">Only the slots you picked on NUSMods. Recess week and public holidays are skipped.</p></div>
-          <div class="card"><h3 class="title-2">Exams included</h3><p class="body-6">Final exam dates and times from NUSMods, so Week 13 has no surprises.</p></div>
-          <div class="card"><h3 class="title-2">Reminders built in</h3><p class="body-6">1 day and 3 hours before every deadline, and a week before each exam.</p></div>
-          <div class="card"><h3 class="title-2">Updates itself</h3><p class="body-6">Deadline moved or a new quiz posted on Canvas? Your calendar follows within the hour.</p></div>
+          <div class="card">
+            <h3 class="title-2">Classes on the right weeks</h3>
+            <p class="body-6">Only the slots you picked on NUSMods. Recess week and public holidays are skipped.</p>
+            <div class="card-visual">
+              <div class="week-row"><span class="caption-4">Week 6</span><span class="chip chip-class caption-4">CS2040 Lecture</span></div>
+              <div class="week-row skipped"><span class="caption-4">Recess</span><span class="chip caption-4">CS2040 Lecture</span></div>
+              <div class="week-row"><span class="caption-4">Week 7</span><span class="chip chip-class caption-4">CS2040 Lecture</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="title-2">Exams included</h3>
+            <p class="body-6">Final exam dates and times from NUSMods, so Week 13 has no surprises.</p>
+            <div class="card-visual">
+              <span class="chip chip-exam caption-3" style="align-self: flex-start;">MA1521 final exam <span class="mono caption-5">Sat 28 Nov 17:00</span></span>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="title-2">Reminders built in</h3>
+            <p class="body-6">Google Calendar nudges you before every deadline and exam, on your phone and laptop.</p>
+            <div class="card-visual pills">
+              <span class="pill caption-1"><Icon name="bell" size={16} />1 day before a deadline</span>
+              <span class="pill caption-1"><Icon name="bell" size={16} />3 hours before</span>
+              <span class="pill caption-1"><Icon name="bell" size={16} />1 week before an exam</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="title-2">Updates itself</h3>
+            <p class="body-6">Deadline moved or a new quiz posted on Canvas? Your calendar follows within the hour.</p>
+            <div class="card-visual pills">
+              <span class="pill caption-1"><span class="dot" aria-hidden="true" />Synced 12 min ago</span>
+              <span class="pill caption-1"><Icon name="arrowsClockwise" size={16} />[CS2040] Quiz 3 moved to Thu</span>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section class="reveal narrow" aria-labelledby="faq" style="margin: 0 auto;">
-        <h2 id="faq" class="heading-4">Questions</h2>
-        <div class="mt-300">
+      <section class="reveal zig" aria-labelledby="how">
+        <div>
+          <div class="section-head">
+            <h2 id="how" class="heading-2 section-title">Set up in about a minute</h2>
+            <p class="body-7">Three steps, then it runs on its own.</p>
+          </div>
+          <ol class="steps">
+            <li class="step"><span class="step-no title-3">1</span><div><h3 class="title-2">Sign in with Google</h3><p class="body-6 text-secondary mt-25">Just your name and email to start.</p></div></li>
+            <li class="step"><span class="step-no title-3">2</span><div><h3 class="title-2">Paste two links</h3><p class="body-6 text-secondary mt-25">Your Canvas calendar feed and, if you like, your NUSMods share link.</p></div></li>
+            <li class="step"><span class="step-no title-3">3</span><div><h3 class="title-2">Allow calendar access</h3><p class="body-6 text-secondary mt-25">Everything lands in your Google Calendar and keeps itself up to date. Prefer not to? Pick a separate shared calendar instead.</p></div></li>
+          </ol>
+        </div>
+        <div class="mock" role="img" aria-label="The Semsync setup page with a Canvas link and a NUSMods link pasted in">
+          <div class="mock-card">
+            <p class="title-2">Paste your links</p>
+            <p class="caption-2 text-secondary mt-25">You only do this once. Semsync checks them every hour after that.</p>
+            <div class="mock-field">
+              <p class="title-4">Canvas calendar feed</p>
+              <div class="mock-input"><span class="caption-5 mono">https://canvas.nus.edu.sg/feeds/calendars/user_8Fq2kZ.ics</span><Icon name="checkCircle" size={18} /></div>
+            </div>
+            <div class="mock-field">
+              <p class="title-4">NUSMods share link</p>
+              <div class="mock-input"><span class="caption-5 mono">https://nusmods.com/timetable/sem-1/share?CS2040=LEC:1</span><Icon name="checkCircle" size={18} /></div>
+            </div>
+            <span class="mock-btn button-md">Continue</span>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="Why Semsync">
+        <div class="band">
+          <p class="tagline heading-2">
+            {words('Stop copying deadlines into your calendar.')}<br />{words('Spend that time actually doing them.')}
+          </p>
+        </div>
+      </section>
+
+      <section class="reveal faq-grid" aria-labelledby="faq">
+        <div class="section-head">
+          <h2 id="faq" class="heading-2 section-title">Questions</h2>
+          <p class="body-7">Everything about your data is on the <a href="/privacy">privacy page</a>.</p>
+        </div>
+        <div>
+          <div class="divider" />
           {FAQ.map(([q, a]) => (
-            <details class="faq">
-              <summary class="title-3">{q}</summary>
-              <p class="body-6">{a}</p>
-            </details>
+            <>
+              <details class="faq">
+                <summary class="title-2">{q}<span class="faq-icon" aria-hidden="true"><Icon name="plus" size={16} /></span></summary>
+                <p class="body-3">{a}</p>
+              </details>
+              <div class="divider" />
+            </>
           ))}
         </div>
       </section>
 
-      <section class="reveal" style="text-align: center;">
-        <h2 class="heading-4">Get your semester into your calendar</h2>
-        <div class="cta">
-          <SignInButton />
-          <p class="caption-2 text-secondary">Free. Only touches the events it adds. Delete anytime.</p>
+      <section class="reveal">
+        <div class="final">
+          <h2 class="heading-2 section-title">Get your semester into your calendar</h2>
+          <p class="body-7 text-secondary mt-200">Free, and it only ever touches the events it adds.</p>
+          <div class="cta">
+            <SignInButton />
+            <p class="caption-2 text-secondary">Delete your data anytime from your Semsync page.</p>
+          </div>
         </div>
       </section>
     </div>
@@ -569,17 +705,17 @@ export const OgCard: FC = () => (
       <link href={FONTS} rel="stylesheet" />
       <style>{raw(`${CSS}\nhtml, body { width: 1200px; height: 630px; overflow: hidden; }`)}</style>
     </head>
-    <body class="mode-dark" style="background: var(--surface-primary); color: var(--text-primary);">
-      <div style="padding: var(--space-800); display: flex; flex-direction: column; height: 630px;">
+    <body class="mode-light" style="background: var(--surface-primary); color: var(--text-primary);">
+      <div style="padding: var(--space-800) var(--space-800) 0; display: flex; flex-direction: column; height: 630px;">
         <div class="brand title-1"><span class="brand-mark" style="width: 40px; height: 40px; border-radius: var(--radius-8);"><Icon name="calendar" size={24} /></span>Semsync</div>
         <h1 class="heading-2 hero-title" style="margin: var(--space-500) 0 0; max-width: 960px;">
           Every Canvas deadline in your calendar,<br /> without typing a thing
         </h1>
         <p class="body-7 text-secondary mt-300">Canvas deadlines, NUSMods classes and exams, kept up to date in Google Calendar.</p>
-        <div style="display: flex; gap: var(--space-200); margin-top: auto;">
-          <Chip large kind="class" title="CS2040 Lecture" time="Thu 09:00" />
+        <div style="display: flex; gap: var(--space-200); margin-top: auto; padding: var(--space-400); border-radius: var(--radius-24) var(--radius-24) 0 0; background: var(--surface-brand);">
+          <Chip large kind="class" title="CS2040 Lecture" time="Thu 10:00" />
           <Chip large kind="deadline" title="[CS2040] Problem Set 5" time="Fri 23:59" />
-          <Chip large kind="exam" title="CS2040 final exam" time="Tue 24 Nov 09:00" />
+          <Chip large kind="exam" title="MA1521 final exam" time="Sat 28 Nov 17:00" />
         </div>
       </div>
     </body>

@@ -73,6 +73,10 @@ The UI follows the `landing-page-design` and `figma-designer` skills from
 
 - **Strategy first:** [`docs/landing-page-brief.md`](docs/landing-page-brief.md) has the skill's Part A: intake answers,
   outline, hero copy, benefits, FAQ, SEO and answer engine plan, and the layout type (A) with its rationale.
+- **Palette:** sky blue `#0593C6` is the brand (logo, the big flat panels, classes, links and focus rings), white
+  `#FCFFFF` the base, and hot pink `#D83995` the one accent: the main button, deadlines and exams. Hot pink is 67%
+  saturated, inside the skill's "one accent below 80%" rule. White labels on it are 4.3:1, so buttons use a darker
+  shade in light mode and a lighter one, with dark labels, in dark mode.
 - **One source of truth:** `src/views/tokens.ts` holds the spacing and radius scales, the Core Colors palettes
   (Primary, Secondary, Accent, Grayscale, Red, Green, Yellow, Grayscale Alpha), the skill's full standard Color System
   (Border, Surface, Action, Text, Icon, Overlay) with Light and Dark modes, and the named text styles

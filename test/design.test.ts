@@ -61,6 +61,9 @@ const PAIRS: [string, string, number][] = [
   ['icon-info', 'surface-info-subtle', 3],
   ['icon-subtle', 'surface-primary-subtle', 3],
   ['text-hero-to', 'surface-primary', 3],
+  ['text-inverted', 'surface-accent', 4.5],
+  ['text-on-brand', 'surface-brand', 3],
+  ['text-accent', 'surface-primary-subtle', 4.5],
 ];
 
 // Disabled labels don't need 4.5:1, but they must still be visible against their disabled fills.

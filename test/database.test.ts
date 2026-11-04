@@ -46,6 +46,19 @@ describe('Postgres database adapter', () => {
     expect((await db.prepare('SELECT COUNT(*) AS n FROM t').first<{ n: number }>())?.n).toBe(3);
   });
 
+  it('runs queries with different parameters at the same time', async () => {
+    // Your Semsync page loads its counts and its upcoming list at once; locally both share one PGlite session.
+    const db = await freshDb();
+    await migrate(db);
+    const runs = Array.from({ length: 12 }, (_, i) =>
+      i % 2
+        ? db.prepare('SELECT COUNT(*) AS n FROM users WHERE id = ?').bind(`u${i}`).first<{ n: number }>()
+        : db.prepare('SELECT ? AS a, ? AS b, ? AS c').bind(`x${i}`, 'y', 'z').first<{ a: string }>(),
+    );
+    const results = await Promise.all(runs);
+    results.forEach((r, i) => expect(r).toEqual(i % 2 ? { n: 0 } : { a: `x${i}`, b: 'y', c: 'z' }));
+  });
+
   it('rolls back a whole batch when one statement fails', async () => {
     const db = await freshDb();
     await db.exec('CREATE TABLE t (id INTEGER PRIMARY KEY)');

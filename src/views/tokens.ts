@@ -13,10 +13,11 @@ export const RADIUS = { '0': 0, '2': 2, '4': 4, '6': 6, '8': 8, '12': 12, '16': 
 const PRIMARY_STEPS = ['00', '50', '100', '150', '200', '300', '350', '400', '450', '500', '600', '700', '800', '850', '900', '950', '1000'];
 const STEPS = ['00', '50', '100', '150', '200', '300', '400', '500', '600', '700', '800', '850', '900', '950', '1000'];
 
-// Dark steps 750-1000 are fixed by the skill (#313131, #272727, #1F1F1F, #181818, #000000).
+// Dark steps 750-1000 are fixed by the skill (#313131, #272727, #1F1F1F, #181818, #000000), and so are 400 and 600
+// (the hero gradient's #9B9B9B and #666666). The light steps lean cool, towards the sky blue brand; 00 is the brand white.
 const GRAYSCALE: Record<string, string> = {
-  '00': '#ffffff', '50': '#f7f7f6', '100': '#efefed', '150': '#e6e6e3', '200': '#d9d9d5', '250': '#c9c9c5',
-  '300': '#b5b5b1', '400': '#9b9b9b', '450': '#888888', '500': '#737373', '600': '#666666', '700': '#4a4a4a',
+  '00': '#fcffff', '50': '#f3f7fa', '100': '#eaf0f4', '150': '#e0e7ec', '200': '#d2dbe2', '250': '#c2ccd4',
+  '300': '#acb6be', '400': '#9b9b9b', '450': '#888888', '500': '#737373', '600': '#666666', '700': '#4a4a4a',
   '750': '#313131', '800': '#272727', '850': '#1f1f1f', '870': '#181818', '900': '#121212', '950': '#0a0a0a', '1000': '#000000',
 };
 
@@ -37,9 +38,9 @@ function palette(base: string, steps: string[]): Record<string, string> {
 }
 
 export const CORE: Record<string, Record<string, string>> = {
-  primary: palette('#cf6a2e', PRIMARY_STEPS), // brand orange: actions, deadlines ("Info")
-  secondary: palette('#2f8f8a', STEPS), // teal: second brand hue, reserved
-  accent: palette('#4a72c9', STEPS), // blue: classes and Canvas events
+  primary: palette('#0593c6', PRIMARY_STEPS), // sky blue: the brand (logo, panels, classes, links, focus rings)
+  secondary: palette('#09318d', STEPS), // deep blue: second brand hue, reserved
+  accent: palette('#d83995', STEPS), // hot pink: the one accent (the main button, deadlines and exams)
   grayscale: GRAYSCALE,
   red: palette('#d0453a', STEPS), // errors and exams
   green: palette('#3a9a58', STEPS),
@@ -68,7 +69,9 @@ const OA = (s: string): Ref => ['grayscale-alpha', s];
 
 const PAGE = 'Mirroring gives a mid grey; pages and cards need clear light steps: page grayscale/50, cards white, hover and selected one and two steps darker.';
 const SUBTLE_DARK = 'The skill maps this to a light tint, which glares as a full width notice on a dark page; the dark 850 tint keeps the same hue quietly.';
-const BUTTON_DARK = 'Dark labels on this shade fall below 4.5:1, so dark mode lightens the button instead (hover and pressed step lighter too).';
+const CTA = 'Buttons use the one accent colour, hot pink, so the main action stands out from the sky blue brand (the skill aliases Action/Primary to the brand hue).';
+const CTA_LIGHT = `${CTA} White labels on accent/500 are 4.3:1, below 4.5:1, so light mode uses darker shades.`;
+const CTA_DARK = `${CTA} Dark mode has dark labels, so it uses lighter shades, stepping lighter on hover and press.`;
 
 export const SYSTEM_SPEC: Record<string, Spec> = {
   // Border
@@ -97,7 +100,11 @@ export const SYSTEM_SPEC: Record<string, Spec> = {
   'surface-secondary-subtle': { ref: G('750'), light: G('150'), lightWhy: PAGE },
   'surface-tertiary': { ref: G('600') },
   'surface-tertiary-hover': { ref: G('450') },
-  'surface-accent': { ref: A('500') },
+  'surface-accent': {
+    ref: A('500'),
+    light: A('600'), lightWhy: 'Exam chips put white labels on this fill; accent/500 gives 4.3:1, accent/600 passes 4.5:1.',
+    dark: A('400'), darkWhy: 'Exam chips put dark labels on this fill in dark mode, which need the lighter accent/400.',
+  },
   'surface-accent-subtle': { ref: A('200'), dark: A('850'), darkWhy: SUBTLE_DARK },
   'surface-info': { ref: P('400') },
   'surface-info-subtle': { ref: P('150'), dark: P('850'), darkWhy: SUBTLE_DARK },
@@ -112,12 +119,17 @@ export const SYSTEM_SPEC: Record<string, Spec> = {
   'surface-warning-hover': { ref: Y('700') },
   'surface-success': { ref: Gr('500') },
   'surface-success-subtle': { ref: Gr('100'), dark: Gr('850'), darkWhy: SUBTLE_DARK },
+  'surface-brand': { ref: P('500'), added: 'Large flat brand panels (behind the hero calendar, and the tagline band), the exact brand sky blue in both modes.' },
+  'surface-white': {
+    ref: G('00'), light: G('00'), lightWhy: 'White in both modes.',
+    added: "The white disc behind Google's G on the pink sign in button; Google's branding keeps the G on white.",
+  },
 
   // Action
-  'action-primary': { ref: P('500'), dark: P('400'), darkWhy: BUTTON_DARK },
-  'action-primary-hover': { ref: P('700'), dark: P('300'), darkWhy: BUTTON_DARK },
-  'action-primary-click': { ref: P('600'), dark: P('200'), darkWhy: BUTTON_DARK },
-  'action-primary-disabled': { ref: P('700') },
+  'action-primary': { ref: P('500'), light: A('600'), lightWhy: CTA_LIGHT, dark: A('400'), darkWhy: CTA_DARK },
+  'action-primary-hover': { ref: P('700'), light: A('700'), lightWhy: CTA_LIGHT, dark: A('300'), darkWhy: CTA_DARK },
+  'action-primary-click': { ref: P('600'), light: A('800'), lightWhy: CTA_LIGHT, dark: A('200'), darkWhy: CTA_DARK },
+  'action-primary-disabled': { ref: P('700'), light: A('200'), lightWhy: `${CTA} A pale pink reads as disabled on a light page.`, dark: A('800'), darkWhy: CTA },
   'action-secondary': { ref: G('600'), light: G('150'), lightWhy: 'The mirrored grayscale/400 fill is heavy next to white cards; grayscale/150 reads as a quieter secondary button.' },
   'action-secondary-hover': { ref: G('750'), light: G('200'), lightWhy: 'One step darker than the adjusted secondary fill.' },
   'action-secondary-click': { ref: G('700'), light: G('250'), lightWhy: 'Two steps darker than the adjusted secondary fill.' },
@@ -152,7 +164,11 @@ export const SYSTEM_SPEC: Record<string, Spec> = {
   'text-warning-disabled': { ref: Y('800') },
   'text-warning-inverted': { ref: Y('800'), light: Y('950'), lightWhy: 'Warning buttons stay yellow in both modes, so their label stays dark.' },
   'text-warning-inverted-disabled': { ref: Y('300') },
-  'text-accent': { ref: A('300'), added: 'Label text on accent tinted chips (classes and events); the skill has no Text/Accent.' },
+  'text-accent': { ref: A('300'), added: 'Label text on accent tinted chips (deadlines); the skill has no Text/Accent.' },
+  'text-on-brand': {
+    ref: G('00'), light: G('00'), lightWhy: 'White on the sky blue panels in both modes.',
+    added: 'Large headings on surface-brand. White on the brand sky blue is 3.5:1, so only large text (24px and up) goes there.',
+  },
   'text-hero-from': { ref: G('00'), added: 'Hero gradient start. The skill requires both gradient stops to be variables but does not name them.' },
   'text-hero-to': { ref: G('400'), added: 'Hero gradient end (#9B9B9B dark, #666666 light, as the skill specifies).' },
 
