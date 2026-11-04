@@ -26,12 +26,15 @@ export function validateCanvasFeedUrl(raw: string, allowedHosts: string[]): stri
 }
 
 export async function fetchCanvasFeed(url: string): Promise<string> {
-  let res: Response;
-  try {
-    res = await fetchWithin(20_000, 'Canvas', url, { headers: { accept: 'text/calendar', 'user-agent': USER_AGENT } });
-  } catch (err) {
-    if (err instanceof TimeoutError) throw new UserError("Canvas didn't answer in time. Semsync will try again shortly.");
-    throw err;
+  let res: Response | undefined;
+  for (let attempt = 1; !res; attempt++) {
+    try {
+      res = await fetchWithin(15_000, 'Canvas', url, { headers: { accept: 'text/calendar', 'user-agent': USER_AGENT } });
+    } catch (err) {
+      if (!(err instanceof TimeoutError)) throw err;
+      console.warn('Canvas timed out, attempt', attempt);
+      if (attempt === 2) throw new UserError("Canvas didn't answer in time. Semsync will try again shortly.");
+    }
   }
   if (res.status === 401 || res.status === 404) {
     throw new UserError('Canvas rejected your feed link. It may have been reset; paste the new one.');

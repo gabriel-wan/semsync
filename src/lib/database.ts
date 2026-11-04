@@ -1,4 +1,11 @@
 import postgres from 'postgres';
+import { within } from './http.js';
+
+// Postgres has no time limit of its own here, so a query stuck on a dead connection would wait until the platform kills
+// the request. These end it with an error that says which query, and ask Postgres to cancel it.
+const QUERY_MS = 20_000;
+const TRANSACTION_MS = 30_000;
+const short = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, 70);
 
 /**
  * The small, D1-style database API the app uses, backed by Postgres through postgres.js: Supabase in production, and
@@ -53,13 +60,18 @@ class PgStatement implements Statement {
   }
 
   async all<T>(): Promise<{ results: T[] }> {
-    const rows = await this.sql.unsafe(this.text, this.args as Params);
+    const rows = await this.execute();
     return { results: [...rows] as T[] };
   }
 
   async run(): Promise<{ changes: number }> {
-    const rows = await this.sql.unsafe(this.text, this.args as Params);
+    const rows = await this.execute();
     return { changes: rows.count };
+  }
+
+  private execute() {
+    const query = this.sql.unsafe(this.text, this.args as Params);
+    return within(QUERY_MS, `The database (${short(this.text)})`, query, () => void query.cancel());
   }
 }
 
@@ -96,9 +108,9 @@ export function openDb(url: string): Db {
     prepare: (text) => new PgStatement(sql, text),
     async batch(statements) {
       if (statements.length === 0) return;
-      await sql.begin(async (tx) => {
+      await within(TRANSACTION_MS, `The database (${statements.length} writes)`, sql.begin(async (tx) => {
         for (const s of statements as PgStatement[]) await tx.unsafe(s.text, s.args as Params);
-      });
+      }));
     },
     async exec(script) {
       await sql.begin((tx) => tx.unsafe(script).simple());

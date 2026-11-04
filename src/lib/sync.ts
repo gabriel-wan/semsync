@@ -179,14 +179,20 @@ export async function desiredEvents(
 ): Promise<{ events: CalEvent[]; warnings: string[]; courses: Course[] }> {
   const events: CalEvent[] = [];
   const warnings: string[] = [];
+  const part = (name: string, started: number, detail = '') => console.log('sync part', user.id, name, `${Date.now() - started} ms`, detail);
 
   if (user.canvas_feed_enc) {
+    let t = Date.now();
     const url = await decrypt(env.ENCRYPTION_KEY, user.canvas_feed_enc);
     const ics = isDev(env) && url === SAMPLE_FEED ? SAMPLE_CANVAS_FEED : await fetchCanvasFeed(url);
+    part('canvas download', t, `${ics.length} chars`);
+    t = Date.now();
     events.push(...canvasEvents(ics));
+    part('canvas read', t, `${events.length} items`);
   }
 
   if (user.nusmods_link) {
+    const t = Date.now();
     const link = parseNusmodsLink(user.nusmods_link);
     const term = findTerm(link.semester);
     if (term) {
@@ -194,6 +200,7 @@ export async function desiredEvents(
       events.push(...result.events);
       warnings.push(...result.warnings);
     }
+    part('nusmods', t, `${link.modules.length} modules`);
   }
   const { events: kept, courses } = applyCourses(events, new Set(jsonList<string>(user.hidden_courses)), user.mode === 'main');
   if (user.week_labels !== 0) kept.push(...weekLabelEvents());

@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TimeoutError, fetchWithin } from '../src/lib/http';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { TimeoutError, fetchWithin, within } from '../src/lib/http';
 
 // A server with three behaviours: never answers, answers headers then stalls the body, or answers normally.
 let server: Server;
@@ -39,5 +39,26 @@ describe('fetchWithin', () => {
     expect(await ok.text()).toBe('hello');
     const empty = await fetchWithin(2000, 'x', `${base}/empty`);
     expect(empty.status).toBe(204);
+  });
+});
+
+describe('time limits that never depend on the abort signal', () => {
+  it('ends a fetch on time even when fetch ignores the signal, as a wrapped fetch might', async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = vi.fn(() => new Promise<Response>(() => {})) as typeof fetch; // never settles, ignores the signal
+    try {
+      const started = Date.now();
+      await expect(fetchWithin(200, 'Canvas', 'https://canvas.nus.edu.sg/feeds/calendars/x.ics')).rejects.toBeInstanceOf(TimeoutError);
+      expect(Date.now() - started).toBeLessThan(2000);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('ends any stuck piece of work, such as a database query, and asks it to stop', async () => {
+    let cancelled = false;
+    await expect(within(100, 'The database', new Promise(() => {}), () => { cancelled = true; })).rejects.toThrow("The database didn't answer within 0 s");
+    expect(cancelled).toBe(true);
+    await expect(within(1000, 'x', Promise.resolve(42))).resolves.toBe(42);
   });
 });
