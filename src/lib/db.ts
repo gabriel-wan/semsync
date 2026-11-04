@@ -167,15 +167,28 @@ const MODULE_TTL_MS = 24 * 3600_000;
 
 /** NUSMods module data, cached for a day; falls back to stale data if NUSMods is down. */
 export function cachedModuleFetcher(db: Db, fetchFresh: (ay: string, code: string) => Promise<ModuleData | null>) {
+  // The cache only saves NUSMods some requests: if the database can't be read or written, the sync carries on with a
+  // fresh copy from NUSMods instead of failing.
   return async (acadYear: string, code: string): Promise<ModuleData | null> => {
-    const cached = await db
-      .prepare('SELECT data, fetched_at FROM module_cache WHERE acad_year = ? AND code = ?')
-      .bind(acadYear, code)
-      .first<{ data: string; fetched_at: number }>();
+    let cached: { data: string; fetched_at: number } | null = null;
+    try {
+      cached = await db
+        .prepare('SELECT data, fetched_at FROM module_cache WHERE acad_year = ? AND code = ?')
+        .bind(acadYear, code)
+        .first<{ data: string; fetched_at: number }>();
+    } catch (err) {
+      console.warn('module cache read failed, fetching from NUSMods', code, err instanceof Error ? err.message : err);
+    }
     if (cached && Date.now() - cached.fetched_at < MODULE_TTL_MS) return JSON.parse(cached.data);
 
+    let fresh: ModuleData | null;
     try {
-      const fresh = await fetchFresh(acadYear, code);
+      fresh = await fetchFresh(acadYear, code);
+    } catch (err) {
+      if (cached) return JSON.parse(cached.data);
+      throw err;
+    }
+    try {
       await db
         .prepare(
           `INSERT INTO module_cache (acad_year, code, data, fetched_at) VALUES (?, ?, ?, ?)
@@ -183,10 +196,9 @@ export function cachedModuleFetcher(db: Db, fetchFresh: (ay: string, code: strin
         )
         .bind(acadYear, code, JSON.stringify(fresh), Date.now())
         .run();
-      return fresh;
     } catch (err) {
-      if (cached) return JSON.parse(cached.data);
-      throw err;
+      console.warn('module cache write failed', code, err instanceof Error ? err.message : err);
     }
+    return fresh;
   };
 }

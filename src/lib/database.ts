@@ -97,6 +97,10 @@ export function openDb(url: string): Db {
     // Locally the database is PGlite, which serves every connection from one session, so two connections running at once
     // can replace each other's unnamed statement. One connection keeps queries in order there.
     max: local ? 1 : 5,
+    // When all connections are busy, postgres.js sends further queries down a busy connection without waiting
+    // (pipelining). Supabase's pooler in transaction mode can lose those, and the query never answers: a sync looking up
+    // six NUSMods modules at once over five connections stalled every time. So each connection runs one query at a time.
+    max_pipeline: 1,
     idle_timeout: 20,
     connect_timeout: 10,
     fetch_types: false,

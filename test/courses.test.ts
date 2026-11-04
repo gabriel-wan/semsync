@@ -86,3 +86,13 @@ describe('the course switches on the Semsync page', () => {
     expect(await page({ ...user, mode: 'shared' })).not.toContain('class="course-dot"');
   });
 });
+
+describe('the NUSMods cache', () => {
+  it('fetches from NUSMods when the database cannot be read or written, instead of failing the sync', async () => {
+    const { cachedModuleFetcher } = await import('../src/lib/db');
+    const broken = { prepare: () => ({ bind: () => ({ first: () => Promise.reject(new Error('stuck')), run: () => Promise.reject(new Error('stuck')) }) }) };
+    const module = { moduleCode: 'CS2040', title: 'Data Structures', semesterData: [] };
+    const fetch = cachedModuleFetcher(broken as never, async () => module);
+    await expect(fetch('2026-2027', 'CS2040')).resolves.toEqual(module);
+  });
+});
