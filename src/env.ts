@@ -18,6 +18,17 @@ export type Env = {
   FAKE_GOOGLE?: string;
 };
 
+/** The Postgres that `npm run dev` runs in-process (PGlite) and serves on this port when no database is set. */
+export const LOCAL_DATABASE_URL = 'postgres://postgres@127.0.0.1:5433/postgres';
+
+/**
+ * Where the database is: DATABASE_URL if set, else the POSTGRES_URL the Supabase integration adds on Vercel (its pooled
+ * connection), else, outside Vercel, the local one. Undefined on Vercel before Supabase is connected.
+ */
+export function databaseUrl(e: NodeJS.ProcessEnv = process.env): string | undefined {
+  return e.DATABASE_URL || e.POSTGRES_URL || (e.VERCEL ? undefined : LOCAL_DATABASE_URL);
+}
+
 let env: Env | undefined;
 
 /** Settings from environment variables (Vercel project settings, or .env.local in development), read once. */
@@ -34,11 +45,7 @@ export function getEnv(): Env {
   let db: Db | undefined;
   env = {
     get DB() {
-      // On Vercel the file system is temporary, so production must use Turso.
-      return (db ??= openDb(
-        e.VERCEL ? required('TURSO_DATABASE_URL') : (e.TURSO_DATABASE_URL ?? 'file:local.db'),
-        e.TURSO_AUTH_TOKEN,
-      ));
+      return (db ??= openDb(databaseUrl(e) ?? required('POSTGRES_URL')));
     },
     APP_NAME: e.APP_NAME ?? 'Semsync',
     SYNC_BATCH: e.SYNC_BATCH ?? '10',

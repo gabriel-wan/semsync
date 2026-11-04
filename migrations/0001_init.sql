@@ -1,3 +1,4 @@
+-- Postgres: Supabase in production, PGlite locally. Times are milliseconds since 1970, in BIGINT columns.
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL,
@@ -10,8 +11,8 @@ CREATE TABLE users (
   calendar_id TEXT,
   google_refresh_enc TEXT,
   needs_reconnect INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL,
-  last_sync_at INTEGER,
+  created_at BIGINT NOT NULL,
+  last_sync_at BIGINT,
   last_sync_ok INTEGER,
   last_sync_message TEXT
 );
@@ -24,7 +25,7 @@ CREATE TABLE synced_events (
   hash TEXT NOT NULL,
   kind TEXT NOT NULL,
   title TEXT NOT NULL,
-  start_ms INTEGER NOT NULL,
+  start_ms BIGINT NOT NULL,
   all_day INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, event_id)
 );
@@ -33,15 +34,15 @@ CREATE INDEX synced_events_start ON synced_events (user_id, start_ms);
 CREATE TABLE module_cache (
   acad_year TEXT NOT NULL,
   code TEXT NOT NULL,
-  json TEXT NOT NULL,
-  fetched_at INTEGER NOT NULL,
+  data TEXT NOT NULL,
+  fetched_at BIGINT NOT NULL,
   PRIMARY KEY (acad_year, code)
 );
 
 CREATE TABLE kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
-  expires_at INTEGER NOT NULL
+  expires_at BIGINT NOT NULL
 );
 
 -- Only used when FAKE_GOOGLE=1 (local development without Google credentials).
@@ -56,3 +57,12 @@ CREATE TABLE fake_events (
   body TEXT NOT NULL,
   PRIMARY KEY (calendar_id, event_id)
 );
+
+-- Supabase also serves the public schema through its web API to anyone holding the project's public key. Row-level
+-- security with no policies keeps every row out of that API. Semsync connects as the tables' owner, which it doesn't limit.
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE synced_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE module_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kv ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fake_calendars ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fake_events ENABLE ROW LEVEL SECURITY;

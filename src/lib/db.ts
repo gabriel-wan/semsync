@@ -90,7 +90,7 @@ export async function dueUsers(db: Db, olderThanMs: number, limit: number): Prom
        WHERE calendar_id IS NOT NULL AND needs_reconnect = 0
          AND (canvas_feed_enc IS NOT NULL OR nusmods_link IS NOT NULL)
          AND (last_sync_at IS NULL OR last_sync_at < ?)
-       ORDER BY last_sync_at IS NOT NULL, last_sync_at
+       ORDER BY last_sync_at NULLS FIRST
        LIMIT ?`,
     )
     .bind(Date.now() - olderThanMs, limit)
@@ -140,20 +140,23 @@ const MODULE_TTL_MS = 24 * 3600_000;
 export function cachedModuleFetcher(db: Db, fetchFresh: (ay: string, code: string) => Promise<ModuleData | null>) {
   return async (acadYear: string, code: string): Promise<ModuleData | null> => {
     const cached = await db
-      .prepare('SELECT json, fetched_at FROM module_cache WHERE acad_year = ? AND code = ?')
+      .prepare('SELECT data, fetched_at FROM module_cache WHERE acad_year = ? AND code = ?')
       .bind(acadYear, code)
-      .first<{ json: string; fetched_at: number }>();
-    if (cached && Date.now() - cached.fetched_at < MODULE_TTL_MS) return JSON.parse(cached.json);
+      .first<{ data: string; fetched_at: number }>();
+    if (cached && Date.now() - cached.fetched_at < MODULE_TTL_MS) return JSON.parse(cached.data);
 
     try {
       const fresh = await fetchFresh(acadYear, code);
       await db
-        .prepare('INSERT OR REPLACE INTO module_cache (acad_year, code, json, fetched_at) VALUES (?, ?, ?, ?)')
+        .prepare(
+          `INSERT INTO module_cache (acad_year, code, data, fetched_at) VALUES (?, ?, ?, ?)
+           ON CONFLICT (acad_year, code) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at`,
+        )
         .bind(acadYear, code, JSON.stringify(fresh), Date.now())
         .run();
       return fresh;
     } catch (err) {
-      if (cached) return JSON.parse(cached.json);
+      if (cached) return JSON.parse(cached.data);
       throw err;
     }
   };

@@ -520,7 +520,7 @@ export const Privacy: FC<{ signedIn?: boolean; origin?: string }> = ({ signedIn,
       <p class="body-3">Your Gmail, Drive or Canvas password. It reads only the calendar feed Canvas gives you, and public course data from NUSMods.</p>
       <h2 class="heading-6">Where data lives</h2>
       <p class="body-3">
-        Semsync runs on Vercel and stores data in a Turso database, both in Singapore. Google user data is used only to provide this
+        Semsync runs on Vercel and stores data in a Supabase database, both in Singapore. Google user data is used only to provide this
         feature. Nothing is sold, used for ads, or shared with anyone else.
       </p>
       <h2 class="heading-6">Deleting your data</h2>

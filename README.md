@@ -39,9 +39,10 @@ NUSMods API ─────────┘     (src/lib/canvas.ts,        (src/l
 - **[Hono](https://hono.dev)** on **Vercel**. `npm run build` compiles `src/` to `dist/`, and Vercel runs `dist/app.js`
   (the `main` in `package.json`); `public/` is served by the CDN. We compile ourselves because Vercel's per-file
   TypeScript step can't follow a `./x.js` import to a `.tsx` file.
-- **[Turso](https://turso.tech)** (hosted SQLite) for the database, through `@libsql/client` (its fetch-based web client
-  for Turso, so the function needs no native binary). Locally it's a plain file, `local.db`, so development needs no
-  account.
+- **[Supabase](https://supabase.com)** Postgres in Singapore for the database, through
+  [postgres.js](https://github.com/porsager/postgres) and Supabase's connection pooler. Locally, `npm run dev` runs
+  Postgres inside Node with [PGlite](https://pglite.dev) (saved in `local-pg/`) and serves it on port 5433, so
+  development needs no account and the app reaches it the same way it reaches Supabase. Tests do the same in memory.
 - **Hourly sync:** `GET /api/cron`, protected by `CRON_SECRET`. A free GitHub Action calls it every hour, and Vercel Cron
   calls it once a day as a backup (Vercel's Hobby plan only allows daily cron jobs).
 
@@ -52,14 +53,13 @@ Requires Node 22+.
 ```bash
 npm install
 cp .env.example .env.local   # then fill SESSION_SECRET, ENCRYPTION_KEY and CRON_SECRET
-npm run db:migrate
-npm run dev                  # http://localhost:8787, reloads on changes
+npm run dev                  # http://localhost:8787; starts the local database and applies migrations
 ```
 
 With `DEV_LOGIN=1` and `FAKE_GOOGLE=1` you can sign in as any email, use `sample` as the Canvas link, "connect" a calendar
 without Google, and see what Semsync wrote at `/dev/calendar`. Run the hourly sync by hand with
 `curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:8787/api/cron`, and look at the data with
-`npm run sql -- "SELECT id, email, mode, last_sync_at FROM users"`.
+`npm run sql -- "SELECT id, email, mode, last_sync_at FROM users"` while `npm run dev` is running.
 
 ```bash
 npm test          # unit tests, plus database, colour contrast and copy rules (see below)
@@ -125,7 +125,7 @@ renews it.
 Test with real Google locally first: put the values in `.env.local`, remove `DEV_LOGIN` and `FAKE_GOOGLE`, restart
 `npm run dev`, and set up your own calendar.
 
-### 2. Vercel and Turso (free)
+### 2. Vercel and Supabase (free)
 
 1. Sign in at [vercel.com](https://vercel.com) with GitHub (the free Hobby plan is for personal, non-commercial projects).
 2. **Add New → Project →** import `gabriel-wan/semsync`. Vercel detects Hono; leave the build settings as they are.
@@ -140,9 +140,9 @@ Test with real Google locally first: put the values in `.env.local`, remove `DEV
    | `GOOGLE_OAUTH_CLIENT_SECRET` | from Google Cloud |
    | `GOOGLE_SERVICE_ACCOUNT_JSON` | optional, the whole JSON on one line (shared-calendar option) |
 
-4. **Deploy.** Until the database is connected in the next step, the site shows an error page; that's expected.
-5. **Storage → Create Database → Turso Cloud** (Marketplace). Pick the **Singapore** region and connect it to the project.
-   This adds `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
+4. **Deploy.** Until the database is connected in the next step, the public pages work but signing in shows an error page.
+5. **Storage → Create Database → Supabase** (Marketplace). Pick the **Singapore** region and the free plan, and connect
+   it to the project. This adds `POSTGRES_URL` (the pooled connection Semsync uses) and Supabase's other settings.
 6. **Deployments → Redeploy.** Production builds run `npm run build`, which applies the database migrations.
 7. Your app is at `https://<your-project>.vercel.app`. Add its `/auth/callback` to the Google client (step 1.5).
 
@@ -189,7 +189,9 @@ Then submit from Google Auth Platform → Verification centre.
   which is why the hourly run comes from GitHub Actions (free; GitHub may start it a few minutes late).
 - **GitHub Actions:** an hourly job uses about 720 short runs a month, well inside the free minutes for a private repo.
   GitHub pauses scheduled workflows in public repos after 60 days without activity; push a commit to wake it up.
-- **Turso's free plan** is plenty for a student project; check its current limits on turso.tech.
+- **Supabase's free plan** (500 MB database) is plenty for a student project. It pauses a project after a week with no
+  activity at all; the hourly sync queries the database every hour, so that doesn't happen while the sync is running.
+  Every table has row-level security on with no policies, so Supabase's public web API can't read them.
 - **Shared calendars** count against Google's per-account limits: about 60 new calendars and 750 shares in a short
   period, and 100,000 events. Main-calendar users don't, since events go into their own calendar.
 

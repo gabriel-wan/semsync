@@ -123,7 +123,9 @@ async function storeApplied(db: Db, userId: string, applied: { upserts: PlannedU
     ...applied.upserts.map((u) =>
       db
         .prepare(
-          'INSERT OR REPLACE INTO synced_events (user_id, event_id, hash, kind, title, start_ms, all_day) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          `INSERT INTO synced_events (user_id, event_id, hash, kind, title, start_ms, all_day) VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (user_id, event_id) DO UPDATE SET hash = excluded.hash, kind = excluded.kind, title = excluded.title,
+             start_ms = excluded.start_ms, all_day = excluded.all_day`,
         )
         .bind(userId, u.eventId, u.hash, u.kind, u.title, u.startMs, u.allDay ? 1 : 0),
     ),

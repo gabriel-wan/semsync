@@ -19,7 +19,10 @@ async function cached(env: Env, key: string, fetchToken: () => Promise<{ token: 
   const row = await env.DB.prepare('SELECT value FROM kv WHERE key = ? AND expires_at > ?').bind(key, Date.now()).first<{ value: string }>();
   if (row) return decrypt(env.ENCRYPTION_KEY, row.value);
   const { token, expiresIn } = await fetchToken();
-  await env.DB.prepare('INSERT OR REPLACE INTO kv (key, value, expires_at) VALUES (?, ?, ?)')
+  await env.DB.prepare(
+    `INSERT INTO kv (key, value, expires_at) VALUES (?, ?, ?)
+     ON CONFLICT (key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at`,
+  )
     .bind(key, await encrypt(env.ENCRYPTION_KEY, token), Date.now() + (expiresIn - 300) * 1000)
     .run();
   return token;

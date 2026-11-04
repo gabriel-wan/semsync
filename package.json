@@ -18,10 +18,12 @@
     "sql": "tsx --env-file-if-exists=.env.local scripts/sql.ts"
   },
   "dependencies": {
-    "@libsql/client": "^0.18.0",
-    "hono": "^4.13.16"
+    "hono": "^4.13.16",
+    "postgres": "^4.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
+    "@electric-sql/pglite-socket": "^0.2.18",
     "@hono/node-server": "^2.1.6",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",

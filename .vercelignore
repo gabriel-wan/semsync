@@ -2,7 +2,7 @@
 .env
 .env.*
 !.env.example
-local.db*
+local-pg
 node_modules
 .check
 dist

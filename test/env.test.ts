@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 async function unconfigured() {
   vi.resetModules();
   vi.stubEnv('VERCEL', '1');
-  for (const name of ['TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN', 'SESSION_SECRET', 'ENCRYPTION_KEY', 'CRON_SECRET']) {
+  for (const name of ['DATABASE_URL', 'POSTGRES_URL', 'SESSION_SECRET', 'ENCRYPTION_KEY', 'CRON_SECRET']) {
     vi.stubEnv(name, '');
   }
   const { getEnv } = await import('../src/env');
@@ -42,7 +42,7 @@ describe('a deployment that is not set up yet', () => {
     const { getEnv } = await unconfigured();
     const env = getEnv();
     expect(env.APP_NAME).toBe('Semsync');
-    expect(() => env.DB).toThrow('TURSO_DATABASE_URL is not set');
+    expect(() => env.DB).toThrow('POSTGRES_URL is not set');
     expect(() => env.SESSION_SECRET).toThrow('SESSION_SECRET is not set');
     expect(() => env.ENCRYPTION_KEY).toThrow('ENCRYPTION_KEY is not set');
   });

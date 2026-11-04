@@ -43,7 +43,10 @@ export class FakeCalendar implements CalendarBackend {
       if (status < 300) {
         const body = op.type === 'delete' ? { ...JSON.parse(row!.body), status: 'cancelled' } : op.body;
         await this.db
-          .prepare('INSERT OR REPLACE INTO fake_events (calendar_id, event_id, body) VALUES (?, ?, ?)')
+          .prepare(
+            `INSERT INTO fake_events (calendar_id, event_id, body) VALUES (?, ?, ?)
+             ON CONFLICT (calendar_id, event_id) DO UPDATE SET body = excluded.body`,
+          )
           .bind(calendarId, op.eventId, JSON.stringify(body))
           .run();
       }
