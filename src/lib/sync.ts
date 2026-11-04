@@ -147,8 +147,27 @@ async function storeApplied(db: Db, userId: string, applied: { upserts: PlannedU
 export function applyCourses(
   events: CalEvent[], hidden: Set<string>, colorize = true,
 ): { events: CalEvent[]; courses: Course[] } {
-  const found = new Map<string, string>();
-  for (const e of events) if (e.course && !found.has(e.course)) found.set(e.course, e.courseLabel ?? e.course);
+  // A cross-listed Canvas course ("UTS2402/UTC2402") joins the module under whichever code the NUSMods link uses, so it
+  // isn't listed twice, and its deadlines are titled with that code too.
+  const nusmods = new Set(events.filter((e) => e.key.startsWith('nusmods:') && e.course).map((e) => e.course!));
+  events = events.map((e) => {
+    if (!e.course || !e.courseAliases || nusmods.has(e.course)) return e;
+    const match = e.courseAliases.find((a) => nusmods.has(a));
+    if (!match) return e;
+    const title = e.title.startsWith(`[${e.course}]`) ? `[${match}]${e.title.slice(e.course.length + 2)}` : e.title;
+    return { ...e, course: match, title };
+  });
+  // Names: NUSMods' full module name wins, then the most descriptive Canvas name.
+  const fromNusmods = new Map<string, string>();
+  const fromCanvas = new Map<string, string>();
+  for (const e of events) {
+    if (!e.course) continue;
+    const label = e.courseLabel ?? e.course;
+    const names = e.key.startsWith('nusmods:') ? fromNusmods : fromCanvas;
+    if ((names.get(e.course)?.length ?? -1) < label.length) names.set(e.course, label);
+  }
+  const found = new Map<string, string>(fromCanvas);
+  for (const [key, label] of fromNusmods) found.set(key, label);
   const courses = [...found]
     .map(([key, label]) => ({ key, label }))
     .sort((a, b) => Number(a.key.startsWith('canvas:')) - Number(b.key.startsWith('canvas:')) || a.key.localeCompare(b.key));

@@ -857,35 +857,43 @@ const CoursesPanel: FC<{ user: UserRow; csrf: string }> = ({ user, csrf }) => {
   return (
     <section class="panel dash-courses" aria-labelledby="courses-title">
       <h2 id="courses-title" class="title-2">What goes in</h2>
-      <p class="caption-2 text-secondary mt-50">Switch off anything you don't need. Its upcoming events come out when you save.</p>
+      <p class="caption-2 text-secondary mt-50">Tap a course to leave it out. Its upcoming classes and deadlines come out of your calendar when you save.</p>
       <form class="courses-form" method="post" action="/courses" data-busy-label="Saving…">
         <input type="hidden" name="csrf" value={csrf} />
+        {courses.length > 0 && (
+          <div class="course-chips">
+            {courses.map((c) => {
+              const code = c.key.startsWith('canvas:') ? null : c.key;
+              const text = c.key === 'canvas:other' ? 'Other' : code ?? c.label;
+              const color = user.mode === 'main' && colors.get(c.key);
+              return (
+                <label class="course-chip" title={c.label}>
+                  <input type="checkbox" name="show" value={c.key} checked={!hidden.has(c.key)} />
+                  <span class="title-4">
+                    {color && <span class="course-dot" style={`background: ${GOOGLE_EVENT_COLORS[color]};`} aria-hidden="true" />}
+                    {text}
+                    <Icon name="check" size={14} cls="chip-on" />
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+        {courses.some((c) => c.key === 'canvas:other') && (
+          <p class="caption-2 text-secondary mt-100">"Other" is Canvas events that aren't tied to a course, like NUS holidays or events you added yourself.</p>
+        )}
+        {user.mode === 'main' && courses.length > 0 && (
+          <p class="caption-2 text-secondary mt-50">The dot is the colour that course has in your Google Calendar.</p>
+        )}
+        {courses.length === 0 && <p class="caption-2 text-secondary mt-100">Your courses show up here after the next sync.</p>}
+        <div class="divider mt-200" />
         <label class="switch-row">
           <span class="switch-text">
             <span class="title-4">Week labels</span>
-            <span class="caption-2 text-secondary">"Week 7" or "Recess week" on each Monday</span>
+            <span class="caption-2 text-secondary">An all day "Week 7" or "Recess week" on each Monday</span>
           </span>
           <input class="switch" type="checkbox" role="switch" name="weeks" value="1" checked={user.week_labels !== 0} />
         </label>
-        {courses.length > 0 && <div class="divider" />}
-        {courses.map((c) => {
-          const code = c.key.startsWith('canvas:') ? null : c.key;
-          const name = code && c.label.startsWith(code) ? c.label.slice(code.length).trim() : c.label;
-          const color = user.mode === 'main' && colors.get(c.key);
-          return (
-            <label class="switch-row">
-              <span class="switch-text">
-                <span class="title-4">
-                  {color && <span class="course-dot" style={`background: ${GOOGLE_EVENT_COLORS[color]};`} aria-hidden="true" />}
-                  {code ?? name}
-                </span>
-                {code && name && <span class="caption-2 text-secondary">{name}</span>}
-              </span>
-              <input class="switch" type="checkbox" role="switch" name="show" value={c.key} checked={!hidden.has(c.key)} />
-            </label>
-          );
-        })}
-        {courses.length === 0 && <p class="caption-2 text-secondary mt-100">Your courses show up here after the next sync.</p>}
         <div class="courses-actions"><button class="btn btn-secondary button-md" type="submit">Save</button></div>
       </form>
     </section>

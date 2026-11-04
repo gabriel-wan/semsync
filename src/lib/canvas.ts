@@ -66,6 +66,7 @@ export function canvasEvents(icsText: string): CalEvent[] {
       title: formatTitle(summary),
       course: course.key,
       courseLabel: course.label,
+      courseAliases: course.aliases.length ? course.aliases : undefined,
       start,
       // A deadline is a moment, so it starts and ends at the due time.
       end: isDeadline ? start : end,
@@ -115,10 +116,12 @@ function splitCourse(summary: string): { name: string; course: string } | null {
  * The course a Canvas item belongs to, for the course switches: keyed by module code when the course name has one,
  * so it matches the same module from NUSMods. Items with no course (holidays, your own Canvas events) share one key.
  */
-export function courseOf(summary: string): { key: string; label: string } {
+export function courseOf(summary: string): { key: string; label: string; aliases: string[] } {
   const parts = splitCourse(summary);
-  if (!parts) return { key: 'canvas:other', label: 'Other Canvas events' };
+  if (!parts) return { key: 'canvas:other', label: 'Other Canvas events', aliases: [] };
   const label = parts.course.replace(/\s*\[\d{4}\]$/, '').trim();
-  const code = MODULE_CODE.exec(parts.course)?.[1];
-  return { key: code ?? `canvas:${label}`, label };
+  // Cross-listed courses carry every code ("UTS2402/UTC2402 Senior Seminar"); the others become aliases, so the course
+  // can be matched to whichever one the NUSMods link uses.
+  const codes = [...new Set([...parts.course.matchAll(new RegExp(MODULE_CODE.source, 'g'))].map((m) => m[1]))];
+  return { key: codes[0] ?? `canvas:${label}`, label, aliases: codes.slice(1) };
 }

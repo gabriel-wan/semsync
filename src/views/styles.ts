@@ -593,6 +593,21 @@ footer { margin-top: var(--space-600); }
 .switch:checked::before { transform: translateX(18px); }
 .switch:focus-visible { outline: 2px solid var(--border-action-primary); outline-offset: 2px; }
 .courses-actions { margin-top: auto; padding-top: var(--space-200); }
+/* Course chips: on is tinted blue with a tick, off is outlined and struck through. The checkbox stays in the page for
+   keyboards and screen readers, just out of sight. */
+.course-chips { display: flex; flex-wrap: wrap; gap: var(--space-75); margin-top: var(--space-100); }
+.course-chip { position: relative; cursor: pointer; }
+.course-chip input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.course-chip > span { display: inline-flex; align-items: center; gap: var(--space-50); min-height: 44px; padding: 0 var(--space-100);
+  border-radius: var(--radius-full); border: 1px solid var(--border-action-secondary); color: var(--text-secondary);
+  transition: background-color 300ms var(--ease), border-color 300ms var(--ease), color 300ms var(--ease); }
+.course-chip input:checked + span { background: var(--surface-info-subtle); border-color: transparent; color: var(--text-info); }
+.course-chip input:not(:checked) + span { text-decoration: line-through; }
+.course-chip .chip-on { display: none; }
+.course-chip input:checked + span .chip-on { display: block; }
+.course-chip input:focus-visible + span { outline: 2px solid var(--border-action-primary); outline-offset: 2px; }
+.course-chip:hover > span { border-color: var(--border-action-primary); }
+@media (prefers-reduced-motion: reduce) { .course-chip > span { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .switch, .switch::before { transition: none; } }
 
 /* Account menu: your initial in the nav opens it. */

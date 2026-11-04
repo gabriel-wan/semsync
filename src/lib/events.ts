@@ -22,6 +22,8 @@ export type CalEvent = {
   course?: string;
   /** The course's name, for the course switches on the Semsync page. */
   courseLabel?: string;
+  /** Other codes the same course is listed under (cross-listed Canvas courses), to match it to the NUSMods code. */
+  courseAliases?: string[];
   /** A Google Calendar colour id, overriding the colour for its kind. */
   color?: string;
 };

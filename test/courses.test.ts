@@ -11,9 +11,10 @@ const ev = (key: string, kind: CalEvent['kind'], course?: string): CalEvent => (
 
 describe('courses', () => {
   it('keys a Canvas item by its module code, or by course name when there is none', () => {
-    expect(courseOf('Problem Set 5 [CS2040 Data Structures and Algorithms [2610]]')).toEqual({ key: 'CS2040', label: 'CS2040 Data Structures and Algorithms' });
-    expect(courseOf('Quiz 1 [Orientation Course]')).toEqual({ key: 'canvas:Orientation Course', label: 'Orientation Course' });
-    expect(courseOf('Deepavali')).toEqual({ key: 'canvas:other', label: 'Other Canvas events' });
+    expect(courseOf('Problem Set 5 [CS2040 Data Structures and Algorithms [2610]]')).toEqual({ key: 'CS2040', label: 'CS2040 Data Structures and Algorithms', aliases: [] });
+    expect(courseOf('Quiz 1 [Orientation Course]')).toEqual({ key: 'canvas:Orientation Course', label: 'Orientation Course', aliases: [] });
+    expect(courseOf('Deepavali')).toEqual({ key: 'canvas:other', label: 'Other Canvas events', aliases: [] });
+    expect(courseOf('Essay 2 [UTS2402/UTC2402 Senior Seminar [2610]]')).toEqual({ key: 'UTS2402', label: 'UTS2402/UTC2402 Senior Seminar', aliases: ['UTC2402'] });
   });
 
   it('drops switched off courses, lists every course, and colours modules but not exams', () => {
@@ -35,6 +36,17 @@ describe('courses', () => {
   it("doesn't colour a shared calendar's events, since Google wouldn't show it", () => {
     const { events } = applyCourses([ev('a', 'class', 'CS2040')], new Set(), false);
     expect(events[0].color).toBeUndefined();
+  });
+
+  it('lists a cross-listed Canvas course once, under the code the NUSMods link uses, with the NUSMods name', () => {
+    const canvas: CalEvent = { ...ev('canvas:1', 'deadline', 'UTS2402'), title: '[UTS2402] Essay 2', courseLabel: 'UTS2402/UTC2402', courseAliases: ['UTC2402'] };
+    const seminar: CalEvent = { ...ev('nusmods:x', 'class', 'UTC2402'), courseLabel: 'UTC2402 Environment and Civil Society in Singapore' };
+    const { events, courses } = applyCourses([canvas, seminar, { ...ev('canvas:2', 'deadline', 'CS2101'), courseLabel: 'CS2101' }], new Set(), false);
+    expect(courses).toEqual([
+      { key: 'CS2101', label: 'CS2101' },
+      { key: 'UTC2402', label: 'UTC2402 Environment and Civil Society in Singapore' },
+    ]);
+    expect(events[0]).toMatchObject({ course: 'UTC2402', title: '[UTC2402] Essay 2' });
   });
 
   it('keeps a module the same colour whether or not others are switched off', () => {
@@ -75,10 +87,10 @@ describe('the course switches on the Semsync page', () => {
   it('shows a switch per course, off for the hidden ones, and the week labels switch', async () => {
     const html = await page(user);
     expect(html).toMatch(/action="\/courses"/);
-    expect(html).toMatch(/name="show" value="CS2040" checked=""/);
+    expect(html).toMatch(/class="course-chip"[^>]*><input type="checkbox" name="show" value="CS2040" checked=""/);
     expect(html).toMatch(/name="show" value="MA1521"(?! checked)/);
     expect(html).toMatch(/name="weeks" value="1"(?! checked)/);
-    expect(html).toContain('Data Structures and Algorithms');
+    expect(html).toContain('title="CS2040 Data Structures and Algorithms"'); // the full name on hover
   });
 
   it('shows module colours only where Google shows them, in your own calendar', async () => {
