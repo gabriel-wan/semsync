@@ -248,6 +248,140 @@ header.hero + section { padding-top: var(--space-900); } /* room for the reminde
   border-radius: var(--radius-8); background: var(--action-primary); color: var(--text-inverted); }
 @media (max-width: 768px) { .zig { grid-template-columns: minmax(0, 1fr); gap: var(--space-500); } }
 
+/* Where to find your links: Canvas and NUSMods as tabs (both panels show without JavaScript). */
+.guides { margin-top: var(--space-500); }
+.tabs { display: none; gap: var(--space-50); padding: var(--space-50); border-radius: var(--radius-full); width: fit-content; max-width: 100%;
+  background: var(--surface-secondary); }
+.js .tabs { display: flex; }
+.tab { display: inline-flex; align-items: center; gap: var(--space-75); min-height: 44px; padding: 0 var(--space-200); border: 0;
+  border-radius: var(--radius-full); background: transparent; color: var(--text-secondary); font-family: inherit; cursor: pointer;
+  transition: background-color 300ms var(--ease), color 300ms var(--ease); }
+.tab:hover { color: var(--text-primary); }
+.tab[aria-selected="true"] { background: var(--surface-primary-subtle); color: var(--text-primary); box-shadow: 0 2px 8px var(--overlay-xs); }
+.tab svg { color: var(--icon-info); }
+.tab-panel + .tab-panel { margin-top: var(--space-500); }
+.js .tab-panel + .tab-panel { margin-top: 0; }
+.tab-panel { margin-top: var(--space-300); }
+.tab-panel[hidden] { display: none; }
+
+/* One walkthrough: the steps on one side, a little screen acting each one out on the other. The steps are buttons that
+   jump to that step; while it plays by itself, a bar under the current step fills up until the next one. */
+.guide { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--space-500); align-items: center; }
+.guide.compact { grid-template-columns: minmax(0, 1fr); gap: var(--space-200); margin-top: var(--space-75); }
+.compact .guide-step { padding: var(--space-75) var(--space-100); gap: var(--space-100); }
+.compact .guide-open { margin-left: var(--space-100); }
+/* Stacked, the screen goes first, so the step it's acting out is highlighted just below it. */
+@media (max-width: 768px) { .guide { grid-template-columns: minmax(0, 1fr); gap: var(--space-300); } .guide .guide-screen { order: -1; } }
+.compact .guide-screen { order: -1; }
+.guide-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-50); }
+.guide-step { position: relative; overflow: hidden; display: flex; gap: var(--space-200); align-items: flex-start; width: 100%; text-align: left;
+  padding: var(--space-100) var(--space-200); border: 1px solid transparent; border-radius: var(--radius-12); background: transparent;
+  color: var(--text-primary); font-family: inherit; cursor: pointer; transition: background-color 300ms var(--ease), border-color 300ms var(--ease); }
+.guide-step:hover { background: var(--surface-primary-hover); }
+.guide-step[aria-current="step"] { background: var(--surface-primary-subtle); border-color: var(--border-primary); }
+.guide-step .step-no { width: 32px; height: 32px; transition: background-color 300ms var(--ease), color 300ms var(--ease); }
+.guide-step[aria-current="step"] .step-no { background: var(--surface-brand); color: var(--text-on-brand); }
+.guide-title, .guide-detail { display: block; }
+.guide-detail { margin-top: var(--space-25); }
+.guide-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--surface-brand); transform: scaleX(0); transform-origin: left; }
+.guide.playing .guide-step[aria-current="step"] .guide-progress { animation: guide-fill 3200ms linear forwards; }
+@keyframes guide-fill { to { transform: scaleX(1); } }
+.guide-open { display: inline-flex; align-items: center; gap: var(--space-50); min-height: 44px; margin: var(--space-100) 0 0 var(--space-200);
+  color: var(--text-info); text-decoration: none; }
+.guide-open svg { transition: transform 500ms var(--ease); }
+.guide-open:hover svg { transform: translateX(var(--space-50)); }
+
+/* The little screen. Everything inside is drawn with tokens, so it follows light and dark mode. */
+.guide-screen { position: relative; aspect-ratio: 16 / 10; border-radius: var(--radius-16); overflow: hidden; background: var(--surface-primary-subtle);
+  border: 1px solid var(--border-primary); box-shadow: 0 24px 48px var(--overlay-md); display: flex; flex-direction: column; }
+.compact .guide-screen { border-radius: var(--radius-12); box-shadow: 0 12px 24px var(--overlay-xs); }
+.gs-bar { flex: none; display: flex; align-items: center; gap: var(--space-100); padding: var(--space-75) var(--space-100); background: var(--surface-secondary); }
+.gs-dots { display: flex; gap: var(--space-50); }
+.gs-dots i { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--border-primary-light); }
+.gs-url { flex: 1; min-width: 0; padding: var(--space-25) var(--space-100); border-radius: var(--radius-full); background: var(--surface-primary-subtle);
+  color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gs-body { flex: 1; min-height: 0; }
+/* Coloured blocks for events and classes: the solid colours, softened, so they read in both modes. */
+.gs-mark-a { background: color-mix(in srgb, var(--surface-accent) 55%, transparent); }
+.gs-mark-b { background: color-mix(in srgb, var(--surface-brand) 55%, transparent); }
+.gs-mark-c { background: color-mix(in srgb, var(--surface-success) 50%, transparent); }
+/* The thing to click glows while the pointer is on it. */
+.is-target { transition: box-shadow 300ms var(--ease), background-color 300ms var(--ease); }
+.guide[data-at="0"] [data-target="0"], .guide[data-at="1"] [data-target="1"], .guide[data-at="2"] [data-target="2"] {
+  box-shadow: 0 0 0 2px var(--border-action-primary), 0 0 16px color-mix(in srgb, var(--surface-glow-brand) 60%, transparent); }
+
+.gs-canvas { display: grid; grid-template-columns: 12% minmax(0, 1fr) 32%; }
+.gs-rail { display: flex; flex-direction: column; align-items: center; gap: var(--space-100); padding: var(--space-100) 0; background: var(--surface-secondary); }
+.gs-rail-item { width: 28px; height: 28px; border-radius: var(--radius-8); display: grid; place-items: center; color: var(--icon-secondary); }
+.gs-rail-item i { width: 14px; height: 14px; border-radius: var(--radius-4); background: var(--border-primary-light); }
+.gs-rail-item[data-target] { color: var(--icon-info); }
+.gs-main { padding: var(--space-100); min-width: 0; display: flex; flex-direction: column; gap: var(--space-75); }
+.gs-month { flex: 1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 1px; background: var(--border-primary);
+  border: 1px solid var(--border-primary); border-radius: var(--radius-6); overflow: hidden; }
+.gs-cell { background: var(--surface-primary-subtle); padding: var(--space-25); }
+.gs-cell i { display: block; height: 4px; border-radius: var(--radius-2); }
+.gs-side { padding: var(--space-100); display: flex; flex-direction: column; gap: var(--space-75); min-width: 0; }
+.gs-mini { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-25); }
+.gs-mini i { aspect-ratio: 1; border-radius: var(--radius-full); background: var(--surface-secondary); }
+.gs-line { display: flex; align-items: center; gap: var(--space-50); height: 8px; }
+.gs-line i { width: 8px; height: 8px; border-radius: var(--radius-2); }
+.gs-line::after { content: ''; flex: 1; height: 4px; border-radius: var(--radius-2); background: var(--surface-secondary); }
+.gs-link { margin-top: auto; align-self: flex-start; padding: var(--space-25) var(--space-50); border-radius: var(--radius-4); color: var(--text-info);
+  white-space: nowrap; }
+
+.gs-nusmods { display: flex; flex-direction: column; gap: var(--space-75); padding: var(--space-100); }
+.gs-tabs { display: flex; gap: var(--space-50); }
+.gs-tabs span { padding: var(--space-25) var(--space-75); border-radius: var(--radius-full); }
+.gs-tab-on { background: var(--surface-info-subtle); color: var(--text-info); }
+.gs-tools { display: flex; justify-content: flex-end; gap: var(--space-50); }
+.gs-tool { padding: var(--space-25) var(--space-75); border-radius: var(--radius-6); border: 1px solid var(--border-action-secondary); white-space: nowrap; }
+.gs-week { flex: 1; display: flex; flex-direction: column; gap: var(--space-25); min-height: 0; }
+.gs-day { flex: 1; display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: var(--space-75); min-height: 0; }
+.gs-slots { height: 100%; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--space-25); padding: var(--space-25) 0;
+  border-radius: var(--radius-4); background: var(--surface-primary-hover); }
+.gs-slots i { border-radius: var(--radius-4); }
+
+/* The dialog that the second click opens, with the link in it. */
+/* Centred with auto margins rather than a transform, so the pointer can find the link inside it by offsets. */
+.gs-dialog { position: absolute; inset: 0 10%; height: fit-content; margin: auto 0; padding: var(--space-200); border-radius: var(--radius-12);
+  background: var(--surface-primary-subtle); border: 1px solid var(--border-primary); box-shadow: 0 16px 40px var(--overlay-lg);
+  display: flex; flex-direction: column; gap: var(--space-75); opacity: 0; transform: translateY(var(--space-200)) scale(0.96); pointer-events: none;
+  transition: opacity 400ms var(--ease), transform 500ms var(--ease); }
+.guide[data-at="2"] .gs-dialog { opacity: 1; transform: none; }
+.guide[data-at="2"] .gs-body { opacity: 0.5; transition: opacity 400ms var(--ease); }
+.gs-field { min-width: 0; padding: var(--space-50) var(--space-75); border-radius: var(--radius-6); border: 1px solid var(--border-action-secondary);
+  background: var(--surface-primary); }
+.gs-field span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gs-share { display: flex; gap: var(--space-50); align-items: stretch; }
+.gs-share .gs-field { flex: 1; }
+.gs-copy { flex: none; display: inline-flex; align-items: center; gap: var(--space-25); padding: 0 var(--space-75); border-radius: var(--radius-6);
+  background: var(--action-primary); color: var(--text-inverted); }
+.gs-copied { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-25); padding: var(--space-25) var(--space-75);
+  border-radius: var(--radius-full); background: var(--surface-success-subtle); color: var(--text-primary); opacity: 0; transform: translateY(4px);
+  transition: opacity 300ms var(--ease), transform 300ms var(--ease); }
+.gs-copied svg { color: var(--icon-success); }
+.guide.copied .gs-copied { opacity: 1; transform: none; }
+.guide.copied .gs-dialog .gs-field span { background: color-mix(in srgb, var(--surface-glow-brand) 30%, transparent); }
+
+/* The pointer moves to each thing in turn and taps it. It needs JavaScript to know where things are. */
+.gs-cursor { display: none; position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; color: var(--text-primary);
+  filter: drop-shadow(0 2px 4px var(--overlay-md)); transition: transform 800ms var(--ease); }
+.js .gs-cursor { display: block; }
+.gs-cursor svg { display: block; fill: currentColor; stroke: var(--surface-primary-subtle); stroke-width: 1.5px; stroke-linejoin: round; }
+.gs-cursor::after { content: ''; position: absolute; left: -10px; top: -10px; width: 24px; height: 24px; border-radius: var(--radius-full);
+  border: 2px solid var(--border-action-primary); opacity: 0; transform: scale(0.4); }
+.gs-cursor.tap::after { animation: tap 500ms var(--ease); }
+@keyframes tap { 0% { opacity: 1; transform: scale(0.4); } 100% { opacity: 0; transform: scale(1.4); } }
+@media (max-width: 480px) { .gs-copy { padding: 0 var(--space-50); } .gs-dialog { inset: 0 6%; padding: var(--space-100); } }
+@media (prefers-reduced-motion: reduce) {
+  .gs-cursor, .gs-dialog, .gs-copied, .is-target, .guide-step, .guide-step .step-no { transition: none; }
+  .gs-cursor.tap::after { animation: none; }
+}
+
+/* Setup page: who you're signed in as, with a way out. */
+.signed-in { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-50) var(--space-100); margin-top: var(--space-500);
+  color: var(--text-secondary); }
+
 /* Tagline reveal: its own large type moment on the electric blue, shaded deep blue in one corner and faintly lit in the
    opposite one, both clear of the text. */
 .band { border-radius: var(--radius-24); color: var(--text-on-brand); padding: var(--space-900) var(--space-600); text-align: center;
@@ -302,7 +436,6 @@ footer { margin-top: var(--space-600); }
 .field-error[hidden] { display: none; }
 .help { margin-top: var(--space-50); }
 .help summary { cursor: pointer; color: var(--text-info); display: inline-flex; align-items: center; min-height: 44px; }
-.help ol { margin: 0; padding-left: var(--space-300); color: var(--text-secondary); }
 
 /* Choice cards: Default | Hover | Pressed | Focus | Disabled, each selected or not */
 .choices { border: 0; padding: 0; margin: var(--space-400) 0 0; min-width: 0; }
@@ -425,6 +558,80 @@ export const SCRIPT = `
     e.target.classList.toggle('lit', e.isIntersecting || e.boundingClientRect.top < 0);
   }), { rootMargin: '0px 0px -40% 0px' });
   document.querySelectorAll('.tagline .w').forEach((el) => (words ? words.observe(el) : el.classList.add('lit')));
+
+  // Link guides: each one clicks through its steps by itself while it's on screen, until someone picks a step.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('[data-guide]').forEach((guide) => {
+    const screen = guide.querySelector('.guide-screen');
+    const cursor = guide.querySelector('.gs-cursor');
+    const steps = [...guide.querySelectorAll('[data-go]')];
+    let at = 0;
+    let timers = [];
+    const later = (fn, ms) => timers.push(setTimeout(fn, still ? 0 : ms));
+    // Where a target sits inside the screen, from offsets so the dialog's entrance transform doesn't throw it off.
+    const point = (el) => {
+      let x = el.offsetWidth * 0.55, y = el.offsetHeight * 0.6;
+      for (let n = el; n && n !== screen; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; }
+      return [x, y];
+    };
+    const aim = (instant) => {
+      const target = guide.querySelector('[data-target="' + at + '"]');
+      if (!target) return;
+      const [x, y] = point(target);
+      if (instant) cursor.style.transition = 'none';
+      cursor.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+      if (instant) { cursor.offsetWidth; cursor.style.transition = ''; }
+    };
+    const go = (i, instant) => {
+      timers.forEach(clearTimeout);
+      timers = [];
+      at = i;
+      guide.dataset.at = String(i);
+      guide.classList.remove('copied');
+      steps.forEach((s, j) => (j === i ? s.setAttribute('aria-current', 'step') : s.removeAttribute('aria-current')));
+      // Let the dialog start opening before measuring, then move, then tap.
+      later(() => {
+        aim(instant);
+        later(() => {
+          cursor.classList.remove('tap'); cursor.offsetWidth; cursor.classList.add('tap');
+          if (i === steps.length - 1) guide.classList.add('copied');
+        }, 850);
+      }, i === steps.length - 1 ? 150 : 0);
+    };
+    steps.forEach((s, i) => s.addEventListener('click', () => { guide.classList.remove('playing'); guide.dataset.stopped = '1'; go(i); }));
+    guide.addEventListener('animationend', (e) => {
+      if (!e.target.classList.contains('guide-progress') || !guide.classList.contains('playing')) return;
+      go((at + 1) % steps.length);
+    });
+    if ('ResizeObserver' in window) new ResizeObserver(() => aim(true)).observe(screen);
+    go(0, true);
+    if (still || !io) return;
+    new IntersectionObserver((entries) => entries.forEach((e) => {
+      guide.classList.toggle('playing', e.isIntersecting && !guide.dataset.stopped);
+    }), { threshold: 0.5 }).observe(screen);
+  });
+
+  // Tabs: arrow keys move between them, as the ARIA tabs pattern expects.
+  document.querySelectorAll('[data-tabs]').forEach((box) => {
+    const tabs = [...box.querySelectorAll('[role=tab]')];
+    const pick = (tab, focus) => {
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+      });
+      if (focus) tab.focus();
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => pick(t));
+      t.addEventListener('keydown', (e) => {
+        const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (d) { e.preventDefault(); pick(tabs[(i + d + tabs.length) % tabs.length], true); }
+      });
+    });
+    pick(tabs[0]);
+  });
 
   const busy = (form, label) => {
     const button = form.querySelector('button[type=submit]');

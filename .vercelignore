@@ -6,3 +6,5 @@ local-pg
 node_modules
 .check
 dist
+brag-output*
+docs/media

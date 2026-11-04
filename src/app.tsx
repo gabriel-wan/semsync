@@ -92,8 +92,9 @@ async function switchToShared(env: Env, user: UserRow) {
 
 app.get('/', (c) => {
   const user = c.get('user');
-  if (user) return c.redirect(user.calendar_id || user.canvas_feed_enc || user.nusmods_link ? '/home' : '/setup');
-  return c.html(<Landing origin={origin(c)} />);
+  if (user && (user.calendar_id || user.canvas_feed_enc || user.nusmods_link)) return c.redirect('/home');
+  // Signed in but not set up yet: they can still read the landing page, and its buttons lead back to setup.
+  return c.html(<Landing origin={origin(c)} pendingSetup={!!user} />);
 });
 
 app.get('/privacy', (c) => c.html(<Privacy signedIn={!!c.get('user')} origin={origin(c)} />));
@@ -168,7 +169,7 @@ app.get('/auth/callback', async (c) => {
 
   await upsertUserOnLogin(c.env.DB, { id, email: result.identity.email, name: result.identity.name });
   await startSession(c, id);
-  return c.redirect('/');
+  return c.redirect('/home'); // which sends anyone not set up yet on to /setup
 });
 
 app.post('/auth/logout', async (c) => {
@@ -186,7 +187,7 @@ app.post('/auth/dev', async (c) => {
   const id = `dev:${email}`;
   await upsertUserOnLogin(c.env.DB, { id, email, name: email.split('@')[0] });
   await startSession(c, id);
-  return c.redirect('/');
+  return c.redirect('/home');
 });
 
 // --- Setup and home ---

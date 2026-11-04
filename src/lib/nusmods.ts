@@ -62,6 +62,9 @@ export function parseNusmodsLink(raw: string): NusmodsLink {
   } catch {
     throw new UserError("That doesn't look like a NUSMods link. In NUSMods, use Share/Sync and copy the link.");
   }
+  if (/(^|\.)modsn\.us$|^shorten\.nusmods\.com$/.test(url.hostname)) {
+    throw new UserError("That's a shortened link. In Share/Sync on NUSMods, copy the full link instead: it starts with nusmods.com/timetable.");
+  }
   if (!/^(www\.)?nusmods\.com$/.test(url.hostname)) {
     throw new UserError('Use a share link from nusmods.com.');
   }

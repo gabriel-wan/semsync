@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Foundations, Landing, OgCard, Privacy, Terms } from '../src/views/pages';
+import type { UserRow } from '../src/lib/db';
+import { Foundations, Landing, OgCard, Privacy, Setup, Terms } from '../src/views/pages';
 import { CSS } from '../src/views/styles';
 import { CORE, SYSTEM, SYSTEM_SPEC, contrast, mirror, resolve, saturation, type Mode } from '../src/views/tokens';
 
@@ -184,6 +185,69 @@ describe('navigation', () => {
     for (const node of [Privacy({}), Terms({})]) expect(await page(node)).toContain('Back to Semsync');
     expect(await page(Privacy({ signedIn: true }))).toContain('Back to your calendar');
   });
+
+  const newUser: UserRow = {
+    id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: null, nusmods_link: null, mode: 'main',
+    calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null,
+    last_sync_message: null,
+  };
+  const setup = (user: UserRow) => Setup({ user, csrf: 't', values: { canvas: '', nusmods: '', mode: 'main' }, errors: {}, editing: false, dev: false });
+
+  it('lets a new user leave setup: back to the landing page, or sign out', async () => {
+    const html = await page(setup(newUser));
+    expect(html).toContain('href="/">');
+    expect(html).toContain('Back to Semsync');
+    expect(html).toMatch(/<form[^>]*action="\/auth\/logout"[\s\S]*Sign out/);
+    expect(html).toContain('Signed in as a@example.com');
+    // /home would only send them back to setup, so the nav doesn't offer it.
+    expect(/<nav[\s\S]*?<\/nav>/.exec(html)![0]).not.toContain('href="/home"');
+  });
+
+  it('sends someone who has set up back to their calendar from setup', async () => {
+    const html = await page(setup({ ...newUser, canvas_feed_enc: 'x', calendar_id: 'primary' }));
+    expect(html).toContain('Back to your calendar');
+  });
+
+  it('shows the landing page to a signed in user who has not set up, leading back to setup', async () => {
+    const html = await page(Landing({ pendingSetup: true }));
+    expect(html).not.toContain('/auth/google');
+    expect(/<header class="hero">[\s\S]*?<\/header>/.exec(html)![0]).toContain('href="/setup"');
+    expect(/<nav[\s\S]*?<\/nav>/.exec(html)![0]).toContain('Finish setup');
+  });
+
+  it('has no unfilled placeholders on Privacy or Terms', async () => {
+    for (const node of [Privacy({}), Terms({})]) expect(await page(node)).not.toContain('{{');
+  });
+});
+
+describe('link guides', () => {
+  const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
+
+  it('walks through Canvas and NUSMods on the landing page, three steps each, with a target for every step', async () => {
+    const html = await page(Landing({}));
+    expect(html).toContain('id="links"');
+    const guides = html.split('data-guide="true"').slice(1);
+    expect(guides).toHaveLength(2);
+    for (const g of guides) {
+      for (const i of [0, 1, 2]) {
+        expect(g).toContain(`data-go="${i}"`);
+        expect(g).toContain(`data-target="${i}"`);
+      }
+    }
+  });
+
+  it('puts the matching guide under each "Where do I find this?" on setup', async () => {
+    const html = await page(Setup({ user: { id: 'x', email: 'a@example.com', name: null, canvas_feed_enc: null, nusmods_link: null, mode: 'main',
+      calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null, last_sync_message: null },
+      csrf: 't', values: { canvas: '', nusmods: '', mode: 'main' }, errors: {}, editing: false, dev: false }));
+    expect(html).toContain('canvas.nus.edu.sg/calendar');
+    expect(html).toContain('nusmods.com/timetable/sem-1');
+    expect(html.match(/data-guide="true"/g)).toHaveLength(2);
+  });
+});
+
+describe('navigation, continued', () => {
+  const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
 
   it('shows just the name in the browser tab, and the full line in link previews', async () => {
     const html = await page(Landing({}));

@@ -61,6 +61,7 @@ describe('parseNusmodsLink', () => {
     const link = parseNusmodsLink('https://nusmods.com/timetable/sem-1/share?CS2040=LEC:1&ES2660=SEC:G01&hidden=ES2660');
     expect(link.modules.map((m) => m.code)).toEqual(['CS2040']);
     expect(() => parseNusmodsLink('https://example.com/timetable/sem-1/share?CS2040=LEC:1')).toThrow();
+    expect(() => parseNusmodsLink('https://modsn.us/abc123')).toThrow(/shortened link/);
     expect(() => parseNusmodsLink('https://nusmods.com/timetable/st-i/share?CS2040=LEC:1')).toThrow();
     expect(() => parseNusmodsLink('https://nusmods.com/timetable/sem-1/share')).toThrow();
   });

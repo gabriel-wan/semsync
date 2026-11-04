@@ -18,10 +18,14 @@ type LayoutProps = PropsWithChildren<{
   socialTitle?: string;
   /** Hide the nav's "Sign in" where the page's own call to action does the same thing (one action above the fold). */
   navCta?: boolean;
+  /** Signed in but not set up yet, so there's no calendar page to go to: the nav leads to setup instead. */
+  setupPending?: boolean;
   head?: Child;
 }>;
 
-export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn, noindex, origin, socialTitle, navCta = true, head, children }) => {
+export const Layout: FC<LayoutProps> = ({
+  title, description, current, signedIn, noindex, origin, socialTitle, navCta = true, setupPending, head, children,
+}) => {
   const desc = description ?? 'Canvas deadlines, NUSMods classes and exams in your Google Calendar, kept up to date.';
   const section = (id: string) => (current === 'landing' ? `#${id}` : `/#${id}`);
   return (
@@ -56,7 +60,9 @@ export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn,
               <span class="brand-mark"><Icon name="calendar" size={16} /></span>Semsync
             </a>
             <div class="nav-links">
-              {signedIn ? (
+              {signedIn && setupPending ? (
+                <a class="nav-link title-4" href="/setup" aria-current={current === 'setup' ? 'page' : undefined}>Finish setup</a>
+              ) : signedIn ? (
                 <a class="nav-link title-4" href="/home" aria-current={current === 'home' ? 'page' : undefined}>Your calendar</a>
               ) : (
                 <>
@@ -90,17 +96,183 @@ export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn,
   );
 };
 
-/** The way back from a plain page: to your Semsync page if you're signed in, otherwise home. */
+/** The way back from a plain page: to your Semsync page if you have one, otherwise home. */
 const BackLink: FC<{ signedIn?: boolean }> = ({ signedIn }) => (
   <a class="back title-4" href={signedIn ? '/home' : '/'}>
     <Icon name="arrowLeft" size={16} />{signedIn ? 'Back to your calendar' : 'Back to Semsync'}
   </a>
 );
 
+/** Whether the user has anything set up yet, so /home has something to show. */
+const isSetUp = (user: UserRow) => !!(user.calendar_id || user.canvas_feed_enc || user.nusmods_link);
+
 const SignInButton: FC = () => (
   <a class="btn btn-primary btn-lg btn-signin button-lg" href="/auth/google">
     <span class="g-badge"><GoogleMark /></span>Continue with Google
   </a>
+);
+
+/** In place of "Continue with Google" for someone already signed in who hasn't finished setup. */
+const ContinueSetupButton: FC = () => (
+  <a class="btn btn-primary btn-lg button-lg" href="/setup">Continue setup<Icon name="arrowRight" /></a>
+);
+
+// --- Where to find your links: a short walkthrough that clicks through Canvas and NUSMods by itself ---
+
+type GuideKind = 'canvas' | 'nusmods';
+const GUIDE: Record<GuideKind, { steps: [string, string][]; open: [string, string]; label: string }> = {
+  canvas: {
+    steps: [
+      ['Open Calendar in Canvas', "It's in the menu on the left."],
+      ['Select Calendar Feed', 'At the bottom of the column on the right.'],
+      ['Copy the link', 'It ends in .ics. Paste it into Semsync.'],
+    ],
+    open: ['https://canvas.nus.edu.sg/calendar', 'Open Canvas Calendar'],
+    label: 'Canvas Calendar, with Calendar Feed at the bottom of the right column, and the feed link it shows',
+  },
+  nusmods: {
+    steps: [
+      ['Open your timetable on NUSMods', 'The semester with your classes in it.'],
+      ['Select Share/Sync', "It's just above your timetable."],
+      ['Copy the full link', 'It starts with nusmods.com/timetable. Paste it into Semsync.'],
+    ],
+    open: ['https://nusmods.com/timetable', 'Open NUSMods'],
+    label: 'A NUSMods timetable, with the Share/Sync button above it, and the share link it shows',
+  },
+};
+
+const ScreenBar: FC<{ url: string }> = ({ url }) => (
+  <div class="gs-bar">
+    <span class="gs-dots" aria-hidden="true"><i /><i /><i /></span>
+    <span class="gs-url caption-5 mono">{url}</span>
+  </div>
+);
+
+const Copied: FC = () => <span class="gs-copied caption-4"><Icon name="check" size={12} />Copied</span>;
+
+// Which days of the month have something on, for the little Canvas month view: [cell, colour].
+const MONTH_MARKS: [number, string][] = [[3, 'a'], [8, 'b'], [10, 'a'], [16, 'b'], [17, 'a'], [22, 'b'], [24, 'a'], [29, 'b']];
+
+const CanvasScreen: FC = () => (
+  <>
+    <ScreenBar url="canvas.nus.edu.sg/calendar" />
+    <div class="gs-body gs-canvas">
+      <div class="gs-rail">
+        <span class="gs-rail-item"><i /></span>
+        <span class="gs-rail-item"><i /></span>
+        <span class="gs-rail-item"><i /></span>
+        <span class="gs-rail-item is-target" data-target="0"><Icon name="calendar" size={16} /></span>
+      </div>
+      <div class="gs-main">
+        <p class="caption-4">November 2026</p>
+        <div class="gs-month">
+          {Array.from({ length: 35 }, (_, i) => {
+            const mark = MONTH_MARKS.find(([n]) => n === i);
+            return <span class="gs-cell">{mark && <i class={`gs-mark-${mark[1]}`} />}</span>;
+          })}
+        </div>
+      </div>
+      <div class="gs-side">
+        <div class="gs-mini">{Array.from({ length: 21 }, () => <i />)}</div>
+        <p class="caption-5 text-secondary">Calendars</p>
+        <span class="gs-line"><i class="gs-mark-a" /></span>
+        <span class="gs-line"><i class="gs-mark-b" /></span>
+        <span class="gs-link caption-4 is-target" data-target="1">Calendar Feed</span>
+      </div>
+    </div>
+    <div class="gs-dialog">
+      <p class="caption-3">Calendar Feed</p>
+      <div class="gs-field is-target" data-target="2"><span class="caption-5 mono">https://canvas.nus.edu.sg/feeds/calendars/user_8Fq2kZ.ics</span></div>
+      <Copied />
+    </div>
+  </>
+);
+
+// A week of NUSMods blocks: [day row, start column, length, colour].
+const TIMETABLE: [number, number, number, string][] = [
+  [0, 1, 2, 'a'], [0, 5, 2, 'b'], [1, 0, 2, 'c'], [1, 4, 1, 'a'], [2, 1, 2, 'b'], [3, 0, 1, 'c'], [3, 3, 2, 'a'], [4, 2, 2, 'c'],
+];
+
+const NusmodsScreen: FC = () => (
+  <>
+    <ScreenBar url="nusmods.com/timetable/sem-1" />
+    <div class="gs-body gs-nusmods">
+      <div class="gs-tabs">
+        <span class="caption-4 text-secondary">Today</span>
+        <span class="caption-4 gs-tab-on is-target" data-target="0">Timetable</span>
+        <span class="caption-4 text-secondary">Courses</span>
+      </div>
+      <div class="gs-tools">
+        <span class="gs-tool caption-4">Download</span>
+        <span class="gs-tool caption-4 is-target" data-target="1">Share/Sync</span>
+      </div>
+      <div class="gs-week">
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d, row) => (
+          <div class="gs-day">
+            <span class="caption-5 text-secondary">{d}</span>
+            <div class="gs-slots">
+              {TIMETABLE.filter(([r]) => r === row).map(([, col, len, c]) => (
+                <i class={`gs-mark-${c}`} style={`grid-column: ${col + 1} / span ${len};`} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+    <div class="gs-dialog">
+      <p class="caption-3">Share/Sync</p>
+      <div class="gs-share">
+        <div class="gs-field"><span class="caption-5 mono">https://nusmods.com/timetable/sem-1/share?CS2040=LEC:1;TUT:05</span></div>
+        <span class="gs-copy caption-4 is-target" data-target="2"><Icon name="copy" size={12} />Copy</span>
+      </div>
+      <Copied />
+    </div>
+  </>
+);
+
+/** The steps on one side, a little screen acting them out on the other. Without JavaScript it's the numbered steps. */
+const Guide: FC<{ kind: GuideKind; compact?: boolean }> = ({ kind, compact }) => {
+  const g = GUIDE[kind];
+  return (
+    <div class={`guide${compact ? ' compact' : ''}`} data-guide data-at="0">
+      <div>
+        <ol class="guide-steps">
+          {g.steps.map(([title, detail], i) => (
+            <li>
+              <button class="guide-step" type="button" data-go={i} aria-current={i === 0 ? 'step' : undefined}>
+                <span class="step-no title-4">{i + 1}</span>
+                <span><span class="title-3 guide-title">{title}</span><span class="caption-2 text-secondary guide-detail">{detail}</span></span>
+                <span class="guide-progress" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ol>
+        <a class="guide-open title-4" href={g.open[0]} target="_blank" rel="noopener">{g.open[1]}<Icon name="arrowRight" size={16} /></a>
+      </div>
+      <div class={`guide-screen gs-${kind}-screen`} role="img" aria-label={g.label}>
+        {kind === 'canvas' ? <CanvasScreen /> : <NusmodsScreen />}
+        <span class="gs-cursor" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 20 20"><path d="M3 2l13 7.5-5.6 1.4L7.6 17z" /></svg>
+        </span>
+      </div>
+    </div>
+  );
+};
+
+/** Canvas and NUSMods side by side as tabs, with each walkthrough in its own panel. */
+const LinkGuides: FC = () => (
+  <div class="guides" data-tabs>
+    <div class="tabs" role="tablist" aria-label="Which link">
+      <button class="tab title-4" type="button" role="tab" id="tab-canvas" aria-controls="panel-canvas" aria-selected="true">
+        <Icon name="graduationCap" size={16} />Canvas feed
+      </button>
+      <button class="tab title-4" type="button" role="tab" id="tab-nusmods" aria-controls="panel-nusmods" aria-selected="false" tabindex={-1}>
+        <Icon name="calendarDots" size={16} />NUSMods link
+      </button>
+    </div>
+    <div class="tab-panel" role="tabpanel" id="panel-canvas" aria-labelledby="tab-canvas"><Guide kind="canvas" /></div>
+    <div class="tab-panel" role="tabpanel" id="panel-nusmods" aria-labelledby="tab-nusmods"><Guide kind="nusmods" /></div>
+  </div>
 );
 
 /** Proof beside the claim: a real testimonial once there is one, otherwise what Semsync works with (both true). */
@@ -226,9 +398,9 @@ const FAQ: [string, string][] = [
   ['How do I stop using it?', 'Delete your data from your Semsync page. That removes every event Semsync added, revokes its calendar access and deletes everything it stored about you.'],
 ];
 
-export const Landing: FC<{ origin?: string }> = ({ origin }) => (
+export const Landing: FC<{ origin?: string; pendingSetup?: boolean }> = ({ origin, pendingSetup }) => (
   <Layout title="Semsync" socialTitle="Semsync: your NUS semester in Google Calendar" origin={origin} current="landing" navCta={false}
-    head={faqSchema(FAQ)}>
+    signedIn={pendingSetup} setupPending={pendingSetup} head={faqSchema(FAQ)}>
     <div class="wrap">
       <header class="hero">
         <h1 class="heading-1 hero-title">
@@ -239,7 +411,7 @@ export const Landing: FC<{ origin?: string }> = ({ origin }) => (
           into your Google Calendar, with reminders, and keeps them up to date every hour.
         </p>
         <div class="cta">
-          <SignInButton />
+          {pendingSetup ? <ContinueSetupButton /> : <SignInButton />}
           <p class="caption-2 text-secondary">Free. Only touches the events it adds. Delete anytime.</p>
         </div>
         <Proof />
@@ -304,7 +476,7 @@ export const Landing: FC<{ origin?: string }> = ({ origin }) => (
           </div>
           <ol class="steps">
             <li class="step"><span class="step-no title-3">1</span><div><h3 class="title-2">Sign in with Google</h3><p class="body-6 text-secondary mt-25">Just your name and email to start.</p></div></li>
-            <li class="step"><span class="step-no title-3">2</span><div><h3 class="title-2">Paste two links</h3><p class="body-6 text-secondary mt-25">Your Canvas calendar feed and, if you like, your NUSMods share link.</p></div></li>
+            <li class="step"><span class="step-no title-3">2</span><div><h3 class="title-2">Paste two links</h3><p class="body-6 text-secondary mt-25">Your Canvas calendar feed and, if you like, your NUSMods share link. <a href="#links">See where to find them</a>.</p></div></li>
             <li class="step"><span class="step-no title-3">3</span><div><h3 class="title-2">Allow calendar access</h3><p class="body-6 text-secondary mt-25">Everything lands in your Google Calendar and keeps itself up to date. Prefer not to? Pick a separate shared calendar instead.</p></div></li>
           </ol>
         </div>
@@ -323,6 +495,14 @@ export const Landing: FC<{ origin?: string }> = ({ origin }) => (
             <span class="mock-btn button-md">Continue</span>
           </div>
         </div>
+      </section>
+
+      <section class="reveal" aria-labelledby="links">
+        <div class="section-head">
+          <h2 id="links" class="heading-2 section-title">Where to find your links</h2>
+          <p class="body-7">Each one takes a few clicks. Here's exactly where they are.</p>
+        </div>
+        <LinkGuides />
       </section>
 
       <section aria-label="Why Semsync">
@@ -357,7 +537,7 @@ export const Landing: FC<{ origin?: string }> = ({ origin }) => (
           <h2 class="heading-2 section-title">Get your semester into your calendar</h2>
           <p class="body-7 text-secondary mt-200">Free, and it only ever touches the events it adds.</p>
           <div class="cta">
-            <SignInButton />
+            {pendingSetup ? <ContinueSetupButton /> : <SignInButton />}
             <p class="caption-2 text-secondary">Delete your data anytime from your Semsync page.</p>
           </div>
         </div>
@@ -380,9 +560,11 @@ export const Setup: FC<{ user: UserRow; csrf: string; values: SetupValues; error
   user, csrf, values, errors, editing, dev,
 }) => {
   const keepCanvas = editing && !!user.canvas_feed_enc;
+  const setUp = isSetUp(user);
   return (
-    <Layout title="Set up your calendar · Semsync" signedIn noindex>
+    <Layout title="Set up your calendar · Semsync" signedIn setupPending={!setUp} current="setup" noindex>
       <div class="wrap narrow page">
+        <BackLink signedIn={setUp} />
         <h1 class="heading-4">{editing ? 'Update your links' : 'Paste your links'}</h1>
         <p class="lead body-3">You only do this once. Semsync checks them every hour after that.</p>
         {errors.form && (
@@ -401,11 +583,7 @@ export const Setup: FC<{ user: UserRow; csrf: string; values: SetupValues; error
             {keepCanvas && !errors.canvas && <p class="hint caption-2">Leave blank to keep your current link.</p>}
             <details class="help">
               <summary class="caption-1">Where do I find this?</summary>
-              <ol class="caption-2">
-                <li>Open <a href="https://canvas.nus.edu.sg/calendar" target="_blank" rel="noopener">Canvas Calendar</a>.</li>
-                <li>At the bottom of the column on the right, select <b>Calendar Feed</b>.</li>
-                <li>Copy the link and paste it here.</li>
-              </ol>
+              <Guide kind="canvas" compact />
             </details>
             {dev && <p class="hint caption-2">Local dev: type <code>sample</code> to use a sample Canvas feed.</p>}
           </div>
@@ -418,10 +596,7 @@ export const Setup: FC<{ user: UserRow; csrf: string; values: SetupValues; error
             <FieldError id="nusmods-error" message={errors.nusmods} />
             <details class="help">
               <summary class="caption-1">Where do I find this?</summary>
-              <ol class="caption-2">
-                <li>Open your timetable on <a href="https://nusmods.com/timetable" target="_blank" rel="noopener">NUSMods</a>.</li>
-                <li>Select <b>Share/Sync</b> and copy the link.</li>
-              </ol>
+              <Guide kind="nusmods" compact />
             </details>
           </div>
           <fieldset class="choices">
@@ -448,6 +623,11 @@ export const Setup: FC<{ user: UserRow; csrf: string; values: SetupValues; error
             <button class="btn btn-primary button-md" type="submit">{editing ? 'Save and sync' : 'Continue'}</button>
             {editing && <a class="btn btn-secondary button-md" href="/home">Cancel</a>}
           </div>
+        </form>
+        <form class="signed-in caption-2" method="post" action="/auth/logout">
+          <input type="hidden" name="csrf" value={csrf} />
+          <span>Signed in as {user.email}.</span>
+          <button class="btn btn-tertiary button-md" type="submit">Not you? Sign out</button>
         </form>
         <div class="loading-panel" data-loading hidden aria-live="polite">
           <p class="title-3">{editing ? 'Saving and syncing' : 'Setting up your calendar'}</p>
@@ -679,8 +859,6 @@ export const Privacy: FC<{ signedIn?: boolean; origin?: string }> = ({ signedIn,
         Use "Delete my data" on your Semsync page. It removes every event Semsync added, revokes its Google access, and deletes every record
         about you straight away. You can also remove Semsync's access any time at myaccount.google.com/permissions.
       </p>
-      <h2 class="heading-6">Contact</h2>
-      <p class="body-3">Questions or requests: {'{{contact email}}'}.</p>
     </div>
   </Layout>
 );
@@ -707,13 +885,11 @@ export const Terms: FC<{ signedIn?: boolean; origin?: string }> = ({ signedIn, o
         Semsync may change or stop at any time. You can delete your data whenever you like from your Semsync page, and the{' '}
         <a href="/privacy">privacy page</a> explains what is stored.
       </p>
-      <h2 class="heading-6">Contact</h2>
-      <p class="body-3">Questions: {'{{contact email}}'}.</p>
     </div>
   </Layout>
 );
 
-/** 1200 × 630 card, screenshotted into public/og.png for link previews (see README). */
+/** 1200 × 630 card, screenshotted into public/og.png for link previews (see docs/design.md). */
 export const OgCard: FC = () => (
   <html lang="en">
     <head>
