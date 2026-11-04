@@ -3,7 +3,7 @@
 Canvas deadlines, NUSMods classes and exams in your Google Calendar, kept up to date every hour.
 Free for NUS students at **[getsemsync.vercel.app](https://getsemsync.vercel.app)**.
 
-[![Semsync in 20 seconds (click to watch)](docs/media/semsync-launch.jpg)](docs/media/semsync-launch.mp4)
+https://github.com/user-attachments/assets/32ada096-2538-4f55-8997-1c42293b7316
 
 ## What it does
 
