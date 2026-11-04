@@ -289,10 +289,13 @@ export function tokensCss(): string {
   const styles = Object.entries(TEXT_STYLES)
     .map(([name, s]) => `.${name} { font-size: ${s.size}px; line-height: ${s.line}px; font-weight: ${s.weight}; }`)
     .join('\n');
+  // The page follows the system setting until someone uses the toggle, which sets data-theme on <html>.
   // .mode-light / .mode-dark come last so they win, letting /foundations show both modes side by side.
   return `:root { ${core} ${scale} }
 :root { ${system('light')} color-scheme: light; }
 @media (prefers-color-scheme: dark) { :root { ${system('dark')} color-scheme: dark; } }
+:root[data-theme="light"] { ${system('light')} color-scheme: light; }
+:root[data-theme="dark"] { ${system('dark')} color-scheme: dark; }
 .mode-light { ${system('light')} color-scheme: light; }
 .mode-dark { ${system('dark')} color-scheme: dark; }
 ${styles}`;

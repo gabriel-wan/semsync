@@ -33,7 +33,6 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .nav-bar { display: flex; align-items: center; gap: var(--space-200); padding: var(--space-50) var(--space-50) var(--space-50) var(--space-200);
   border-radius: var(--radius-full); border: 1px solid var(--border-primary); box-shadow: 0 8px 24px var(--overlay-xs);
   background: color-mix(in srgb, var(--surface-primary-subtle) 80%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.nav-bar.solo { padding-right: var(--space-200); }
 .brand { display: flex; align-items: center; gap: var(--space-75); min-height: 44px; text-decoration: none; }
 .brand-mark { width: 28px; height: 28px; border-radius: var(--radius-8); display: grid; place-items: center;
   background: var(--surface-brand); color: var(--text-on-brand); }
@@ -44,6 +43,30 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .nav-link[aria-current="page"] { background: var(--surface-secondary); color: var(--text-primary); }
 .nav-bar .btn { border-radius: var(--radius-full); }
 @media (max-width: 640px) { .nav-bar { gap: var(--space-75); } .nav-link { padding: 0 var(--space-75); } }
+@media (max-width: 480px) { .nav-link.section-link { display: none; } }
+
+/* Light and dark toggle: the moon shows in light mode, the sun in dark mode, and they turn and fade into each other.
+   It needs JavaScript, so it only appears once the head script has marked the page with .js. */
+.theme-toggle { display: none; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-full);
+  background: transparent; color: var(--icon-secondary); cursor: pointer; transition: background-color 300ms var(--ease); }
+.js .theme-toggle { display: grid; }
+.theme-toggle:hover { background: var(--surface-primary-hover); }
+.theme-toggle svg { grid-area: 1 / 1; transition: opacity 500ms var(--ease), transform 500ms var(--ease); }
+.theme-toggle .icon-sun { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle .icon-sun { opacity: 1; transform: none; }
+  :root:not([data-theme="light"]) .theme-toggle .icon-moon { opacity: 0; transform: rotate(90deg) scale(0.5); }
+}
+:root[data-theme="dark"] .theme-toggle .icon-sun { opacity: 1; transform: none; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { opacity: 0; transform: rotate(90deg) scale(0.5); }
+@media (prefers-reduced-motion: reduce) { .theme-toggle svg { transition: none; } }
+
+/* "Back to Semsync" at the top of plain pages; the arrow nudges left on hover. */
+.back { display: inline-flex; align-items: center; gap: var(--space-50); min-height: 44px; margin-bottom: var(--space-100);
+  color: var(--text-secondary); text-decoration: none; transition: color 300ms var(--ease); }
+.back:hover { color: var(--text-primary); }
+.back svg { transition: transform 500ms var(--ease); }
+.back:hover svg { transform: translateX(calc(-1 * var(--space-50))); }
 
 /* Buttons: Type (Primary | Secondary | Tertiary | Error | Warning) × State (Default | Hover | Pressed | Focus | Disabled),
    in three sizes. The .is-* classes force a state, for the Foundations page. The skill gives Error and Warning no
@@ -366,10 +389,30 @@ footer { margin-top: var(--space-600); }
 
 export const CSS = `${tokensCss()}\n${COMPONENTS}`;
 
+const THEME_KEY = 'semsync-theme';
+
+// Runs in <head> before the page draws: marks that JavaScript is on (so the toggle shows) and applies a saved light or
+// dark choice, so there's no flash of the other mode.
+export const THEME_INIT = `document.documentElement.classList.add('js');
+try { var t = localStorage.getItem('${THEME_KEY}'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}`;
+
 // Reveal on scroll and the word by word tagline (IntersectionObserver, no scroll listeners),
 // plus in-browser checks and a loading state for the setup form.
 export const SCRIPT = `
 (() => {
+  const toggle = document.querySelector('[data-theme-toggle]');
+  if (toggle) {
+    const root = document.documentElement;
+    const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
+    const label = () => toggle.setAttribute('aria-label', isDark() ? 'Switch to light mode' : 'Switch to dark mode');
+    label();
+    toggle.addEventListener('click', () => {
+      root.dataset.theme = isDark() ? 'light' : 'dark';
+      try { localStorage.setItem('${THEME_KEY}', root.dataset.theme); } catch {}
+      label();
+    });
+  }
+
   const io = 'IntersectionObserver' in window;
   document.querySelectorAll('.reveal').forEach((el) => {
     if (!io) return el.classList.add('in');

@@ -4,7 +4,7 @@ import { TESTIMONIAL } from '../config.js';
 import type { UpcomingRow, UserRow } from '../lib/db.js';
 import type { CalendarMode } from '../lib/events.js';
 import { GoogleMark, Icon } from './icons.js';
-import { CSS, SCRIPT } from './styles.js';
+import { CSS, SCRIPT, THEME_INIT } from './styles.js';
 import { CORE, RADIUS, SPACING, SYSTEM, SYSTEM_SPEC, TEXT_STYLES } from './tokens.js';
 
 const FAVICON =
@@ -14,21 +14,25 @@ const FONTS = 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&f
 
 type LayoutProps = PropsWithChildren<{
   title: string; description?: string; current?: string; signedIn?: boolean; noindex?: boolean; origin?: string;
+  /** The longer title for link previews and search results, when the browser tab shows a short one. */
+  socialTitle?: string;
   /** Hide the nav's "Sign in" where the page's own call to action does the same thing (one action above the fold). */
   navCta?: boolean;
   head?: Child;
 }>;
 
-export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn, noindex, origin, navCta = true, head, children }) => {
+export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn, noindex, origin, socialTitle, navCta = true, head, children }) => {
   const desc = description ?? 'Canvas deadlines, NUSMods classes and exams in your Google Calendar, kept up to date.';
+  const section = (id: string) => (current === 'landing' ? `#${id}` : `/#${id}`);
   return (
     <html lang="en">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script>{raw(THEME_INIT)}</script>
         <title>{title}</title>
         <meta name="description" content={desc} />
-        <meta property="og:title" content={title} />
+        <meta property="og:title" content={socialTitle ?? title} />
         <meta property="og:description" content={desc} />
         <meta property="og:type" content="website" />
         {origin && <meta property="og:url" content={origin} />}
@@ -47,22 +51,24 @@ export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn,
       <body>
         <a class="skip body-5" href="#main">Skip to content</a>
         <nav class="nav" aria-label="Main">
-          <div class={`nav-bar${!signedIn && !navCta && current !== 'landing' ? ' solo' : ''}`}>
+          <div class="nav-bar">
             <a class="brand title-3" href="/" aria-current={current === 'landing' ? 'page' : undefined}>
               <span class="brand-mark"><Icon name="calendar" size={16} /></span>Semsync
             </a>
             <div class="nav-links">
-              {current === 'landing' && (
-                <>
-                  <a class="nav-link section-link title-4" href="#how">How it works</a>
-                  <a class="nav-link section-link title-4" href="#faq">Questions</a>
-                </>
-              )}
               {signedIn ? (
                 <a class="nav-link title-4" href="/home" aria-current={current === 'home' ? 'page' : undefined}>Your calendar</a>
               ) : (
-                navCta && <a class="btn btn-secondary button-sm" href="/auth/google">Sign in</a>
+                <>
+                  <a class="nav-link section-link title-4" href={section('how')}>How it works</a>
+                  <a class="nav-link section-link title-4" href={section('faq')}>Questions</a>
+                </>
               )}
+              <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch between light and dark mode">
+                <Icon name="moon" cls="icon-moon" />
+                <Icon name="sun" cls="icon-sun" />
+              </button>
+              {!signedIn && navCta && <a class="btn btn-secondary button-sm" href="/auth/google">Sign in</a>}
             </div>
           </div>
         </nav>
@@ -72,6 +78,7 @@ export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn,
           <div class="footer-row caption-2">
             <span>Made by an NUS student. Not affiliated with NUS or Instructure.</span>
             <span class="footer-links">
+              <a href="/" aria-current={current === 'landing' ? 'page' : undefined}>Home</a>
               <a href="/privacy" aria-current={current === 'privacy' ? 'page' : undefined}>Privacy</a>
               <a href="/terms" aria-current={current === 'terms' ? 'page' : undefined}>Terms</a>
             </span>
@@ -82,6 +89,13 @@ export const Layout: FC<LayoutProps> = ({ title, description, current, signedIn,
     </html>
   );
 };
+
+/** The way back from a plain page: to your Semsync page if you're signed in, otherwise home. */
+const BackLink: FC<{ signedIn?: boolean }> = ({ signedIn }) => (
+  <a class="back title-4" href={signedIn ? '/home' : '/'}>
+    <Icon name="arrowLeft" size={16} />{signedIn ? 'Back to your calendar' : 'Back to Semsync'}
+  </a>
+);
 
 const SignInButton: FC = () => (
   <a class="btn btn-primary btn-lg btn-signin button-lg" href="/auth/google">
@@ -213,7 +227,8 @@ const FAQ: [string, string][] = [
 ];
 
 export const Landing: FC<{ origin?: string }> = ({ origin }) => (
-  <Layout title="Semsync: your NUS semester in Google Calendar" origin={origin} current="landing" navCta={false} head={faqSchema(FAQ)}>
+  <Layout title="Semsync" socialTitle="Semsync: your NUS semester in Google Calendar" origin={origin} current="landing" navCta={false}
+    head={faqSchema(FAQ)}>
     <div class="wrap">
       <header class="hero">
         <h1 class="heading-1 hero-title">
@@ -631,6 +646,7 @@ export const NotFound: FC<{ signedIn?: boolean }> = ({ signedIn }) => (
 export const Privacy: FC<{ signedIn?: boolean; origin?: string }> = ({ signedIn, origin }) => (
   <Layout title="Privacy · Semsync" current="privacy" signedIn={signedIn} origin={origin}>
     <div class="wrap narrow page prose">
+      <BackLink signedIn={signedIn} />
       <h1 class="heading-4">Privacy</h1>
       <p class="lead body-3">Semsync is a student project. This page explains, in plain words, what it stores and why.</p>
       <h2 class="heading-6">What Semsync stores</h2>
@@ -672,6 +688,7 @@ export const Privacy: FC<{ signedIn?: boolean; origin?: string }> = ({ signedIn,
 export const Terms: FC<{ signedIn?: boolean; origin?: string }> = ({ signedIn, origin }) => (
   <Layout title="Terms · Semsync" current="terms" signedIn={signedIn} origin={origin}>
     <div class="wrap narrow page prose">
+      <BackLink signedIn={signedIn} />
       <h1 class="heading-4">Terms</h1>
       <p class="lead body-3">The short version: Semsync is a free student project that helps, but Canvas is still the final word.</p>
       <h2 class="heading-6">Always check Canvas</h2>

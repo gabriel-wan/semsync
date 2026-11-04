@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Foundations, Landing, OgCard } from '../src/views/pages';
+import { Foundations, Landing, OgCard, Privacy, Terms } from '../src/views/pages';
 import { CSS } from '../src/views/styles';
 import { CORE, SYSTEM, SYSTEM_SPEC, contrast, mirror, resolve, saturation, type Mode } from '../src/views/tokens';
 
@@ -62,6 +62,7 @@ const PAIRS: [string, string, number][] = [
   ['icon-subtle', 'surface-primary-subtle', 3],
   ['text-hero-to', 'surface-primary', 3],
   ['text-on-accent', 'surface-accent', 4.5],
+  ['icon-secondary', 'surface-primary-subtle', 3],
   ['text-on-brand', 'surface-brand', 3],
   ['text-accent', 'surface-primary-subtle', 4.5],
 ];
@@ -154,5 +155,39 @@ describe('Color System follows the figma-designer skill', () => {
   it('uses only the allowed dark backgrounds for page and card surfaces', () => {
     const allowed = ['#000000', '#181818', '#1f1f1f', '#272727', '#313131', '#131209'];
     for (const t of ['surface-primary', 'surface-primary-subtle', 'surface-secondary']) expect(allowed).toContain(resolve(t, 'dark'));
+  });
+});
+
+describe('light and dark toggle', () => {
+  const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
+
+  it('lets a saved choice override the system setting in both directions', () => {
+    for (const mode of ['light', 'dark']) expect(CSS).toContain(`:root[data-theme="${mode}"] {`);
+  });
+
+  it('applies the saved choice in <head>, before the styles draw anything', async () => {
+    const html = await page(Landing({}));
+    const head = /<head>([\s\S]*?)<\/head>/.exec(html)![1];
+    expect(head.indexOf('semsync-theme')).toBeGreaterThan(-1);
+    expect(head.indexOf('semsync-theme')).toBeLessThan(head.indexOf('<style>'));
+  });
+
+  it('puts the toggle in the nav on every page', async () => {
+    for (const node of [Landing({}), Privacy({}), Terms({})]) expect(await page(node)).toMatch(/<nav[\s\S]*data-theme-toggle[\s\S]*<\/nav>/);
+  });
+});
+
+describe('navigation', () => {
+  const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
+
+  it('gives Privacy and Terms a visible way back', async () => {
+    for (const node of [Privacy({}), Terms({})]) expect(await page(node)).toContain('Back to Semsync');
+    expect(await page(Privacy({ signedIn: true }))).toContain('Back to your calendar');
+  });
+
+  it('shows just the name in the browser tab, and the full line in link previews', async () => {
+    const html = await page(Landing({}));
+    expect(/<title>([^<]*)<\/title>/.exec(html)![1]).toBe('Semsync');
+    expect(html).toContain('<meta property="og:title" content="Semsync: your NUS semester in Google Calendar"/>');
   });
 });

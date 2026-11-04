@@ -64,7 +64,7 @@ How quickly changes show up · Reminders · How to stop. Answers live in `src/vi
 ## 7. SEO and answer engines
 
 - **Index:** the landing page, Privacy and Terms. Everything behind sign in is `noindex`.
-- **Title:** "Semsync: your NUS semester in Google Calendar". **Description:** "Canvas deadlines, NUSMods classes and exams in your Google Calendar, kept up to date."
+- **Title:** the browser tab shows just "Semsync"; link previews and search results get "Semsync: your NUS semester in Google Calendar" (og:title). **Description:** "Canvas deadlines, NUSMods classes and exams in your Google Calendar, kept up to date."
 - **Search intent to match:** "Canvas to Google Calendar", "NUS Canvas calendar sync", "NUSMods Google Calendar", "Canvas deadlines reminders". The FAQ answers these in plain language.
 - **Answer engines:** `FAQPage` JSON-LD on the landing page so assistants can quote the answers directly.
 - **Sharing:** Open Graph title, description and a 1200 × 630 image (`public/og.png`), since most traffic arrives as shared links.
