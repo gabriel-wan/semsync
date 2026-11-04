@@ -529,7 +529,8 @@ footer { margin-top: var(--space-600); }
    to the agenda's, with its button pinned to the bottom. */
 .dash { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-200); margin-top: var(--space-400); align-items: stretch; }
 .dash-side { display: flex; flex-direction: column; gap: var(--space-200); min-width: 0; }
-.dash-sources { flex: 1; display: flex; flex-direction: column; }
+.dash-sources, .dash-courses { display: flex; flex-direction: column; }
+.dash-side > :last-child { flex: 1; }
 .sources-actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: var(--space-75); }
 @media (max-width: 880px) {
   .dash { grid-template-columns: minmax(0, 1fr); }
@@ -576,6 +577,23 @@ footer { margin-top: var(--space-600); }
 .mods { display: flex; flex-wrap: wrap; gap: var(--space-50); margin-top: var(--space-50); }
 .mod { padding: var(--space-25) var(--space-75); border-radius: var(--radius-full); background: var(--surface-secondary); color: var(--text-primary); }
 .danger-link { color: var(--text-error); }
+
+/* What goes in: a row per course, with a switch. The whole row is the tap target. */
+.courses-form { display: flex; flex-direction: column; flex: 1; margin: var(--space-100) 0 0; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-200); min-height: 52px;
+  padding: var(--space-75) 0; cursor: pointer; }
+.switch-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.switch-text .title-4 { display: inline-flex; align-items: center; gap: var(--space-75); }
+.course-dot { flex: none; width: 10px; height: 10px; border-radius: var(--radius-full); }
+.switch { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0;
+  border-radius: var(--radius-full); background: var(--border-action-secondary); cursor: pointer; transition: background-color 300ms var(--ease); }
+.switch::before { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: var(--radius-full);
+  background: var(--surface-white); box-shadow: 0 1px 3px var(--overlay-md); transition: transform 300ms var(--ease); }
+.switch:checked { background: var(--surface-brand); }
+.switch:checked::before { transform: translateX(18px); }
+.switch:focus-visible { outline: 2px solid var(--border-action-primary); outline-offset: 2px; }
+.courses-actions { margin-top: auto; padding-top: var(--space-200); }
+@media (prefers-reduced-motion: reduce) { .switch, .switch::before { transition: none; } }
 
 /* Account menu: your initial in the nav opens it. */
 .avatar { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-full);

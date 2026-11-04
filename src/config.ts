@@ -43,6 +43,22 @@ export function findTerm(semester: number, now = new Date()): Term | undefined {
 }
 
 /** Date (YYYY-MM-DD) of a weekday in a teaching week. Recess week sits between Weeks 6 and 7. */
+/** The name of the week that starts `i` weeks after Week 1's Monday: Weeks 1 to 6, recess, 7 to 13, reading, exams. */
+export function weekName(i: number): string {
+  return i < 6 ? `Week ${i + 1}` : i === 6 ? 'Recess week' : i < 14 ? `Week ${i}` : i === 14 ? 'Reading week' : 'Exams';
+}
+
+/** Every Monday of every term, with its week's name: for the week labels in the calendar. */
+export function termWeeks(): { term: Term; index: number; monday: string; name: string }[] {
+  return TERMS.flatMap((term) => {
+    const weeks = [];
+    for (let i = 0; addDays(term.week1, i * 7) <= term.end; i++) {
+      weeks.push({ term, index: i, monday: addDays(term.week1, i * 7), name: weekName(i) });
+    }
+    return weeks;
+  });
+}
+
 /**
  * Where a day falls in the NUS calendar, for the top of the Semsync page: "Week 12", "Recess week", "Reading week",
  * "Exams", or between semesters, when the next one starts.
@@ -52,8 +68,7 @@ export function semesterWeek(now = new Date()): { label: string; detail: string 
   for (const term of TERMS) {
     if (today < term.week1 || today > term.end) continue;
     const i = Math.floor((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${term.week1}T00:00:00Z`)) / (7 * 86_400_000));
-    const label = i < 6 ? `Week ${i + 1}` : i === 6 ? 'Recess week' : i < 14 ? `Week ${i}` : i === 14 ? 'Reading week' : 'Exams';
-    return { label, detail: term.label };
+    return { label: weekName(i), detail: term.label };
   }
   const next = TERMS.find((t) => t.week1 > today);
   const starts = next && new Date(`${next.week1}T00:00:00Z`).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', timeZone: 'UTC' });

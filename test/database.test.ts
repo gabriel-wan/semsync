@@ -70,7 +70,7 @@ describe('Postgres database adapter', () => {
 
   it('applies each migration once and turns on row-level security for every table', async () => {
     const db = await freshDb();
-    expect(await migrate(db)).toEqual(['0001_init.sql']);
+    expect(await migrate(db)).toEqual(['0001_init.sql', '0002_course_settings.sql']);
     expect(await migrate(db)).toEqual([]);
     const { results } = await db
       .prepare("SELECT relname, relrowsecurity FROM pg_class WHERE relkind = 'r' AND relnamespace = 'public'::regnamespace ORDER BY relname")

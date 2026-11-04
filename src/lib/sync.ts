@@ -1,4 +1,4 @@
-import { findTerm } from '../config.js';
+import { findTerm, termWeeks } from '../config.js';
 import { isDev, type Env } from '../env.js';
 import { SAMPLE_CANVAS_FEED } from '../fixtures/sampleCanvas.js';
 import { FakeCalendar } from './calendar/fake.js';
@@ -10,6 +10,9 @@ import { decrypt } from './crypto.js';
 import {
   cachedModuleFetcher,
   clearCalendar,
+  jsonList,
+  setCourses,
+  type Course,
   dueUsers,
   recordSync,
   setCalendarId,
@@ -23,7 +26,7 @@ import {
 import type { Db } from './database.js';
 import { UserError } from './errors.js';
 import {
-  eventId, hashBody, startMs, toGoogleEvent, type CalEvent, type CalendarMode, type EventKind, type GoogleEventBody,
+  eventId, hashBody, moduleColors, startMs, toGoogleEvent, type CalEvent, type CalendarMode, type EventKind, type GoogleEventBody,
 } from './events.js';
 import { fetchModuleFromApi, nusmodsEvents, parseNusmodsLink } from './nusmods.js';
 
@@ -137,7 +140,43 @@ async function storeApplied(db: Db, userId: string, applied: { upserts: PlannedU
 }
 
 /** Everything that should be in a user's calendar right now. Throws if any source fails, so nothing gets deleted by mistake. */
-export async function desiredEvents(env: Env, user: UserRow): Promise<{ events: CalEvent[]; warnings: string[] }> {
+/**
+ * Applies the user's course switches and gives each module its colour (exams stay red). Also lists every course found,
+ * switched off or not, for the switches on the Semsync page: modules by code first, then Canvas courses without one.
+ */
+export function applyCourses(
+  events: CalEvent[], hidden: Set<string>, colorize = true,
+): { events: CalEvent[]; courses: Course[] } {
+  const found = new Map<string, string>();
+  for (const e of events) if (e.course && !found.has(e.course)) found.set(e.course, e.courseLabel ?? e.course);
+  const courses = [...found]
+    .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => Number(a.key.startsWith('canvas:')) - Number(b.key.startsWith('canvas:')) || a.key.localeCompare(b.key));
+  // Google only shows event colours to the calendar's owner, so colouring a shared calendar's events would just be writes.
+  const colors = colorize ? moduleColors(courses.map((c) => c.key)) : new Map<string, string>();
+  const kept = events
+    .filter((e) => !e.course || !hidden.has(e.course))
+    .map((e) => (e.kind !== 'exam' && e.course && colors.has(e.course) ? { ...e, color: colors.get(e.course) } : e));
+  return { events: kept, courses };
+}
+
+/** An all day "Week 7", "Recess week" and so on, on the Monday of every week of every term. */
+export function weekLabelEvents(): CalEvent[] {
+  return termWeeks().map(({ term, index, monday, name }) => ({
+    key: `week:${term.acadYear}:${term.semester}:${index}`,
+    kind: 'week',
+    title: name,
+    start: { date: monday },
+    end: { date: addDaysIso(monday, 1) },
+    description: term.label,
+  }));
+}
+
+const addDaysIso = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+export async function desiredEvents(
+  env: Env, user: UserRow,
+): Promise<{ events: CalEvent[]; warnings: string[]; courses: Course[] }> {
   const events: CalEvent[] = [];
   const warnings: string[] = [];
 
@@ -156,7 +195,9 @@ export async function desiredEvents(env: Env, user: UserRow): Promise<{ events: 
       warnings.push(...result.warnings);
     }
   }
-  return { events, warnings };
+  const { events: kept, courses } = applyCourses(events, new Set(jsonList<string>(user.hidden_courses)), user.mode === 'main');
+  if (user.week_labels !== 0) kept.push(...weekLabelEvents());
+  return { events: kept, warnings, courses };
 }
 
 /** The calendar to write to: the user's primary calendar, or (shared mode) one created and shared the first time. */
@@ -191,7 +232,8 @@ export async function syncUser(env: Env, user: UserRow, backend = calendarFor(en
   };
   try {
     const calendarId = await timed('calendar', () => ensureCalendar(env, backend, user));
-    const { events, warnings } = await timed('canvas and nusmods', () => desiredEvents(env, user));
+    const { events, warnings, courses } = await timed('canvas and nusmods', () => desiredEvents(env, user));
+    if (JSON.stringify(courses) !== user.courses) await setCourses(env.DB, user.id, courses);
     const plan = await timed('plan', async () => planSync(events, await trackedEvents(env.DB, user.id), Date.now(), user.mode));
     const applied = await timed('google calendar', () => applyPlan(backend, calendarId, plan));
     await timed('save', () => storeApplied(env.DB, user.id, applied));

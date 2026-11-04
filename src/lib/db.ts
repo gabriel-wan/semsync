@@ -16,7 +16,36 @@ export type UserRow = {
   last_sync_at: number | null;
   last_sync_ok: number | null;
   last_sync_message: string | null;
+  /** 1 to add "Week 7" style labels on each Monday, 0 not to. */
+  week_labels: number;
+  /** JSON: every course the last sync found, as { key, label }. */
+  courses: string;
+  /** JSON: the course keys the user switched off. */
+  hidden_courses: string;
 };
+
+export type Course = { key: string; label: string };
+
+/** Reads one of the JSON list columns, treating anything unreadable as empty. */
+export function jsonList<T>(text: string | null | undefined): T[] {
+  try {
+    const value = JSON.parse(text ?? '[]');
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function setCourses(db: Db, id: string, courses: Course[]) {
+  await db.prepare('UPDATE users SET courses = ? WHERE id = ?').bind(JSON.stringify(courses), id).run();
+}
+
+export async function saveCourseSettings(db: Db, id: string, hidden: string[], weekLabels: boolean) {
+  await db
+    .prepare('UPDATE users SET hidden_courses = ?, week_labels = ? WHERE id = ?')
+    .bind(JSON.stringify(hidden), weekLabels ? 1 : 0, id)
+    .run();
+}
 
 export type TrackedRow = { event_id: string; hash: string; start_ms: number };
 export type UpcomingRow = { title: string; kind: EventKind; start_ms: number; all_day: number };

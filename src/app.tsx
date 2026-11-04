@@ -4,7 +4,8 @@ import { allowedCanvasHosts, getEnv, isDev, type Env } from './env.js';
 import { validateCanvasFeedUrl } from './lib/canvas.js';
 import { encrypt, safeEqual } from './lib/crypto.js';
 import {
-  deleteUserData, eventCounts, getUser, saveSources, setMode, setRefreshToken, upcomingEvents, upsertUserOnLogin, type UserRow,
+  deleteUserData, eventCounts, getUser, jsonList, saveCourseSettings, saveSources, setMode, setRefreshToken, upcomingEvents, upsertUserOnLogin,
+  type Course, type UserRow,
 } from './lib/db.js';
 import { UserError } from './lib/errors.js';
 import type { CalendarMode } from './lib/events.js';
@@ -273,6 +274,19 @@ app.post('/sync', async (c) => {
   if (user.last_sync_at && Date.now() - user.last_sync_at < 60_000) return c.redirect('/home?done=recent');
   await syncUser(c.env, user);
   return c.redirect('/home?done=synced');
+});
+
+// The course switches on the Semsync page: save them, then sync so switched off courses leave the calendar now.
+app.post('/courses', async (c) => {
+  const user = c.get('user');
+  if (!user) return c.redirect('/');
+  const form = await c.req.parseBody({ all: true });
+  if (!(await validCsrf(c, user, form))) return c.redirect('/home');
+  const shown = new Set([form.show ?? []].flat().map(String));
+  const hidden = jsonList<Course>(user.courses).map((k) => k.key).filter((k) => !shown.has(k));
+  await saveCourseSettings(c.env.DB, user.id, hidden, form.weeks === '1');
+  await syncUser(c.env, (await getUser(c.env.DB, user.id))!);
+  return c.redirect('/home?done=updated');
 });
 
 // The confirmation as a page, for when JavaScript is off and the confirmation dialog can't open.

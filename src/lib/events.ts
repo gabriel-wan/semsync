@@ -2,7 +2,7 @@ import { TIME_ZONE, TZ_OFFSET } from '../config.js';
 
 export type CalTime = { date: string } | { dateTime: string };
 
-export type EventKind = 'deadline' | 'event' | 'class' | 'exam';
+export type EventKind = 'deadline' | 'event' | 'class' | 'exam' | 'week';
 
 /** 'main': the user's own calendar. 'shared': a calendar in the app's account, shared read-only. */
 export type CalendarMode = 'main' | 'shared';
@@ -18,13 +18,36 @@ export type CalEvent = {
   location?: string;
   description?: string;
   url?: string;
+  /** Which course it belongs to: the module code, or "canvas:<course name>" for courses without one. */
+  course?: string;
+  /** The course's name, for the course switches on the Semsync page. */
+  courseLabel?: string;
+  /** A Google Calendar colour id, overriding the colour for its kind. */
+  color?: string;
 };
 
 // Google Calendar event colour ids.
 const COLORS: Partial<Record<EventKind, string>> = {
   deadline: '6', // Tangerine
   exam: '11', // Tomato
+  week: '8', // Graphite
 };
+
+// Colours for modules, in the order they're handed out: every Google event colour except Tomato (exams) and Graphite
+// (week labels). Nine, which covers a normal semester without repeats.
+const MODULE_PALETTE = ['9', '2', '3', '5', '7', '4', '10', '1', '6'];
+
+/** Google's hex value for each event colour id, to show the same colour on the Semsync page. */
+export const GOOGLE_EVENT_COLORS: Record<string, string> = {
+  '1': '#7986cb', '2': '#33b679', '3': '#8e24aa', '4': '#e67c73', '5': '#f6bf26', '6': '#f4511e', '7': '#039be5',
+  '8': '#616161', '9': '#3f51b5', '10': '#0b8043', '11': '#d50000',
+};
+
+/** A colour per module code, handed out in alphabetical order, so each stays put while the course list does. */
+export function moduleColors(courseKeys: string[]): Map<string, string> {
+  const codes = [...new Set(courseKeys.filter((k) => !k.startsWith('canvas:')))].sort();
+  return new Map(codes.map((code, i) => [code, MODULE_PALETTE[i % MODULE_PALETTE.length]]));
+}
 
 // Minutes before. Only possible in the user's own calendar: on a shared calendar, reminders are the reader's choice.
 const REMINDERS: Partial<Record<EventKind, number[]>> = {
@@ -35,7 +58,8 @@ const REMINDERS: Partial<Record<EventKind, number[]>> = {
 export type GoogleEventBody = Record<string, unknown>;
 
 export function toGoogleEvent(ev: CalEvent, mode: CalendarMode = 'shared'): GoogleEventBody {
-  const reminders = mode === 'main' ? REMINDERS[ev.kind] : undefined;
+  // Week labels never remind anyone of anything.
+  const reminders = ev.kind === 'week' ? [] : mode === 'main' ? REMINDERS[ev.kind] : undefined;
   // The footer lets people find (and if needed, delete) everything Semsync added by searching "Semsync".
   const description = [ev.description, ev.url, 'Added by Semsync.'].filter(Boolean).join('\n\n');
   const body: GoogleEventBody = {
@@ -43,8 +67,8 @@ export function toGoogleEvent(ev: CalEvent, mode: CalendarMode = 'shared'): Goog
     start: withTimeZone(ev.start),
     end: withTimeZone(ev.end),
     status: 'confirmed',
-    // Deadlines shouldn't make you look busy.
-    transparency: ev.kind === 'deadline' ? 'transparent' : 'opaque',
+    // Deadlines and week labels shouldn't make you look busy.
+    transparency: ev.kind === 'deadline' || ev.kind === 'week' ? 'transparent' : 'opaque',
     // Tags every event as ours, so Semsync never touches anything else in the calendar.
     extendedProperties: { private: { semsync: '1', key: ev.key } },
     reminders: reminders
@@ -53,7 +77,8 @@ export function toGoogleEvent(ev: CalEvent, mode: CalendarMode = 'shared'): Goog
   };
   if (description) body.description = description;
   if (ev.location) body.location = ev.location;
-  if (COLORS[ev.kind]) body.colorId = COLORS[ev.kind];
+  const colorId = ev.color ?? COLORS[ev.kind];
+  if (colorId) body.colorId = colorId;
   return body;
 }
 

@@ -13,6 +13,10 @@ Sign in with Google, paste your Canvas calendar feed and, if you like, your NUSM
   before exams. Calendar access (`calendar.events.owned`) is asked for separately; sign-in only asks for your name and email.
 - **A separate "NUS semester" calendar** that Semsync shares with you. It needs no calendar permission.
 
+On your Semsync page you can switch off any course, and turn off the "Week 7" labels Semsync puts on each Monday. With
+your own calendar, each module gets its own colour (exams stay red); a shared calendar shows in the one colour you pick
+for it, because Google doesn't show event colours to people a calendar is shared with.
+
 Every event Semsync adds is tagged, and it only ever changes or removes its own. Deleting your data removes all of them
 and revokes its access.
 

@@ -190,7 +190,7 @@ describe('navigation', () => {
   const newUser: UserRow = {
     id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: null, nusmods_link: null, mode: 'main',
     calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null,
-    last_sync_message: null,
+    last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]',
   };
   const setup = (user: UserRow) => Setup({ user, csrf: 't', values: { canvas: '', nusmods: '', mode: 'main' }, errors: {}, editing: false, dev: false });
 
@@ -239,7 +239,7 @@ describe('link guides', () => {
 
   it('puts the matching guide under each "Where do I find this?" on setup', async () => {
     const html = await page(Setup({ user: { id: 'x', email: 'a@example.com', name: null, canvas_feed_enc: null, nusmods_link: null, mode: 'main',
-      calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null, last_sync_message: null },
+      calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]' },
       csrf: 't', values: { canvas: '', nusmods: '', mode: 'main' }, errors: {}, editing: false, dev: false }));
     expect(html).toContain('canvas.nus.edu.sg/calendar');
     expect(html).toContain('nusmods.com/timetable/sem-1');
@@ -262,7 +262,7 @@ describe('your Semsync page', () => {
   const user: UserRow = {
     id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', mode: 'shared', calendar_id: 'c',
     nusmods_link: 'https://nusmods.com/timetable/sem-1/share?CS2103T=LEC:G26&ST2334=LEC:1', google_refresh_enc: null,
-    needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null,
+    needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]',
   };
   const props = { user, csrf: 't', addUrl: 'https://calendar.google.com/x', needsConnect: false, counts: { deadline: 2, class: 5, exam: 1 }, dev: false,
     upcoming: [{ title: '[CS2103T] Quiz', kind: 'deadline' as const, start_ms: Date.now() + 3600_000, all_day: 0 }] };
@@ -272,7 +272,8 @@ describe('your Semsync page', () => {
     expect(html).toMatch(/<dialog[^>]*id="delete-dialog"[\s\S]*action="\/account\/delete"[\s\S]*Delete everything[\s\S]*<\/dialog>/);
     expect(html).toContain('data-confirm="delete-dialog"');
     expect(html).toContain('its 8 events');
-    expect(html).not.toContain('type="checkbox"');
+    const dialog = /<dialog[\s\S]*?<\/dialog>/.exec(html)![0];
+    expect(dialog).not.toContain('type="checkbox"'); // the dialog is the confirmation, not a tick box
   });
 
   it('has the same confirmation as a page for when JavaScript is off', async () => {
@@ -304,7 +305,7 @@ describe('account menu', () => {
   it('puts sign out and delete in a menu in the nav, not on the page', async () => {
     const user: UserRow = {
       id: 'dev:a@example.com', email: 'a@example.com', name: 'Ann', canvas_feed_enc: 'x', mode: 'main', calendar_id: 'primary',
-      nusmods_link: null, google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null,
+      nusmods_link: null, google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]',
     };
     const html = await page(Home({ user, csrf: 't', addUrl: null, needsConnect: false, counts: {}, upcoming: [], dev: false }));
     const nav = /<nav[\s\S]*?<\/nav>/.exec(html)![0];

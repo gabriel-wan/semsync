@@ -202,9 +202,9 @@ export async function nusmodsEvents(
       warnings.push(`${choice.code} isn't offered in ${term.label}, so it was skipped.`);
       return;
     }
-    events.push(...lessonEvents(choice.code, chosenLessons(choice, sem.timetable ?? []), term));
     const exam = examEvent(module, sem, term);
-    if (exam) events.push(exam);
+    const own = [...lessonEvents(choice.code, chosenLessons(choice, sem.timetable ?? []), term), ...(exam ? [exam] : [])];
+    events.push(...own.map((e) => ({ ...e, course: choice.code, courseLabel: `${choice.code} ${module.title}` })));
   });
   return { events, warnings };
 }

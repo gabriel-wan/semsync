@@ -56,10 +56,13 @@ export function canvasEvents(icsText: string): CalEvent[] {
     const description = isDeadline ? 'Due on Canvas.' : undefined;
     const location = ve.LOCATION ? unescapeText(ve.LOCATION.value) : undefined;
 
+    const course = courseOf(summary);
     byKey.set(uid, {
       key: `canvas:${uid}`,
       kind: isDeadline ? 'deadline' : 'event',
       title: formatTitle(summary),
+      course: course.key,
+      courseLabel: course.label,
       start,
       // A deadline is a moment, so it starts and ends at the due time.
       end: isDeadline ? start : end,
@@ -79,22 +82,40 @@ const MODULE_CODE = /\b([A-Z]{2,4}\d{4}[A-Z]{0,3})\b/;
  * becomes "[ST2334] Probability", without the code twice or the section number.
  */
 export function formatTitle(summary: string): string {
+  const parts = splitCourse(summary);
+  if (!parts) return summary;
+  const { name, course } = parts;
+  const code = MODULE_CODE.exec(course)?.[1];
+  if (!code) return `[${course}] ${name}`;
+  // Drop a leading copy of the code and Canvas's trailing section number, like "[2610]".
+  const tidy = name.replace(new RegExp(`^${code}\\b[\\s:-]*`), '').replace(/\s*\[\d{4}\]$/, '').trim();
+  return `[${code}] ${tidy || name}`;
+}
+
+/** Splits "Problem Set 5 [CS2040 Data Structures [2610]]" into the item's name and the trailing course name. */
+function splitCourse(summary: string): { name: string; course: string } | null {
   const s = summary.trimEnd();
-  if (!s.endsWith(']')) return summary;
+  if (!s.endsWith(']')) return null;
   // Walk back to the "[" that opens the trailing course name; course names can contain brackets too.
   let depth = 0;
   for (let i = s.length - 1; i >= 0; i--) {
     if (s[i] === ']') depth++;
     else if (s[i] === '[' && --depth === 0) {
       const name = s.slice(0, i).trim();
-      if (!name) return summary;
-      const course = s.slice(i + 1, -1);
-      const code = MODULE_CODE.exec(course)?.[1];
-      if (!code) return `[${course}] ${name}`;
-      // Drop a leading copy of the code and Canvas's trailing section number, like "[2610]".
-      const tidy = name.replace(new RegExp(`^${code}\\b[\\s:-]*`), '').replace(/\s*\[\d{4}\]$/, '').trim();
-      return `[${code}] ${tidy || name}`;
+      return name ? { name, course: s.slice(i + 1, -1) } : null;
     }
   }
-  return summary;
+  return null;
+}
+
+/**
+ * The course a Canvas item belongs to, for the course switches: keyed by module code when the course name has one,
+ * so it matches the same module from NUSMods. Items with no course (holidays, your own Canvas events) share one key.
+ */
+export function courseOf(summary: string): { key: string; label: string } {
+  const parts = splitCourse(summary);
+  if (!parts) return { key: 'canvas:other', label: 'Other Canvas events' };
+  const label = parts.course.replace(/\s*\[\d{4}\]$/, '').trim();
+  const code = MODULE_CODE.exec(parts.course)?.[1];
+  return { key: code ?? `canvas:${label}`, label };
 }

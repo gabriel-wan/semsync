@@ -1,8 +1,8 @@
 import type { Child, FC, PropsWithChildren } from 'hono/jsx';
 import { raw } from 'hono/html';
 import { TESTIMONIAL, semesterWeek } from '../config.js';
-import type { UpcomingRow, UserRow } from '../lib/db.js';
-import type { CalendarMode } from '../lib/events.js';
+import { jsonList, type Course, type UpcomingRow, type UserRow } from '../lib/db.js';
+import { GOOGLE_EVENT_COLORS, moduleColors, type CalendarMode } from '../lib/events.js';
 import { parseNusmodsLink } from '../lib/nusmods.js';
 import { CanvasMark, GoogleMark, Icon, NusmodsMark } from './icons.js';
 import { CSS, SCRIPT, THEME_INIT } from './styles.js';
@@ -420,6 +420,7 @@ const FAQ: [string, string][] = [
   ['What does it do in my calendar?', 'It adds your deadlines, classes and exams, and keeps them up to date. Every event it adds is tagged, and it only ever changes or removes those. It never reads or edits your other events.'],
   ['Do I have to give calendar access?', 'No. During setup you can pick a separate shared calendar instead. It shows up as "NUS semester" next to your own calendars, and needs no calendar permission at all.'],
   ["Why does Google say the app isn't verified?", "Google reviews apps that ask for calendar access, and Semsync is still waiting for that review. Until then Google shows a warning: choose Advanced, then Go to Semsync. The separate shared calendar option doesn't show it."],
+  ['Can I leave a course out?', 'Yes. On your Semsync page, switch off any course under "What goes in" and its upcoming events come out. You can turn off the "Week 7" labels there too.'],
   ['How quickly do changes show up?', 'Semsync checks Canvas about once an hour. If a deadline moves, your calendar follows within the hour.'],
   ['Do I get reminders?', 'Yes: 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam. With the shared calendar, you set reminders yourself in Google Calendar settings.'],
   ['How do I stop using it?', 'Delete your data from your Semsync page. That removes every event Semsync added, revokes its calendar access and deletes everything it stored about you.'],
@@ -693,8 +694,8 @@ const ListSkeleton: FC = () => (
   </div>
 );
 
-const KIND_LABEL = { deadline: 'Due', exam: 'Exam', event: 'Event', class: 'Class' } as const;
-const KIND_CLASS = { deadline: 'chip-deadline', exam: 'chip-exam', event: 'chip-class', class: 'chip-class' } as const;
+const KIND_LABEL = { deadline: 'Due', exam: 'Exam', event: 'Event', class: 'Class', week: 'Week' } as const;
+const KIND_CLASS = { deadline: 'chip-deadline', exam: 'chip-exam', event: 'chip-class', class: 'chip-class', week: 'chip-class' } as const;
 
 const SGT = 'Asia/Singapore';
 const dayKey = (ms: number) => new Date(ms + 8 * 3600_000).toISOString().slice(0, 10);
@@ -845,6 +846,52 @@ const Sources: FC<{ user: UserRow; dev?: boolean }> = ({ user, dev }) => {
   );
 };
 
+/**
+ * What goes in the calendar: week labels, and a switch for every course the last sync found. Switching one off and
+ * saving takes its upcoming events out. With your own calendar, each module shows the colour it has there.
+ */
+const CoursesPanel: FC<{ user: UserRow; csrf: string }> = ({ user, csrf }) => {
+  const courses = jsonList<Course>(user.courses);
+  const hidden = new Set(jsonList<string>(user.hidden_courses));
+  const colors = moduleColors(courses.map((c) => c.key));
+  return (
+    <section class="panel dash-courses" aria-labelledby="courses-title">
+      <h2 id="courses-title" class="title-2">What goes in</h2>
+      <p class="caption-2 text-secondary mt-50">Switch off anything you don't need. Its upcoming events come out when you save.</p>
+      <form class="courses-form" method="post" action="/courses" data-busy-label="Saving…">
+        <input type="hidden" name="csrf" value={csrf} />
+        <label class="switch-row">
+          <span class="switch-text">
+            <span class="title-4">Week labels</span>
+            <span class="caption-2 text-secondary">"Week 7" or "Recess week" on each Monday</span>
+          </span>
+          <input class="switch" type="checkbox" role="switch" name="weeks" value="1" checked={user.week_labels !== 0} />
+        </label>
+        {courses.length > 0 && <div class="divider" />}
+        {courses.map((c) => {
+          const code = c.key.startsWith('canvas:') ? null : c.key;
+          const name = code && c.label.startsWith(code) ? c.label.slice(code.length).trim() : c.label;
+          const color = user.mode === 'main' && colors.get(c.key);
+          return (
+            <label class="switch-row">
+              <span class="switch-text">
+                <span class="title-4">
+                  {color && <span class="course-dot" style={`background: ${GOOGLE_EVENT_COLORS[color]};`} aria-hidden="true" />}
+                  {code ?? name}
+                </span>
+                {code && name && <span class="caption-2 text-secondary">{name}</span>}
+              </span>
+              <input class="switch" type="checkbox" role="switch" name="show" value={c.key} checked={!hidden.has(c.key)} />
+            </label>
+          );
+        })}
+        {courses.length === 0 && <p class="caption-2 text-secondary mt-100">Your courses show up here after the next sync.</p>}
+        <div class="courses-actions"><button class="btn btn-secondary button-md" type="submit">Save</button></div>
+      </form>
+    </section>
+  );
+};
+
 /** What deleting does, in the confirmation dialog and on its fallback page for when JavaScript is off. */
 const DeleteConfirm: FC<{ user: UserRow; csrf: string; total: number; dialog?: boolean }> = ({ user, csrf, total, dialog }) => (
   <form method="post" action="/account/delete" data-busy-label="Deleting…">
@@ -932,6 +979,7 @@ export const Home: FC<{
           </section>
 
           <Sources user={user} dev={dev} />
+          <CoursesPanel user={user} csrf={csrf} />
           </div>
         </div>
 

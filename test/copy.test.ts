@@ -5,7 +5,7 @@ import { Home, Landing, Message, NotFound, Privacy, Setup, Terms } from '../src/
 const user: UserRow = {
   id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', nusmods_link: null, mode: 'main',
   calendar_id: 'primary', google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(),
-  last_sync_ok: 1, last_sync_message: null,
+  last_sync_ok: 1, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]',
 };
 const upcoming = [{ title: '[CS2040] Problem Set 5', kind: 'deadline' as const, start_ms: Date.now() + 86_400_000, all_day: 0 }];
 const home = { csrf: 't', addUrl: null, counts: { deadline: 3 }, upcoming, dev: false };
