@@ -59,7 +59,8 @@ export const Layout: FC<LayoutProps> = ({
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <script>{raw(THEME_INIT)}</script>
-        <title>{title}</title>
+        {/* The browser tab always just says Semsync; the page's own title goes to link previews. */}
+        <title>Semsync</title>
         <meta name="description" content={desc} />
         <meta property="og:title" content={socialTitle ?? title} />
         <meta property="og:description" content={desc} />

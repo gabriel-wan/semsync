@@ -250,6 +250,11 @@ describe('link guides', () => {
 describe('navigation, continued', () => {
   const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
 
+  it('says just Semsync in the browser tab on every page', async () => {
+    const pages = [Landing({}), Privacy({}), Terms({}), Privacy({ signedIn: true })];
+    for (const node of pages) expect(/<title>([^<]*)<\/title>/.exec(await page(node))![1]).toBe('Semsync');
+  });
+
   it('shows just the name in the browser tab, and the full line in link previews', async () => {
     const html = await page(Landing({}));
     expect(/<title>([^<]*)<\/title>/.exec(html)![1]).toBe('Semsync');
@@ -265,7 +270,7 @@ describe('your Semsync page', () => {
     needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]',
   };
   const props = { user, csrf: 't', addUrl: 'https://calendar.google.com/x', needsConnect: false, counts: { deadline: 2, class: 5, exam: 1 }, dev: false,
-    upcoming: [{ title: '[CS2103T] Quiz', kind: 'deadline' as const, start_ms: Date.now() + 3600_000, all_day: 0 }] };
+    upcoming: [{ title: '[CS2103T] Quiz', kind: 'deadline' as const, start_ms: Date.now(), all_day: 0 }] };
 
   it('asks before deleting, in a dialog, with the real numbers', async () => {
     const html = await page(Home(props));
