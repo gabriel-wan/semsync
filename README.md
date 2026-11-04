@@ -73,10 +73,16 @@ The UI follows the `landing-page-design` and `figma-designer` skills from
 
 - **Strategy first:** [`docs/landing-page-brief.md`](docs/landing-page-brief.md) has the skill's Part A: intake answers,
   outline, hero copy, benefits, FAQ, SEO and answer engine plan, and the layout type (A) with its rationale.
-- **Palette:** sky blue `#0593C6` is the brand (logo, the big flat panels, classes, links and focus rings), white
-  `#FCFFFF` the base, and hot pink `#D83995` the one accent: the main button, deadlines and exams. Hot pink is 67%
-  saturated, inside the skill's "one accent below 80%" rule. White labels on it are 4.3:1, so buttons use a darker
-  shade in light mode and a lighter one, with dark labels, in dark mode.
+- **Palette:** midnight black (`#000000`, the skill's darkest allowed background) with electric blue `#0297DE` as the
+  brand (logo, tagline band, classes, links, focus rings) and orange as the one accent (deadlines, exams, today, the
+  warm half of the glow). The chosen orange `#FC734D` is 97% saturated, so the site uses `#EB7352`, the same orange at
+  79%, inside the skill's "one accent below 80%" rule. Light mode follows the phone's setting.
+- **Buttons:** primary buttons are white on dark pages and near black on light ones, like Google's own sign in
+  buttons; an orange glow fades in on hover and focus. Labels on orange are near black (6.7:1); white on the electric
+  blue is 3.2:1, so only large text sits there.
+- **One deliberate break from the skills:** the soft glow behind the hero calendar, the tagline band and the closing
+  panel is a background gradient, which both skills forbid. It's there at the user's request, because flat colour panels
+  read as artificial. Text, buttons and cards stay flat, and no text sits on the glow itself.
 - **One source of truth:** `src/views/tokens.ts` holds the spacing and radius scales, the Core Colors palettes
   (Primary, Secondary, Accent, Grayscale, Red, Green, Yellow, Grayscale Alpha), the skill's full standard Color System
   (Border, Surface, Action, Text, Icon, Overlay) with Light and Dark modes, and the named text styles

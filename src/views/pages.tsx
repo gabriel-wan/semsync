@@ -8,7 +8,7 @@ import { CSS, SCRIPT } from './styles.js';
 import { CORE, RADIUS, SPACING, SYSTEM, SYSTEM_SPEC, TEXT_STYLES } from './tokens.js';
 
 const FAVICON =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230593c6'/%3E%3Cpath d='M9 12h14M9 17h9M9 22h6' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230297de'/%3E%3Cpath d='M9 12h14M9 17h9M9 22h6' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E";
 
 const FONTS = 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500&display=swap';
 
@@ -122,6 +122,11 @@ const CLASSES = [
 const DUE = [{ day: 1, title: '[UTC2402] Reflection 2' }, { day: 5, title: '[CS2040] Problem Set 5' }];
 const hourRow = (h: number) => 3 + h - FIRST_HOUR;
 const pad = (h: number) => `${String(h).padStart(2, '0')}:00`;
+// Every event in the order it drops in on load: day by day, top to bottom.
+const EVENTS = [
+  ...DUE.map((d) => ({ day: d.day, row: 2, span: 1, kind: 'deadline', title: d.title, time: '23:59' })),
+  ...CLASSES.map((c) => ({ day: c.day, row: hourRow(c.from), span: c.to - c.from, kind: 'class', title: c.title, time: pad(c.from) })),
+].sort((a, b) => a.day - b.day || a.row - b.row);
 
 const Showcase: FC = () => (
   <div class="showcase" role="img" aria-label="A week in Google Calendar with classes from NUSMods, Canvas deadlines, and a Semsync reminder">
@@ -154,21 +159,15 @@ const Showcase: FC = () => (
             {DAYS.map((_, i) => <div class={`cell c${i + 1}`} style={`grid-row: ${hourRow(h)};`} />)}
           </>
         ))}
-        {DUE.map((d) => (
-          <div class={`ev chip-deadline c${d.day}`} style="grid-row: 2;">
-            <span class="caption-3">{d.title}</span>
-            <span class="caption-5 mono">23:59</span>
-          </div>
-        ))}
-        {CLASSES.map((c) => (
-          <div class={`ev chip-class c${c.day}`} style={`grid-row: ${hourRow(c.from)} / span ${c.to - c.from};`}>
-            <span class="caption-3">{c.title}</span>
-            <span class="caption-5 mono">{pad(c.from)}</span>
+        {EVENTS.map((e, i) => (
+          <div class={`ev chip-${e.kind} c${e.day}`} style={`grid-row: ${e.row} / span ${e.span}; --i: ${i};`}>
+            <span class="caption-3">{e.title}</span>
+            <span class="caption-5 mono">{e.time}</span>
           </div>
         ))}
       </div>
     </div>
-    <div class="toast">
+    <div class="toast" style={`--i: ${EVENTS.length + 2};`}>
       <span class="toast-icon"><Icon name="bell" size={20} /></span>
       <div>
         <p class="title-4">[CS2040] Problem Set 5 is due tonight</p>
@@ -705,14 +704,14 @@ export const OgCard: FC = () => (
       <link href={FONTS} rel="stylesheet" />
       <style>{raw(`${CSS}\nhtml, body { width: 1200px; height: 630px; overflow: hidden; }`)}</style>
     </head>
-    <body class="mode-light" style="background: var(--surface-primary); color: var(--text-primary);">
+    <body class="mode-dark" style="background: var(--surface-primary); color: var(--text-primary);">
       <div style="padding: var(--space-800) var(--space-800) 0; display: flex; flex-direction: column; height: 630px;">
         <div class="brand title-1"><span class="brand-mark" style="width: 40px; height: 40px; border-radius: var(--radius-8);"><Icon name="calendar" size={24} /></span>Semsync</div>
         <h1 class="heading-2 hero-title" style="margin: var(--space-500) 0 0; max-width: 960px;">
           Every Canvas deadline in your calendar,<br /> without typing a thing
         </h1>
         <p class="body-7 text-secondary mt-300">Canvas deadlines, NUSMods classes and exams, kept up to date in Google Calendar.</p>
-        <div style="display: flex; gap: var(--space-200); margin-top: auto; padding: var(--space-400); border-radius: var(--radius-24) var(--radius-24) 0 0; background: var(--surface-brand);">
+        <div style="display: flex; gap: var(--space-200); margin-top: auto; padding: var(--space-400); background: radial-gradient(40% 120% at 80% 100%, color-mix(in srgb, var(--surface-glow-accent) 70%, transparent), transparent 70%), radial-gradient(55% 130% at 20% 100%, color-mix(in srgb, var(--surface-glow-brand) 85%, transparent), transparent 70%);">
           <Chip large kind="class" title="CS2040 Lecture" time="Thu 10:00" />
           <Chip large kind="deadline" title="[CS2040] Problem Set 5" time="Fri 23:59" />
           <Chip large kind="exam" title="MA1521 final exam" time="Sat 28 Nov 17:00" />

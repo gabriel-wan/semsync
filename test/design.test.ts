@@ -61,7 +61,7 @@ const PAIRS: [string, string, number][] = [
   ['icon-info', 'surface-info-subtle', 3],
   ['icon-subtle', 'surface-primary-subtle', 3],
   ['text-hero-to', 'surface-primary', 3],
-  ['text-inverted', 'surface-accent', 4.5],
+  ['text-on-accent', 'surface-accent', 4.5],
   ['text-on-brand', 'surface-brand', 3],
   ['text-accent', 'surface-primary-subtle', 4.5],
 ];
@@ -131,10 +131,16 @@ describe('Color System follows the figma-designer skill', () => {
     for (const [p, shades] of Object.entries(CORE)) if (p !== 'grayscale-alpha') expect(Object.keys(shades).length).toBeGreaterThanOrEqual(10);
   });
 
-  it('keeps accent colours below 80% saturation', () => {
+  it('keeps the one accent colour below 80% saturation, and any coloured primary button too', () => {
+    // A near white or near black has no real hue, but HSL saturation is unstable there, so neutrals are skipped.
+    const neutral = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return Math.max(r, g, b) - Math.min(r, g, b) < 8;
+    };
     for (const mode of MODES) {
-      expect(saturation(resolve('action-primary', mode))).toBeLessThan(0.8);
       expect(saturation(resolve('surface-accent', mode))).toBeLessThan(0.8);
+      const button = resolve('action-primary', mode);
+      if (!neutral(button)) expect(saturation(button)).toBeLessThan(0.8);
     }
   });
 

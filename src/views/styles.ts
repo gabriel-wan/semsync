@@ -9,7 +9,7 @@ const COMPONENTS = `
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--surface-primary); color: var(--text-primary); font-family: 'Geist', system-ui, sans-serif;
-  font-size: 16px; line-height: 24px; }
+  font-size: 16px; line-height: 24px; overflow-x: clip; }
 a { color: inherit; }
 h1, h2, h3, p { margin: 0; }
 h1, h2, h3 { text-wrap: balance; }
@@ -57,7 +57,12 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .btn-sm { min-height: 32px; padding: var(--space-50) var(--space-75); gap: var(--space-50); border-radius: var(--radius-6); }
 .btn:active, .btn.is-pressed { transform: scale(0.98); }
 .btn.is-focus { outline: 2px solid var(--border-action-primary); outline-offset: 2px; }
-.btn-primary { background: var(--action-primary); color: var(--text-inverted); }
+/* Primary buttons are white on dark pages and near black on light ones. On hover and focus an orange glow fades in:
+   it's a pseudo element whose opacity animates, so only opacity and transform ever animate. */
+.btn-primary { position: relative; background: var(--action-primary); color: var(--text-inverted); }
+.btn-primary::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--surface-glow-accent) 55%, transparent); transition: opacity 300ms var(--ease); }
+.btn-primary:hover::after, .btn-primary:focus-visible::after, .btn-primary.is-hover::after { opacity: 1; }
 .btn-primary:hover, .btn-primary.is-hover { background: var(--action-primary-hover); }
 .btn-primary:active, .btn-primary.is-pressed { background: var(--action-primary-click); }
 .btn-secondary { background: var(--action-secondary); color: var(--text-primary); }
@@ -78,9 +83,10 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .btn-warning:disabled { background: var(--action-warning-disabled); }
 .btn[aria-busy="true"] { cursor: progress; }
 .btn svg { flex: none; }
-/* The sign in button is the page's one pink action. Google's branding keeps its G in full colour on white, so the G
-   sits on a white disc. Inside the 8px button with 8px padding the disc is round rather than nested (8 - 8 = 0). */
-.btn-signin { padding-left: var(--space-75); }
+/* The sign in button: a pill, like Google's own. Google's branding keeps its G in full colour on white, so on the near
+   black (light mode) pill the G sits on a white disc; on the white pill the disc simply blends in. */
+.btn-signin { padding: var(--space-75) var(--space-300) var(--space-75) var(--space-75); border-radius: var(--radius-full); }
+.btn-signin:hover { transform: translateY(-1px); }
 .g-badge { width: 32px; height: 32px; border-radius: var(--radius-full); display: grid; place-items: center; background: var(--surface-white); }
 
 /* Inputs: Default | Hover | Pressed | Focus | Filled | Error | Disabled */
@@ -112,9 +118,17 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
   .hero-title br { display: none; }
 }
 
-/* The hero picture: one week of Google Calendar on a flat sky blue panel, with a reminder floating over the edge. */
-.showcase { position: relative; margin-top: var(--space-600); padding: var(--space-600); border-radius: var(--radius-24);
-  background: var(--surface-brand); }
+/* The hero picture: one week of Google Calendar sitting in a soft blue and orange glow, with a reminder floating over
+   the edge. The glow is a layer behind it, as wide as the content and spilling below; it never widens the page. */
+.showcase { position: relative; isolation: isolate; margin-top: var(--space-600); padding: var(--space-600); }
+/* The centres sit where the calendar card ends, so the light shows around it rather than hiding behind it. Each glow
+   fades out fully inside the layer, so there are no hard edges, and the layer stops before the next section's heading. */
+.showcase::before { content: ''; position: absolute; inset: 6% 0 -6%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(15% 44% at 86% 55%, color-mix(in srgb, var(--surface-glow-accent) 85%, transparent), transparent),
+    radial-gradient(15% 46% at 14% 52%, color-mix(in srgb, var(--surface-glow-brand) 95%, transparent), transparent),
+    radial-gradient(34% 12% at 36% 88%, color-mix(in srgb, var(--surface-glow-brand) 60%, transparent), transparent),
+    radial-gradient(22% 11% at 70% 89%, color-mix(in srgb, var(--surface-glow-accent) 55%, transparent), transparent); }
 .cal { max-width: 880px; margin: 0 auto; border-radius: var(--radius-16); background: var(--surface-primary-subtle);
   border: 1px solid var(--border-primary); overflow: hidden; text-align: left; box-shadow: 0 24px 48px var(--overlay-md); }
 .cal-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-200); padding: var(--space-100) var(--space-200); }
@@ -125,7 +139,7 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .cal-grid > .cell, .cal-grid > .cal-day, .cal-grid > .cal-time { background: var(--surface-primary-subtle); }
 .cal-day { display: flex; flex-direction: column; align-items: center; gap: var(--space-25); padding: var(--space-75) var(--space-50); color: var(--text-secondary); }
 .cal-date { width: 32px; height: 32px; border-radius: var(--radius-full); display: grid; place-items: center; color: var(--text-primary); }
-.cal-date.today { background: var(--surface-accent); color: var(--text-inverted); }
+.cal-date.today { background: var(--surface-accent); color: var(--text-on-accent); }
 .cal-time { padding: var(--space-25) var(--space-75) 0 0; text-align: right; color: var(--text-secondary); }
 .ev { margin: var(--space-25); border-radius: var(--radius-6); padding: var(--space-25) var(--space-75); overflow: hidden; min-width: 0;
   display: flex; flex-direction: column; }
@@ -137,6 +151,10 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .toast-icon { flex: none; width: 40px; height: 40px; border-radius: var(--radius-full); display: grid; place-items: center;
   background: var(--surface-accent-subtle); color: var(--text-accent); }
 .toast .caption-5 { color: var(--text-secondary); }
+/* On load the week fills itself in: each event drops into place in order, then the reminder arrives. It plays once. */
+@keyframes drop-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.showcase .ev, .showcase .toast { animation: drop-in 500ms var(--ease) both; animation-delay: calc(300ms + var(--i, 0) * 140ms); }
+@media (prefers-reduced-motion: reduce) { .showcase .ev, .showcase .toast { animation: none; } }
 @media (max-width: 768px) {
   .showcase { padding: var(--space-200); }
   .cal { border-radius: var(--radius-8); } /* nested: 24 - 16 = 8 */
@@ -150,12 +168,12 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
   .toast { position: static; width: auto; margin-top: var(--space-200); }
 }
 
-/* Event chips, in the hero picture and on your Semsync page: classes sky blue, deadlines tinted pink, exams solid pink. */
+/* Event chips, in the hero picture and on your Semsync page: classes blue, deadlines tinted orange, exams solid orange. */
 .chip { border-radius: var(--radius-6); padding: var(--space-50) var(--space-75); overflow-wrap: anywhere; }
 .chip .mono { display: block; }
 .chip-class { background: var(--surface-info-subtle); color: var(--text-info); }
 .chip-deadline { background: var(--surface-accent-subtle); color: var(--text-accent); }
-.chip-exam { background: var(--surface-accent); color: var(--text-inverted); }
+.chip-exam { background: var(--surface-accent); color: var(--text-on-accent); }
 
 section { padding: var(--space-700) 0; }
 header.hero + section { padding-top: var(--space-900); } /* room for the reminder hanging off the hero picture */
@@ -207,9 +225,12 @@ header.hero + section { padding-top: var(--space-900); } /* room for the reminde
   border-radius: var(--radius-8); background: var(--action-primary); color: var(--text-inverted); }
 @media (max-width: 768px) { .zig { grid-template-columns: minmax(0, 1fr); gap: var(--space-500); } }
 
-/* Tagline reveal: its own large type moment on the brand sky blue. */
-.band { border-radius: var(--radius-24); background: var(--surface-brand); color: var(--text-on-brand); padding: var(--space-900) var(--space-600);
-  text-align: center; }
+/* Tagline reveal: its own large type moment on the electric blue, shaded deep blue in one corner and faintly lit in the
+   opposite one, both clear of the text. */
+.band { border-radius: var(--radius-24); color: var(--text-on-brand); padding: var(--space-900) var(--space-600); text-align: center;
+  background: radial-gradient(60% 100% at 100% 100%, color-mix(in srgb, var(--surface-glow-deep) 80%, transparent), transparent),
+    radial-gradient(40% 70% at 0% 0%, color-mix(in srgb, var(--surface-white) 14%, transparent), transparent),
+    var(--surface-brand); }
 .tagline { max-width: 680px; margin: 0 auto; text-wrap: balance; }
 .tagline .w { opacity: 0.3; transition: opacity 600ms var(--ease); }
 .tagline .w.lit { opacity: 1; }
@@ -218,7 +239,10 @@ header.hero + section { padding-top: var(--space-900); } /* room for the reminde
   .tagline { font-size: 30px; line-height: 36px; } /* heading-4 on phones */
 }
 
-.final { border-radius: var(--radius-24); background: var(--surface-info-subtle); padding: var(--space-800) var(--space-300); text-align: center; }
+.final { border-radius: var(--radius-24); padding: var(--space-800) var(--space-300); text-align: center; border: 1px solid var(--border-primary);
+  background: radial-gradient(45% 55% at 32% 125%, color-mix(in srgb, var(--surface-glow-brand) 80%, transparent), transparent),
+    radial-gradient(32% 45% at 72% 125%, color-mix(in srgb, var(--surface-glow-accent) 65%, transparent), transparent),
+    var(--surface-primary-subtle); }
 .final .section-title { max-width: 680px; margin: 0 auto; }
 
 .reveal { opacity: 0; transform: translateY(32px); transition: opacity 700ms var(--ease), transform 700ms var(--ease); }

@@ -20,10 +20,10 @@ the conversation that produced Semsync; lines marked **Assumed** were not stated
 ## 2. Outline
 
 1. Hero: headline, subheadline, one call to action (Continue with Google), risk reversal line, proof slot, and a week of
-   Google Calendar on a sky blue panel with a reminder floating over its edge
+   Google Calendar in a soft blue and orange glow, filling itself in on load, with a reminder floating over its edge
 2. Benefits: five, in a bento grid, each with a small picture of what it means
 3. How it works: three steps beside the setup page they lead to (zig zag)
-4. Tagline reveal, on the sky blue band
+4. Tagline reveal, on the electric blue band
 5. FAQ: seven questions
 6. Final call to action, same as the top
 
@@ -36,8 +36,8 @@ Social proof as its own section is left out until there are real quotes to show.
 
 - **Headline:** Every Canvas deadline / in your calendar, / without typing a thing (no periods; broken by hand at meaningful points)
 - **Subheadline:** Paste your Canvas calendar link and your NUSMods timetable once. Semsync puts your deadlines, classes and exams straight into your Google Calendar, with reminders, and keeps them up to date every hour.
-- **Call to action:** Continue with Google (Google's sign-in branding fixes the wording), the page's one pink button, with
-  Google's G kept on a white disc
+- **Call to action:** Continue with Google (Google's sign-in branding fixes the wording), a white pill on dark pages and a
+  near black one on light pages (Google's own sign in styles), with an orange glow on hover
 - **Risk reversal:** Free. Only touches the events it adds. Delete anytime.
 - **Proof:** Works with Canvas, NUSMods and Google Calendar (until a real testimonial replaces it)
 
