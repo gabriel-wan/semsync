@@ -41,6 +41,12 @@ describe('formatTitle', () => {
     expect(formatTitle('Office hours')).toBe('Office hours');
     expect(formatTitle('[CS2040]')).toBe('[CS2040]');
   });
+
+  it("doesn't repeat the course when the item's name already is the course", () => {
+    expect(formatTitle('ST2334 Probability and Statistics [2610] [ST2334 Probability and Statistics [2610]]')).toBe('[ST2334] Probability and Statistics');
+    expect(formatTitle('CS2040 Problem Set 5 [CS2040 Data Structures and Algorithms [2610]]')).toBe('[CS2040] Problem Set 5');
+    expect(formatTitle('CS2040 [CS2040 Data Structures and Algorithms [2610]]')).toBe('[CS2040] CS2040');
+  });
 });
 
 describe('canvasEvents', () => {

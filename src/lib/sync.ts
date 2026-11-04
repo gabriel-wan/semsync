@@ -180,12 +180,21 @@ export async function ensureCalendar(env: Env, backend: CalendarBackend, user: U
 }
 
 export async function syncUser(env: Env, user: UserRow, backend = calendarFor(env, user)) {
+  // Each step logs how long it took, so a slow or stuck service shows up by name in the logs.
+  let step = 'start';
+  const timed = async <T>(name: string, run: () => Promise<T>): Promise<T> => {
+    step = name;
+    const t = Date.now();
+    const result = await run();
+    console.log('sync step', user.id, name, `${Date.now() - t} ms`);
+    return result;
+  };
   try {
-    const calendarId = await ensureCalendar(env, backend, user);
-    const { events, warnings } = await desiredEvents(env, user);
-    const plan = await planSync(events, await trackedEvents(env.DB, user.id), Date.now(), user.mode);
-    const applied = await applyPlan(backend, calendarId, plan);
-    await storeApplied(env.DB, user.id, applied);
+    const calendarId = await timed('calendar', () => ensureCalendar(env, backend, user));
+    const { events, warnings } = await timed('canvas and nusmods', () => desiredEvents(env, user));
+    const plan = await timed('plan', async () => planSync(events, await trackedEvents(env.DB, user.id), Date.now(), user.mode));
+    const applied = await timed('google calendar', () => applyPlan(backend, calendarId, plan));
+    await timed('save', () => storeApplied(env.DB, user.id, applied));
     console.log('sync', user.id, {
       upserts: applied.upserts.length, deletes: applied.deletes.length, failed: applied.failed, remaining: applied.remaining,
     });
@@ -197,7 +206,7 @@ export async function syncUser(env: Env, user: UserRow, backend = calendarFor(en
     return applied;
   } catch (err) {
     if (err instanceof ReconnectNeeded) await setNeedsReconnect(env.DB, user.id);
-    else console.error('sync failed', user.id, err);
+    else console.error('sync failed', user.id, 'at', step, err);
     const message = err instanceof UserError ? err.message : "Couldn't sync just now. It'll try again within the hour.";
     await recordSync(env.DB, user.id, false, message);
     return null;

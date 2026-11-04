@@ -1,9 +1,10 @@
 import type { Child, FC, PropsWithChildren } from 'hono/jsx';
 import { raw } from 'hono/html';
-import { TESTIMONIAL } from '../config.js';
+import { TESTIMONIAL, semesterWeek } from '../config.js';
 import type { UpcomingRow, UserRow } from '../lib/db.js';
 import type { CalendarMode } from '../lib/events.js';
-import { GoogleMark, Icon } from './icons.js';
+import { parseNusmodsLink } from '../lib/nusmods.js';
+import { CanvasMark, GoogleMark, Icon, NusmodsMark } from './icons.js';
 import { CSS, SCRIPT, THEME_INIT } from './styles.js';
 import { CORE, RADIUS, SPACING, SYSTEM, SYSTEM_SPEC, TEXT_STYLES } from './tokens.js';
 
@@ -20,11 +21,35 @@ type LayoutProps = PropsWithChildren<{
   navCta?: boolean;
   /** Signed in but not set up yet, so there's no calendar page to go to: the nav leads to setup instead. */
   setupPending?: boolean;
+  /** Who's signed in, for the account menu (sign out, delete). Pages without a CSRF token at hand leave it out. */
+  account?: Account;
   head?: Child;
 }>;
 
+type Account = { email: string; name: string | null; csrf: string };
+
+/** Your initial in the nav, opening a small menu: who you're signed in as, Sign out, and Delete my data. It's an
+ *  HTML popover, so it opens and closes without JavaScript; the script only places it under the button. */
+const AccountMenu: FC<{ account: Account }> = ({ account }) => (
+  <>
+    <button class="avatar" type="button" popovertarget="account-menu" aria-label={`Account menu for ${account.email}`}>
+      <span class="title-4">{(account.name || account.email).trim().charAt(0).toUpperCase()}</span>
+    </button>
+    <div class="account-menu" id="account-menu" popover="auto">
+      <p class="caption-2 text-secondary">Signed in as</p>
+      <p class="body-5 account-email">{account.email}</p>
+      <div class="divider menu-divider" />
+      <form method="post" action="/auth/logout">
+        <input type="hidden" name="csrf" value={account.csrf} />
+        <button class="menu-item body-5" type="submit"><Icon name="signOut" size={18} />Sign out</button>
+      </form>
+      <a class="menu-item body-5 danger-link" href="/account/delete" data-confirm="delete-dialog"><Icon name="trash" size={18} />Delete my data</a>
+    </div>
+  </>
+);
+
 export const Layout: FC<LayoutProps> = ({
-  title, description, current, signedIn, noindex, origin, socialTitle, navCta = true, setupPending, head, children,
+  title, description, current, signedIn, noindex, origin, socialTitle, navCta = true, setupPending, account, head, children,
 }) => {
   const desc = description ?? 'Canvas deadlines, NUSMods classes and exams in your Google Calendar, kept up to date.';
   const section = (id: string) => (current === 'landing' ? `#${id}` : `/#${id}`);
@@ -74,6 +99,7 @@ export const Layout: FC<LayoutProps> = ({
                 <Icon name="moon" cls="icon-moon" />
                 <Icon name="sun" cls="icon-sun" />
               </button>
+              {account && <AccountMenu account={account} />}
               {!signedIn && navCta && <a class="btn btn-secondary button-sm" href="/auth/google">Sign in</a>}
             </div>
           </div>
@@ -82,7 +108,7 @@ export const Layout: FC<LayoutProps> = ({
         <footer class="wrap">
           <div class="divider" />
           <div class="footer-row caption-2">
-            <span>Made by an NUS student. Not affiliated with NUS or Instructure.</span>
+            <span>Made by an NUS student. Not affiliated with NUS, NUSMods or Instructure.</span>
             <span class="footer-links">
               <a href="/" aria-current={current === 'landing' ? 'page' : undefined}>Home</a>
               <a href="/privacy" aria-current={current === 'privacy' ? 'page' : undefined}>Privacy</a>
@@ -283,11 +309,12 @@ const Proof: FC = () =>
       <figcaption class="caption-2">{TESTIMONIAL.name}, {TESTIMONIAL.detail}</figcaption>
     </figure>
   ) : (
-    <p class="proof" aria-label="Works with Canvas, NUSMods and Google Calendar">
-      <span class="caption-2">Works with</span>
-      <span class="works-item title-4"><Icon name="graduationCap" size={16} />Canvas</span>
-      <span class="works-item title-4"><Icon name="calendarDots" size={16} />NUSMods</span>
-      <span class="works-item title-4"><Icon name="calendarCheck" size={16} />Google Calendar</span>
+    <p class="flow" aria-label="Works with Canvas and NUSMods, into Google Calendar">
+      <span class="flow-item"><span class="flow-icon flow-logo"><CanvasMark size={22} /></span><span class="title-3">Canvas</span></span>
+      <span class="flow-plus title-3" aria-hidden="true">+</span>
+      <span class="flow-item"><span class="flow-icon flow-logo"><NusmodsMark size={22} /></span><span class="title-3">NUSMods</span></span>
+      <span class="flow-arrow" aria-hidden="true"><Icon name="arrowRight" size={20} /></span>
+      <span class="flow-item flow-dest"><span class="flow-icon"><Icon name="calendarCheck" size={18} /></span><span class="title-3">Google Calendar</span></span>
     </p>
   );
 
@@ -423,48 +450,59 @@ export const Landing: FC<{ origin?: string; pendingSetup?: boolean }> = ({ origi
           <h2 id="what" class="heading-2 section-title">Your whole semester, sorted</h2>
           <p class="body-7">Deadlines from Canvas, classes and exams from NUSMods, all in the calendar you already check.</p>
         </div>
-        <div class="bento">
-          <div class="card">
+        <div class="features">
+          <article class="feature">
+            <div class="feature-stage" aria-hidden="true">
+              <div class="stage-stack">
+                <span class="caption-2 was">Problem Set 5 [CS2040 Data Structures and Algorithms [2610]]</span>
+                <span class="stage-arrow"><Icon name="arrowRight" size={16} /></span>
+                <span class="chip chip-deadline title-4">[CS2040] Problem Set 5<span class="mono caption-5">Fri 23:59</span></span>
+              </div>
+            </div>
             <h3 class="title-2">Module code up front</h3>
             <p class="body-6">Short titles you can scan, instead of the full Canvas course name in brackets.</p>
-            <div class="card-visual">
-              <span class="caption-2 was">Problem Set 5 [CS2040 Data Structures and Algorithms [2610]]</span>
-              <span class="chip chip-deadline caption-3" style="align-self: flex-start;">[CS2040] Problem Set 5 <span class="mono caption-5">Fri 23:59</span></span>
+          </article>
+          <article class="feature">
+            <div class="feature-stage" aria-hidden="true">
+              <div class="stage-weeks">
+                <span class="caption-4">Week 6</span><span class="chip chip-class caption-4">CS2040 Lecture</span>
+                <span class="caption-4 skipped">Recess</span><span class="chip caption-4 skipped-chip">CS2040 Lecture</span>
+                <span class="caption-4">Week 7</span><span class="chip chip-class caption-4">CS2040 Lecture</span>
+                <span class="caption-4">Exams</span><span class="chip chip-exam caption-4">MA1521 final exam</span>
+              </div>
             </div>
-          </div>
-          <div class="card">
-            <h3 class="title-2">Classes on the right weeks</h3>
-            <p class="body-6">Only the slots you picked on NUSMods. Recess week and public holidays are skipped.</p>
-            <div class="card-visual">
-              <div class="week-row"><span class="caption-4">Week 6</span><span class="chip chip-class caption-4">CS2040 Lecture</span></div>
-              <div class="week-row skipped"><span class="caption-4">Recess</span><span class="chip caption-4">CS2040 Lecture</span></div>
-              <div class="week-row"><span class="caption-4">Week 7</span><span class="chip chip-class caption-4">CS2040 Lecture</span></div>
+            <h3 class="title-2">Classes and exams on the right weeks</h3>
+            <p class="body-6">Only the slots you picked on NUSMods, with recess week and holidays skipped, and your final exams too.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-stage" aria-hidden="true">
+              <div class="stage-notes">
+                <div class="note">
+                  <span class="toast-icon"><Icon name="bell" size={16} /></span>
+                  <div><p class="title-4">[CS2040] Problem Set 5</p><p class="caption-5">Due tomorrow, 23:59</p></div>
+                </div>
+                <div class="note">
+                  <span class="toast-icon"><Icon name="bell" size={16} /></span>
+                  <div><p class="title-4">[CS2040] Problem Set 5</p><p class="caption-5">Due tonight, in 3 hours</p></div>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="card">
-            <h3 class="title-2">Exams included</h3>
-            <p class="body-6">Final exam dates and times from NUSMods, so Week 13 has no surprises.</p>
-            <div class="card-visual">
-              <span class="chip chip-exam caption-3" style="align-self: flex-start;">MA1521 final exam <span class="mono caption-5">Sat 28 Nov 17:00</span></span>
-            </div>
-          </div>
-          <div class="card">
             <h3 class="title-2">Reminders built in</h3>
-            <p class="body-6">Google Calendar nudges you before every deadline and exam, on your phone and laptop.</p>
-            <div class="card-visual pills">
-              <span class="pill caption-1"><Icon name="bell" size={16} />1 day before a deadline</span>
-              <span class="pill caption-1"><Icon name="bell" size={16} />3 hours before</span>
-              <span class="pill caption-1"><Icon name="bell" size={16} />1 week before an exam</span>
+            <p class="body-6">Google Calendar nudges you a day and 3 hours before each deadline, and a week before each exam.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-stage" aria-hidden="true">
+              <div class="stage-stack">
+                <span class="pill caption-1"><span class="dot" aria-hidden="true" />Synced 12 min ago</span>
+                <div class="stage-row">
+                  <span class="chip chip-class title-4">[CS2040] Quiz 3<span class="mono caption-5"><span class="was">Wed</span> Thu 10:00</span></span>
+                  <span class="chip chip-deadline title-4">[MA1521] Tutorial 6<span class="mono caption-5">New · Mon 23:59</span></span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="card">
             <h3 class="title-2">Updates itself</h3>
-            <p class="body-6">Deadline moved or a new quiz posted on Canvas? Your calendar follows within the hour.</p>
-            <div class="card-visual pills">
-              <span class="pill caption-1"><span class="dot" aria-hidden="true" />Synced 12 min ago</span>
-              <span class="pill caption-1"><Icon name="arrowsClockwise" size={16} />[CS2040] Quiz 3 moved to Thu</span>
-            </div>
-          </div>
+            <p class="body-6">A deadline moves or a new quiz goes up on Canvas, and your calendar follows within the hour.</p>
+          </article>
         </div>
       </section>
 
@@ -562,7 +600,8 @@ export const Setup: FC<{ user: UserRow; csrf: string; values: SetupValues; error
   const keepCanvas = editing && !!user.canvas_feed_enc;
   const setUp = isSetUp(user);
   return (
-    <Layout title="Set up your calendar · Semsync" signedIn setupPending={!setUp} current="setup" noindex>
+    <Layout title="Set up your calendar · Semsync" signedIn setupPending={!setUp} current="setup" noindex
+      account={{ email: user.email, name: user.name, csrf }}>
       <div class="wrap narrow page">
         <BackLink signedIn={setUp} />
         <h1 class="heading-4">{editing ? 'Update your links' : 'Paste your links'}</h1>
@@ -657,12 +696,9 @@ const ListSkeleton: FC = () => (
 const KIND_LABEL = { deadline: 'Due', exam: 'Exam', event: 'Event', class: 'Class' } as const;
 const KIND_CLASS = { deadline: 'chip-deadline', exam: 'chip-exam', event: 'chip-class', class: 'chip-class' } as const;
 
-function formatWhen(ms: number, allDay: boolean) {
-  return new Intl.DateTimeFormat('en-SG', {
-    timeZone: 'Asia/Singapore', weekday: 'short', day: 'numeric', month: 'short',
-    ...(allDay ? {} : { hour: '2-digit', minute: '2-digit', hour12: false }),
-  }).format(ms);
-}
+const SGT = 'Asia/Singapore';
+const dayKey = (ms: number) => new Date(ms + 8 * 3600_000).toISOString().slice(0, 10);
+const part = (ms: number, opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-SG', { timeZone: SGT, ...opts }).format(ms);
 
 function timeAgo(ms: number) {
   const mins = Math.round((Date.now() - ms) / 60_000);
@@ -672,88 +708,197 @@ function timeAgo(ms: number) {
   return hours < 48 ? `${hours} h ago` : `${Math.round(hours / 24)} days ago`;
 }
 
-const MainCalendarActions: FC<{ needsConnect: boolean; dev: boolean }> = ({ needsConnect, dev }) =>
-  needsConnect ? (
-    <>
-      <div class="actions">
-        <a class="btn btn-primary btn-lg button-lg" href="/connect"><Icon name="calendar" />Connect Google Calendar</a>
-        <a class="btn btn-secondary button-md" href="/setup?edit=1">Use a separate calendar instead</a>
-      </div>
-      <p class="caption-2 text-secondary mt-100">Semsync needs permission to add events to your calendar. It only touches the events it adds.</p>
-    </>
-  ) : (
-    <>
-      <div class="actions">
-        <a class="btn btn-primary btn-lg button-lg" href={dev ? '/dev/calendar' : 'https://calendar.google.com/calendar/r'} target="_blank" rel="noopener">
-          <Icon name="calendar" />Open Google Calendar
-        </a>
-      </div>
-      <p class="caption-2 text-secondary mt-100">
-        Deadlines are orange and exams red. You'll get reminders 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam.
-      </p>
-    </>
-  );
-
-const SharedCalendarActions: FC<{ addUrl: string | null }> = ({ addUrl }) => (
-  <>
-    <div class="actions">
-      {addUrl && (
-        <a class="btn btn-primary btn-lg button-lg" href={addUrl} target="_blank" rel="noopener"><Icon name="calendar" />Add to Google Calendar</a>
-      )}
-      <a class="btn btn-secondary button-md" href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noopener">Set up reminders</a>
-    </div>
-    <p class="caption-2 text-secondary mt-100">
-      Already added? It shows up as "NUS semester" in Google Calendar. For reminders, open it under Settings and add notifications.
-    </p>
-  </>
-);
-
-const UpcomingList: FC<{ upcoming: UpcomingRow[]; failed?: boolean }> = ({ upcoming, failed }) =>
-  upcoming.length === 0 && failed ? (
-    <div class="list">
+/** Deadlines and exams grouped by day, each day with a date block like Google Calendar's schedule view. */
+const UpcomingList: FC<{ upcoming: UpcomingRow[]; failed?: boolean; now?: number }> = ({ upcoming, failed, now = Date.now() }) => {
+  if (upcoming.length === 0) {
+    return failed ? (
       <div class="empty failed">
         <Icon name="warningCircle" size={24} />
         <p class="title-3">Couldn't load your events</p>
         <p class="body-6">The last sync didn't finish. Try Sync now, or check your links.</p>
       </div>
-    </div>
-  ) : upcoming.length === 0 ? (
-    <div class="list">
+    ) : (
       <div class="empty">
         <Icon name="checkCircle" size={24} />
         <p class="title-3">Nothing due soon</p>
         <p class="body-6">New Canvas deadlines and exams show up here within the hour.</p>
       </div>
-    </div>
-  ) : (
-    <div class="list">
-      {upcoming.map((e, i) => (
-        <>
-          {i > 0 && <div class="divider" />}
-          <div class="row">
-            <span class="body-5"><span class={`tag ${KIND_CLASS[e.kind]} caption-4`}>{KIND_LABEL[e.kind]}</span>{e.title}</span>
-            <time class="mono caption-2" datetime={new Date(e.start_ms).toISOString()}>{formatWhen(e.start_ms, e.all_day === 1)}</time>
-          </div>
-        </>
-      ))}
+    );
+  }
+  const today = dayKey(now);
+  const days = new Map<string, UpcomingRow[]>();
+  for (const e of upcoming) days.set(dayKey(e.start_ms), [...(days.get(dayKey(e.start_ms)) ?? []), e]);
+  // How far away each day is, which matters more for a deadline than the month: "Today", "Tomorrow", "In 5 days".
+  const away = (key: string) => Math.round((Date.parse(key) - Date.parse(today)) / 86_400_000);
+  return (
+    <div class="agenda">
+      {[...days].map(([key, events], i) => {
+        const first = events[0].start_ms;
+        const n = away(key);
+        const when = n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : n < 14 ? `In ${n} days` : part(first, { day: 'numeric', month: 'long' });
+        return (
+          <>
+            {i > 0 && <div class="divider" />}
+            <div class="agenda-day">
+              <div class={`agenda-date${key === today ? ' today' : ''}`}>
+                <span class="caption-4">{part(first, { weekday: 'short' })}</span>
+                <span class="agenda-num title-1">{part(first, { day: 'numeric' })}</span>
+              </div>
+              <div class="agenda-events">
+                <p class="caption-4 text-secondary">{when}</p>
+                {events.map((e) => (
+                  <div class={`agenda-ev ${KIND_CLASS[e.kind]}`}>
+                    <span class="body-5">{e.title}</span>
+                    <time class="caption-5 mono" datetime={new Date(e.start_ms).toISOString()}>
+                      {KIND_LABEL[e.kind]} · {e.all_day === 1 ? 'all day' : part(e.start_ms, { hour: '2-digit', minute: '2-digit', hour12: false })}
+                    </time>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        );
+      })}
     </div>
   );
+};
+
+/** Where the events go, and the one thing to do there. */
+const Destination: FC<{ user: UserRow; addUrl: string | null; needsConnect: boolean; dev: boolean }> = ({ user, addUrl, needsConnect, dev }) => {
+  if (user.mode === 'main' && needsConnect) {
+    return (
+      <section class="panel panel-glow dest" aria-labelledby="dest">
+        <span class="dest-icon warn"><Icon name="warningCircle" /></span>
+        <h2 id="dest" class="title-1">Connect Google Calendar</h2>
+        <p class="caption-2 text-secondary">Semsync needs permission to add events to your calendar. It only ever touches the events it adds.</p>
+        <div class="dest-actions">
+          <a class="btn btn-primary button-md" href="/connect">Connect Google Calendar</a>
+          <a class="btn btn-tertiary button-md" href="/setup?edit=1">Use a separate calendar</a>
+        </div>
+      </section>
+    );
+  }
+  if (user.mode === 'main') {
+    return (
+      <section class="panel panel-glow dest" aria-labelledby="dest">
+        <span class="dest-icon"><Icon name="calendarCheck" /></span>
+        <h2 id="dest" class="title-1">In your Google Calendar</h2>
+        <p class="caption-2 text-secondary">Reminders 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam.</p>
+        <div class="dest-actions">
+          <a class="btn btn-primary button-md" href={dev ? '/dev/calendar' : 'https://calendar.google.com/calendar/r'} target="_blank" rel="noopener">
+            Open Google Calendar<Icon name="arrowRight" size={16} />
+          </a>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section class="panel panel-glow dest" aria-labelledby="dest">
+      <span class="dest-icon"><Icon name="calendarDots" /></span>
+      <h2 id="dest" class="title-1">Your "NUS semester" calendar</h2>
+      <p class="caption-2 text-secondary">Shared with {user.email}. Add it to Google Calendar once and it keeps itself up to date.</p>
+      <div class="dest-actions">
+        {addUrl && <a class="btn btn-primary button-md" href={addUrl} target="_blank" rel="noopener">Add to Google Calendar</a>}
+        <a class="btn btn-tertiary button-md" href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noopener">Set up reminders</a>
+      </div>
+    </section>
+  );
+};
+
+const Sources: FC<{ user: UserRow; dev?: boolean }> = ({ user, dev }) => {
+  let modules: string[] = [];
+  try {
+    if (user.nusmods_link) modules = parseNusmodsLink(user.nusmods_link).modules.map((m) => m.code);
+  } catch {
+    // An old link that no longer parses just shows as added, without its courses.
+  }
+  return (
+    <section class="panel dash-sources" aria-labelledby="sources">
+      <h2 id="sources" class="title-2">Your links</h2>
+      <div class="sources">
+        <div class="source">
+          <span class="source-icon"><Icon name="graduationCap" size={18} /></span>
+          <div>
+            <p class="title-4">Canvas</p>
+            <p class="caption-2 text-secondary">{user.canvas_feed_enc ? 'Calendar feed connected' : 'Not added'}</p>
+          </div>
+          {user.canvas_feed_enc && <Icon name="checkCircle" size={18} cls="ok" />}
+        </div>
+        <div class="source">
+          <span class="source-icon"><Icon name="calendarDots" size={18} /></span>
+          <div>
+            <p class="title-4">NUSMods</p>
+            {modules.length ? (
+              <div class="mods">{modules.map((m) => <span class="mod caption-4">{m}</span>)}</div>
+            ) : (
+              <p class="caption-2 text-secondary">{user.nusmods_link ? 'Timetable added' : 'Not added'}</p>
+            )}
+          </div>
+          {user.nusmods_link && <Icon name="checkCircle" size={18} cls="ok" />}
+        </div>
+      </div>
+      <div class="sources-actions">
+        <a class="btn btn-secondary button-md" href="/setup?edit=1">Change links</a>
+        {dev && <a class="btn btn-tertiary button-md" href="/dev/calendar">Fake calendar</a>}
+      </div>
+    </section>
+  );
+};
+
+/** What deleting does, in the confirmation dialog and on its fallback page for when JavaScript is off. */
+const DeleteConfirm: FC<{ user: UserRow; csrf: string; total: number; dialog?: boolean }> = ({ user, csrf, total, dialog }) => (
+  <form method="post" action="/account/delete" data-busy-label="Deleting…">
+    <input type="hidden" name="csrf" value={csrf} />
+    <input type="hidden" name="confirm" value="yes" />
+    <span class="confirm-icon"><Icon name="warningCircle" size={24} /></span>
+    <h2 id="delete-title" class="title-1 mt-200">Delete your Semsync data?</h2>
+    <ul class="confirm-list body-6">
+      {user.mode === 'main' ? (
+        <>
+          <li>Removes the {total} events Semsync added to your Google Calendar. Your own events stay.</li>
+          <li>Revokes Semsync's access to your calendar.</li>
+        </>
+      ) : (
+        <li>Deletes the "NUS semester" calendar and its {total} events. Your own calendar isn't touched.</li>
+      )}
+      <li>Deletes your saved Canvas and NUSMods links and signs you out.</li>
+    </ul>
+    <p class="caption-2 text-secondary mt-200">This can't be undone, but you can set Semsync up again any time.</p>
+    <div class="confirm-actions">
+      {dialog
+        ? <button class="btn btn-secondary button-md" type="button" data-close>Cancel</button>
+        : <a class="btn btn-secondary button-md" href="/home">Cancel</a>}
+      <button class="btn btn-error button-md" type="submit">Delete everything</button>
+    </div>
+  </form>
+);
+
+const total = (counts: Record<string, number>) => Object.values(counts).reduce((a, b) => a + b, 0);
+const COUNT_LABEL = { deadline: 'deadlines', class: 'classes', exam: 'exams' } as const;
 
 export const Home: FC<{
   user: UserRow; csrf: string; addUrl: string | null; needsConnect: boolean; counts: Record<string, number>;
   upcoming: UpcomingRow[]; flash?: string; dev: boolean;
 }> = ({ user, csrf, addUrl, needsConnect, counts, upcoming, flash, dev }) => {
   const failing = user.last_sync_ok === 0 || needsConnect;
+  const week = semesterWeek();
+  const status = needsConnect ? 'Not syncing' : user.last_sync_at ? `Synced ${timeAgo(user.last_sync_at)}` : 'Not synced yet';
   return (
-    <Layout title="Your calendar · Semsync" signedIn current="home" noindex>
-      <div class="wrap narrow page">
-        <h1 class="heading-4">Your NUS semester calendar</h1>
-        <p class="status caption-2">
-          <span class={`dot${failing ? ' bad' : ''}`} aria-hidden="true" />
-          <span>{needsConnect ? 'Not syncing' : user.last_sync_at ? `Synced ${timeAgo(user.last_sync_at)}` : 'Not synced yet'}</span>
-          <span>·</span>
-          <span>{user.mode === 'main' ? `${user.email}'s Google Calendar` : `Shared with ${user.email}`}</span>
-        </p>
+    <Layout title="Your calendar · Semsync" signedIn current="home" noindex account={{ email: user.email, name: user.name, csrf }}>
+      <div class="wrap dash-wrap page">
+        <header class="dash-head">
+          <div>
+            <p class="caption-1 text-secondary">{week.detail}</p>
+            <h1 class="heading-2 dash-title">{week.label}</h1>
+          </div>
+          <form class="sync-pill" method="post" action="/sync" data-busy-label="Syncing…">
+            <input type="hidden" name="csrf" value={csrf} />
+            <span class={`dot${failing ? ' bad' : ''}`} aria-hidden="true" />
+            <span class="caption-2">{status}</span>
+            <button class="btn btn-secondary button-md" type="submit"><Icon name="arrowsClockwise" size={16} />Sync now</button>
+          </form>
+        </header>
+
         {flash && <div class="notice notice-success body-6" role="status"><Icon name="checkCircle" />{flash}</div>}
         {user.last_sync_message && (
           <div class={`notice ${user.last_sync_ok === 0 ? 'notice-error' : 'notice-warning'} body-6`} role="status">
@@ -761,51 +906,51 @@ export const Home: FC<{
           </div>
         )}
 
-        {user.mode === 'main' ? <MainCalendarActions needsConnect={needsConnect} dev={dev} /> : <SharedCalendarActions addUrl={addUrl} />}
-
-        <div class="stat-bar">
-          <div class="stat"><b class="heading-5 mono">{counts.deadline ?? 0}</b><span class="caption-2">deadlines</span></div>
-          <div class="vdivider" />
-          <div class="stat"><b class="heading-5 mono">{counts.class ?? 0}</b><span class="caption-2">classes</span></div>
-          <div class="vdivider" />
-          <div class="stat"><b class="heading-5 mono">{counts.exam ?? 0}</b><span class="caption-2">exams</span></div>
-        </div>
-
-        <h2 class="heading-6 mt-400">Coming up</h2>
-        <UpcomingList upcoming={upcoming} failed={failing} />
-
-        <div class="actions">
-          <form method="post" action="/sync" data-busy-label="Syncing…">
-            <input type="hidden" name="csrf" value={csrf} />
-            <button class="btn btn-secondary button-md" type="submit"><Icon name="arrowsClockwise" />Sync now</button>
-          </form>
-          <a class="btn btn-secondary button-md" href="/setup?edit=1">Change links</a>
-          {dev && <a class="btn btn-tertiary button-md" href="/dev/calendar">View fake calendar</a>}
-          <form method="post" action="/auth/logout">
-            <input type="hidden" name="csrf" value={csrf} />
-            <button class="btn btn-tertiary button-md" type="submit">Sign out</button>
-          </form>
-        </div>
-
-        <div class="danger-zone">
-          <h2 class="heading-6">Delete your data</h2>
-          <p class="caption-2 text-secondary mt-50">
-            {user.mode === 'main'
-              ? 'Removes every event Semsync added to your calendar, revokes its access, and deletes everything it stores about you. Your own events stay.'
-              : 'Removes the "NUS semester" calendar and everything Semsync stores about you. Your own calendar isn\'t touched.'}
-          </p>
-          <form method="post" action="/account/delete" data-busy-label="Deleting…">
-            <input type="hidden" name="csrf" value={csrf} />
-            <label class="check body-6"><input type="checkbox" name="confirm" value="yes" required />I understand this can't be undone</label>
-            <div class="actions" style="margin-top: var(--space-200);">
-              <button class="btn btn-error button-md" type="submit">Delete my data</button>
+        <div class="dash">
+          <section class="panel dash-agenda" aria-labelledby="coming-up">
+            <div class="panel-head">
+              <h2 id="coming-up" class="title-1">Coming up</h2>
+              <span class="caption-2 text-secondary">Deadlines and exams</span>
             </div>
-          </form>
+            <UpcomingList upcoming={upcoming} failed={failing} />
+          </section>
+
+          <div class="dash-side">
+          <div class="dash-dest"><Destination user={user} addUrl={addUrl} needsConnect={needsConnect} dev={dev} /></div>
+
+          <section class="panel dash-stats" aria-labelledby="semester">
+            <h2 id="semester" class="title-2">This semester</h2>
+            <div class="tiles">
+              {(['deadline', 'class', 'exam'] as const).map((k) => (
+                <div class="tile">
+                  <span class={`tile-key key-${k}`} aria-hidden="true" />
+                  <b class="heading-5 mono">{counts[k] ?? 0}</b>
+                  <span class="caption-2 text-secondary">{COUNT_LABEL[k]}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <Sources user={user} dev={dev} />
+          </div>
         </div>
+
+        <dialog class="confirm" id="delete-dialog" aria-labelledby="delete-title">
+          <DeleteConfirm user={user} csrf={csrf} total={total(counts)} dialog />
+        </dialog>
       </div>
     </Layout>
   );
 };
+
+/** The confirmation as its own page, for when JavaScript is off and the dialog can't open. */
+export const DeleteData: FC<{ user: UserRow; csrf: string; counts: Record<string, number> }> = ({ user, csrf, counts }) => (
+  <Layout title="Delete your data · Semsync" signedIn noindex account={{ email: user.email, name: user.name, csrf }}>
+    <div class="wrap narrow page">
+      <div class="panel confirm-page"><DeleteConfirm user={user} csrf={csrf} total={total(counts)} /></div>
+    </div>
+  </Layout>
+);
 
 export const Message: FC<{ title: string; body: Child; signedIn?: boolean; action?: { href: string; label: string } }> = ({
   title, body, signedIn, action,

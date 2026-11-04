@@ -132,9 +132,20 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .proof { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-75);
   margin-top: var(--space-400); color: var(--text-secondary); }
 .proof blockquote { margin: 0; max-width: 520px; }
-.works-item { display: inline-flex; align-items: center; gap: var(--space-75); padding: var(--space-50) var(--space-100);
-  border-radius: var(--radius-full); background: var(--surface-primary-subtle); border: 1px solid var(--border-primary); color: var(--text-primary); }
-.works-item svg { color: var(--icon-info); }
+/* What it connects, as one line instead of a row of logo pills: the two sources, then an arrow into the calendar.
+   The icons sit in small app style tiles; the calendar's is solid blue, since that's where everything ends up. */
+.flow { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-100) var(--space-200);
+  margin-top: var(--space-400); }
+.flow-item { display: inline-flex; align-items: center; gap: var(--space-75); white-space: nowrap; }
+.flow-icon { width: 36px; height: 36px; border-radius: var(--radius-8); display: grid; place-items: center;
+  background: var(--surface-primary-subtle); color: var(--icon-secondary); box-shadow: 0 1px 2px var(--overlay-xs), 0 6px 16px var(--overlay-xs); }
+.flow-dest .flow-icon { background: var(--surface-brand); color: var(--text-on-brand); }
+/* The real Canvas and NUSMods marks keep their own colours on a white tile, the way app icons do, in both modes. */
+.flow-logo { background: var(--surface-white); }
+.flow-plus { color: var(--text-tertiary); }
+.flow-arrow { display: grid; color: var(--icon-info); }
+/* Phones: the calendar drops to its own line, still after the arrow. */
+@media (max-width: 480px) { .flow { column-gap: var(--space-100); } .flow-arrow { transform: rotate(90deg); flex-basis: 100%; place-items: center; } }
 @media (max-width: 640px) {
   .hero { padding-top: var(--space-600); }
   .hero-title { font-size: 36px; line-height: 40px; } /* heading-3 on phones */
@@ -152,6 +163,16 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
     radial-gradient(15% 46% at 14% 52%, color-mix(in srgb, var(--surface-glow-brand) 95%, transparent), transparent),
     radial-gradient(34% 12% at 36% 88%, color-mix(in srgb, var(--surface-glow-brand) 60%, transparent), transparent),
     radial-gradient(22% 11% at 70% 89%, color-mix(in srgb, var(--surface-glow-accent) 55%, transparent), transparent); }
+/* With a mouse, the hero follows the pointer a little (script below): the glow drifts after it, the calendar tilts a
+   few degrees toward it with a faint spotlight, and the reminder floats a bit more than the calendar, for depth.
+   --gx and --gy run from -1 to 1; they stay 0 on touch screens and with reduced motion, so nothing moves there. */
+.showcase { --gx: 0; --gy: 0; --spot: 0; --sx: 50%; --sy: 50%; }
+.showcase::before { translate: calc(var(--gx) * 32px) calc(var(--gy) * 20px); }
+.cal { position: relative; transform: perspective(1600px) rotateX(calc(var(--gy) * -3deg)) rotateY(calc(var(--gx) * 4deg)); }
+.cal::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit; opacity: var(--spot);
+  background: radial-gradient(360px circle at var(--sx) var(--sy), color-mix(in srgb, var(--surface-glow-brand) 14%, transparent), transparent 70%);
+  transition: opacity 500ms var(--ease); }
+.toast { translate: calc(var(--gx) * 16px) calc(var(--gy) * 12px); }
 .cal { max-width: 880px; margin: 0 auto; border-radius: var(--radius-16); background: var(--surface-primary-subtle);
   border: 1px solid var(--border-primary); overflow: hidden; text-align: left; box-shadow: 0 24px 48px var(--overlay-md); }
 .cal-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-200); padding: var(--space-100) var(--space-200); }
@@ -208,24 +229,37 @@ header.hero + section { padding-top: var(--space-900); } /* room for the reminde
   .section-title { font-size: 30px; line-height: 36px; } /* heading-4 on phones */
 }
 
-/* Bento: 2 + 1 + 1 on the first row, 2 + 2 on the second, so no row has three equal cards. */
-.card { display: flex; flex-direction: column; background: var(--surface-primary-subtle); border: 1px solid var(--border-primary);
-  border-radius: var(--radius-16); padding: var(--space-300); }
-.card > p { color: var(--text-secondary); margin-top: var(--space-75); }
-.card-visual { margin-top: auto; padding-top: var(--space-300); display: flex; flex-direction: column; gap: var(--space-75); }
-.bento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-200); margin-top: var(--space-600); }
-.bento > .card:nth-child(1), .bento > .card:nth-child(4), .bento > .card:nth-child(5) { grid-column: span 2; }
+/* What you get: four equal cards in a 2 x 2 grid. Each has the same shape: a picture area of fixed height on top
+   (so every example sits at the same level), then a title and a line or two. Nested radius: 24 outside, 12 padding,
+   so the picture area is 12. */
+.features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-200); margin-top: var(--space-600); }
+.feature { display: flex; flex-direction: column; padding: var(--space-100); border-radius: var(--radius-24);
+  background: var(--surface-primary-subtle); border: 1px solid var(--border-primary); }
+.feature h3 { margin: var(--space-300) var(--space-200) 0; }
+.feature > p { margin: var(--space-75) var(--space-200) var(--space-200); color: var(--text-secondary); }
+.feature-stage { height: 220px; display: grid; place-items: center; padding: var(--space-300); overflow: hidden; border-radius: var(--radius-12);
+  background: var(--surface-secondary); }
+.stage-stack { display: flex; flex-direction: column; align-items: center; gap: var(--space-100); text-align: center; max-width: 100%; }
+.stage-row { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-100); }
+.stage-arrow { display: grid; place-items: center; color: var(--icon-secondary); transform: rotate(90deg); }
+.feature-stage .chip { display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--space-25); text-align: left;
+  padding: var(--space-75) var(--space-100); box-shadow: 0 8px 20px var(--overlay-xs); }
 .was { color: var(--text-secondary); text-decoration: line-through; }
-.week-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-100); }
-.week-row.skipped { color: var(--text-secondary); }
-.week-row.skipped .chip { text-decoration: line-through; background: var(--surface-secondary); color: var(--text-secondary); }
-.card-visual.pills { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+.stage-weeks { display: grid; grid-template-columns: auto auto; align-items: center; gap: var(--space-75) var(--space-200); }
+.stage-weeks .chip { padding: var(--space-50) var(--space-100); box-shadow: none; }
+.stage-weeks .skipped { color: var(--text-secondary); }
+.stage-weeks .skipped-chip { background: var(--surface-primary-subtle); color: var(--text-secondary); text-decoration: line-through; }
+.stage-notes { display: flex; flex-direction: column; gap: var(--space-100); width: min(100%, 320px); }
+.note { display: flex; align-items: center; gap: var(--space-100); padding: var(--space-100) var(--space-200); border-radius: var(--radius-12);
+  background: var(--surface-primary-subtle); border: 1px solid var(--border-primary); box-shadow: 0 8px 20px var(--overlay-xs); }
+.note:first-child { transform: scale(0.94); opacity: 0.7; }
+.note .caption-5 { color: var(--text-secondary); }
+.note .toast-icon { width: 32px; height: 32px; }
 .pill { display: inline-flex; align-items: center; gap: var(--space-50); padding: var(--space-50) var(--space-100); border-radius: var(--radius-full);
-  background: var(--surface-secondary); color: var(--text-primary); }
-.pill svg { color: var(--icon-info); }
+  background: var(--surface-primary-subtle); color: var(--text-primary); }
 @media (max-width: 768px) {
-  .bento { grid-template-columns: minmax(0, 1fr); }
-  .bento > .card:nth-child(n) { grid-column: auto; }
+  .features { grid-template-columns: minmax(0, 1fr); }
+  .feature-stage { height: 200px; padding: var(--space-200); }
 }
 
 /* How it works: steps on one side, the setup page they lead to on the other. */
@@ -468,19 +502,10 @@ footer { margin-top: var(--space-600); }
 .notice-warning svg { color: var(--icon-warning); }
 .notice-error { background: var(--surface-error-subtle); }
 .notice-error svg { color: var(--icon-error); }
-.status { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-75); color: var(--text-secondary); margin-top: var(--space-75); }
 .dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--icon-success); }
 .dot.bad { background: var(--icon-error); }
-.stat-bar { display: flex; gap: var(--space-200); margin-top: var(--space-300); padding: var(--space-200); border-radius: var(--radius-12);
-  background: var(--surface-secondary); }
-.stat { flex: 1; min-width: 0; }
-.stat span { display: block; color: var(--text-secondary); }
-.vdivider { width: 1px; align-self: stretch; background: var(--border-primary); }
 .list { margin-top: var(--space-100); border: 1px solid var(--border-primary); border-radius: var(--radius-12); background: var(--surface-primary-subtle); }
 .list > .divider { margin: 0 var(--space-200); }
-.row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-200); padding: var(--space-100) var(--space-200); }
-.row time { color: var(--text-secondary); white-space: nowrap; }
-.tag { display: inline-block; border-radius: var(--radius-full); padding: var(--space-25) var(--space-75); margin-right: var(--space-75); }
 /* List states: Loading (skeleton shaped like the rows), Empty (getting started), Error */
 .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-75); padding: var(--space-400) var(--space-200); }
 .empty svg { color: var(--icon-subtle); }
@@ -492,9 +517,113 @@ footer { margin-top: var(--space-600); }
 .skeleton-row { display: flex; justify-content: space-between; gap: var(--space-200); padding: var(--space-200); }
 .loading-panel { margin-top: var(--space-300); }
 .loading-panel[hidden] { display: none; }
-.danger-zone { margin-top: var(--space-600); padding: var(--space-300); border-radius: var(--radius-16); border: 1px solid var(--border-primary); }
-.check { display: flex; gap: var(--space-75); align-items: center; margin-top: var(--space-100); min-height: 44px; }
-.check input { width: 20px; height: 20px; margin: 0; accent-color: var(--action-primary); }
+/* Your Semsync page: the week up top, an agenda of what's due on the left, and everything about your calendar on the
+   right. On phones it stacks with the calendar card first, since adding it is the first thing to do. */
+.dash-wrap { max-width: 1120px; }
+.dash-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: var(--space-200); }
+.dash-title { margin-top: var(--space-50); }
+.sync-pill { display: flex; align-items: center; gap: var(--space-100); margin: 0; padding: var(--space-50) var(--space-50) var(--space-50) var(--space-200);
+  border-radius: var(--radius-full); border: 1px solid var(--border-primary); background: var(--surface-primary-subtle); color: var(--text-secondary); }
+.sync-pill .btn { border-radius: var(--radius-full); }
+/* Both columns end on the same line: the agenda stretches to the side column's height, and the last side card stretches
+   to the agenda's, with its button pinned to the bottom. */
+.dash { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-200); margin-top: var(--space-400); align-items: stretch; }
+.dash-side { display: flex; flex-direction: column; gap: var(--space-200); min-width: 0; }
+.dash-sources { flex: 1; display: flex; flex-direction: column; }
+.sources-actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: var(--space-75); }
+@media (max-width: 880px) {
+  .dash { grid-template-columns: minmax(0, 1fr); }
+  .dash-side { display: contents; }
+  .dash-dest { order: -1; }
+}
+.panel { min-width: 0; padding: var(--space-300); border-radius: var(--radius-16); border: 1px solid var(--border-primary); background: var(--surface-primary-subtle); }
+.panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--space-100); }
+@media (max-width: 480px) { .panel { padding: var(--space-200); } }
+/* The calendar card gets the same soft blue light as the landing page, so the main action stands out. */
+.panel-glow { background: radial-gradient(80% 90% at 100% 0%, color-mix(in srgb, var(--surface-glow-brand) 30%, transparent), transparent),
+  var(--surface-primary-subtle); }
+.dest-icon { width: 40px; height: 40px; border-radius: var(--radius-12); display: grid; place-items: center; margin-bottom: var(--space-200);
+  background: var(--surface-brand); color: var(--text-on-brand); }
+.dest-icon.warn { background: var(--surface-warning-subtle); color: var(--icon-warning); }
+.dest p { margin-top: var(--space-75); overflow-wrap: anywhere; } /* long email addresses wrap instead of widening the page */
+.dest-actions { display: flex; flex-wrap: wrap; gap: var(--space-75); margin-top: var(--space-300); }
+
+/* Agenda: a date block per day (today circled in orange, as in the hero), events as the same chips as the calendar. */
+.agenda { margin-top: var(--space-100); }
+.agenda-day { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: var(--space-200); padding: var(--space-200) 0; }
+.agenda-date { display: flex; flex-direction: column; align-items: center; gap: var(--space-25); color: var(--text-secondary); }
+.agenda-num { width: 40px; height: 40px; border-radius: var(--radius-full); display: grid; place-items: center; color: var(--text-primary); }
+.agenda-date.today .agenda-num { background: var(--surface-accent); color: var(--text-on-accent); }
+.agenda-events { display: flex; flex-direction: column; gap: var(--space-75); min-width: 0; }
+.agenda-ev { display: flex; flex-direction: column; gap: var(--space-25); padding: var(--space-75) var(--space-100); border-radius: var(--radius-8);
+  overflow-wrap: anywhere; }
+.panel .empty { padding: var(--space-500) var(--space-200); }
+
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-75); margin-top: var(--space-200); }
+.tile { display: flex; flex-direction: column; gap: var(--space-25); min-width: 0; padding: var(--space-100); border-radius: var(--radius-12);
+  background: var(--surface-secondary); }
+.tile-key { width: 12px; height: 12px; border-radius: var(--radius-4); margin-bottom: var(--space-50); }
+.key-class { background: var(--text-info); }
+.key-deadline { background: var(--text-accent); }
+.key-exam { background: var(--surface-accent); }
+
+.sources { display: flex; flex-direction: column; gap: var(--space-200); margin: var(--space-200) 0 var(--space-300); }
+.source { display: flex; gap: var(--space-100); align-items: flex-start; }
+.source > div { flex: 1; min-width: 0; }
+.source-icon { flex: none; width: 36px; height: 36px; border-radius: var(--radius-8); display: grid; place-items: center;
+  background: var(--surface-info-subtle); color: var(--icon-info); }
+.source .ok { flex: none; margin-top: var(--space-75); color: var(--icon-success); }
+.mods { display: flex; flex-wrap: wrap; gap: var(--space-50); margin-top: var(--space-50); }
+.mod { padding: var(--space-25) var(--space-75); border-radius: var(--radius-full); background: var(--surface-secondary); color: var(--text-primary); }
+.danger-link { color: var(--text-error); }
+
+/* Account menu: your initial in the nav opens it. */
+.avatar { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-full);
+  background: transparent; cursor: pointer; }
+.avatar span { width: 32px; height: 32px; border-radius: var(--radius-full); display: grid; place-items: center;
+  background: var(--surface-info-subtle); color: var(--text-info); transition: box-shadow 300ms var(--ease); }
+.avatar:hover span, .avatar:focus-visible span { box-shadow: 0 0 0 3px color-mix(in srgb, var(--surface-glow-brand) 40%, transparent); }
+.account-menu { position: fixed; inset: auto; top: 76px; right: var(--space-200); margin: 0; width: 260px; padding: var(--space-100);
+  border-radius: var(--radius-16); border: 1px solid var(--border-primary); background: var(--surface-primary-subtle); color: var(--text-primary);
+  box-shadow: 0 16px 40px var(--overlay-md); }
+/* Shown only when open: as a popover, or with the .open class where popovers aren't supported. These stay separate
+   rules, because a browser that doesn't know :popover-open drops the whole rule it appears in. */
+.account-menu { display: none; }
+.account-menu:popover-open { display: block; animation: confirm-in 200ms var(--ease); }
+.account-menu.open { display: block; z-index: 20; }
+.account-menu > p { padding: 0 var(--space-100); }
+.account-menu > p:first-child { padding-top: var(--space-50); }
+.account-email { overflow-wrap: anywhere; }
+.menu-divider { margin: var(--space-100) 0 var(--space-50); }
+.account-menu form { margin: 0; }
+.menu-item { display: flex; align-items: center; gap: var(--space-100); width: 100%; min-height: 44px; padding: 0 var(--space-100); border: 0;
+  border-radius: var(--radius-8); background: transparent; color: inherit; font-family: inherit; text-align: left; text-decoration: none; cursor: pointer;
+  transition: background-color 300ms var(--ease); }
+.menu-item:hover, .menu-item:focus-visible { background: var(--surface-primary-hover); }
+.menu-item svg { color: var(--icon-secondary); }
+.menu-item.danger-link { color: var(--text-error); }
+.menu-item.danger-link svg { color: var(--icon-error); }
+@media (prefers-reduced-motion: reduce) { .account-menu:popover-open { animation: none; } }
+/* Tight phones: the current page's link goes, so the brand, toggle and account menu still fit. */
+@media (max-width: 400px) { .nav-link[aria-current="page"] { display: none; } }
+@media (max-width: 360px) { .nav-link { display: none; } } /* the brand already leads to your page */
+.nav-link { white-space: nowrap; }
+
+/* Delete confirmation: a modal dialog that fades up over a dimmed page, with its own page as the fallback. */
+.confirm { width: min(460px, calc(100vw - 32px)); padding: var(--space-300); border-radius: var(--radius-16); border: 1px solid var(--border-primary);
+  background: var(--surface-primary-subtle); color: var(--text-primary); box-shadow: 0 24px 64px var(--overlay-lg); }
+.confirm::backdrop { background: var(--overlay-lg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.confirm[open] { animation: confirm-in 300ms var(--ease); }
+@keyframes confirm-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) { .confirm[open] { animation: none; } }
+.confirm form, .confirm-page form { margin: 0; }
+.confirm-icon { width: 48px; height: 48px; border-radius: var(--radius-full); display: grid; place-items: center;
+  background: var(--surface-error-subtle); color: var(--icon-error); }
+.confirm-list { margin: var(--space-200) 0 0; padding-left: var(--space-300); color: var(--text-secondary); display: flex; flex-direction: column; gap: var(--space-75); }
+.confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-100); margin-top: var(--space-300); }
+/* Narrow phones: full width buttons, stacked, with the action you came for on top. */
+@media (max-width: 420px) { .confirm-actions { flex-direction: column-reverse; } .confirm-actions .btn { width: 100%; } }
+
 .prose h2 { margin-top: var(--space-400); }
 .prose p, .prose li { color: var(--text-secondary); }
 .prose p { margin-top: var(--space-75); }
@@ -611,6 +740,33 @@ export const SCRIPT = `
     }), { threshold: 0.5 }).observe(screen);
   });
 
+  // The hero follows a mouse pointer: it eases toward the target each frame and stops when it gets there.
+  const stage = document.querySelector('.showcase');
+  const cal = stage && stage.querySelector('.cal');
+  if (stage && cal && !still && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    let tx = 0, ty = 0, x = 0, y = 0, frame = 0;
+    const step = () => {
+      x += (tx - x) * 0.08;
+      y += (ty - y) * 0.08;
+      stage.style.setProperty('--gx', x.toFixed(3));
+      stage.style.setProperty('--gy', y.toFixed(3));
+      frame = Math.abs(tx - x) + Math.abs(ty - y) > 0.002 ? requestAnimationFrame(step) : 0;
+    };
+    const go = () => { if (!frame) frame = requestAnimationFrame(step); };
+    const hero = stage.closest('.hero') || stage;
+    hero.addEventListener('pointermove', (e) => {
+      const r = stage.getBoundingClientRect();
+      tx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1));
+      ty = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height) * 2 - 1));
+      const c = cal.getBoundingClientRect();
+      stage.style.setProperty('--sx', e.clientX - c.left + 'px');
+      stage.style.setProperty('--sy', e.clientY - c.top + 'px');
+      stage.style.setProperty('--spot', '1');
+      go();
+    });
+    hero.addEventListener('pointerleave', () => { tx = 0; ty = 0; stage.style.setProperty('--spot', '0'); go(); });
+  }
+
   // Tabs: arrow keys move between them, as the ARIA tabs pattern expects.
   document.querySelectorAll('[data-tabs]').forEach((box) => {
     const tabs = [...box.querySelectorAll('[role=tab]')];
@@ -631,6 +787,39 @@ export const SCRIPT = `
       });
     });
     pick(tabs[0]);
+  });
+
+  // The account menu opens under its button (it falls back to the top right corner). Browsers without popovers
+  // (iOS 16 and older) get the same menu from a click handler and the .open class.
+  const menu = document.getElementById('account-menu');
+  const avatar = document.querySelector('[popovertarget="account-menu"]');
+  const place = () => {
+    const r = avatar.getBoundingClientRect();
+    menu.style.top = r.bottom + 8 + 'px';
+    menu.style.right = Math.max(16, innerWidth - r.right) + 'px';
+  };
+  if (menu && avatar && 'popover' in HTMLElement.prototype) {
+    menu.addEventListener('beforetoggle', (e) => { if (e.newState === 'open') place(); });
+  } else if (menu && avatar) {
+    avatar.setAttribute('aria-expanded', 'false');
+    const set = (open) => { menu.classList.toggle('open', open); avatar.setAttribute('aria-expanded', String(open)); if (open) place(); };
+    avatar.addEventListener('click', (e) => { e.stopPropagation(); set(!menu.classList.contains('open')); });
+    document.addEventListener('click', (e) => { if (!menu.contains(e.target)) set(false); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+  }
+
+  // "Delete my data" opens a confirmation dialog; without JavaScript the link goes to the same confirmation as a page.
+  document.querySelectorAll('[data-confirm]').forEach((link) => {
+    const dialog = document.getElementById(link.dataset.confirm);
+    if (!dialog || typeof dialog.showModal !== 'function') return;
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const owner = link.closest('[popover]'); // close the account menu first
+      if (owner) { owner.classList.remove('open'); if (owner.hidePopover && owner.matches(':popover-open')) owner.hidePopover(); }
+      dialog.showModal();
+    });
+    dialog.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => dialog.close()));
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); }); // a click on the dimmed page
   });
 
   const busy = (form, label) => {

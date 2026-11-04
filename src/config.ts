@@ -43,6 +43,23 @@ export function findTerm(semester: number, now = new Date()): Term | undefined {
 }
 
 /** Date (YYYY-MM-DD) of a weekday in a teaching week. Recess week sits between Weeks 6 and 7. */
+/**
+ * Where a day falls in the NUS calendar, for the top of the Semsync page: "Week 12", "Recess week", "Reading week",
+ * "Exams", or between semesters, when the next one starts.
+ */
+export function semesterWeek(now = new Date()): { label: string; detail: string } {
+  const today = new Date(now.getTime() + 8 * 3600_000).toISOString().slice(0, 10); // the date in Singapore
+  for (const term of TERMS) {
+    if (today < term.week1 || today > term.end) continue;
+    const i = Math.floor((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${term.week1}T00:00:00Z`)) / (7 * 86_400_000));
+    const label = i < 6 ? `Week ${i + 1}` : i === 6 ? 'Recess week' : i < 14 ? `Week ${i}` : i === 14 ? 'Reading week' : 'Exams';
+    return { label, detail: term.label };
+  }
+  const next = TERMS.find((t) => t.week1 > today);
+  const starts = next && new Date(`${next.week1}T00:00:00Z`).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return { label: 'Semester break', detail: next ? `${next.label} starts ${starts}` : 'Your NUS semester' };
+}
+
 export function teachingWeekDate(term: Term, week: number, dayOffset: number): string {
   const weeksAfterWeek1 = week <= 6 ? week - 1 : week;
   return addDays(term.week1, weeksAfterWeek1 * 7 + dayOffset);

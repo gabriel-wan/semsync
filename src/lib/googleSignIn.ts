@@ -1,4 +1,5 @@
 import { b64urlDecodeString } from './crypto.js';
+import { fetchWithin } from './http.js';
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -37,7 +38,7 @@ export type GoogleIdentity = { sub: string; email: string; name: string | null }
 export type CodeResult = { identity: GoogleIdentity; refreshToken: string | null; scopes: string[] };
 
 export async function exchangeCode(code: string, clientId: string, clientSecret: string, redirectUri: string): Promise<CodeResult> {
-  const res = await fetch(TOKEN_URL, {
+  const res = await fetchWithin(20_000, 'Google sign in', TOKEN_URL, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' }),

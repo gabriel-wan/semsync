@@ -2,6 +2,7 @@ import type { Env } from '../../env.js';
 import { b64url, decrypt, encrypt } from '../crypto.js';
 import type { UserRow } from '../db.js';
 import { UserError } from '../errors.js';
+import { fetchWithin } from '../http.js';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
@@ -69,7 +70,7 @@ export function userTokens(env: Env, user: UserRow): TokenProvider {
 }
 
 async function requestToken(params: Record<string, string>): Promise<{ token: string; expiresIn: number }> {
-  const res = await fetch(TOKEN_URL, {
+  const res = await fetchWithin(20_000, 'Google sign in', TOKEN_URL, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(params),
@@ -85,7 +86,7 @@ async function requestToken(params: Record<string, string>): Promise<{ token: st
 
 /** Tells Google to drop a user's grant. Best effort: the user may already have removed it. */
 export async function revokeToken(token: string): Promise<void> {
-  await fetch('https://oauth2.googleapis.com/revoke', {
+  await fetchWithin(10_000, 'Google', 'https://oauth2.googleapis.com/revoke', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ token }),

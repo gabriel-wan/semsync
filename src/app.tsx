@@ -13,7 +13,7 @@ import { parseNusmodsLink } from './lib/nusmods.js';
 import { csrfToken, readSession, sessionValue, SESSION_MAX_AGE } from './lib/session.js';
 import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser } from './lib/sync.js';
 import {
-  DevCalendar, DevLogin, Foundations, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms, type SetupErrors,
+  DeleteData, DevCalendar, DevLogin, Foundations, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms, type SetupErrors,
 } from './views/pages.js';
 
 type AppEnv = { Bindings: Env; Variables: { user: UserRow | null } };
@@ -273,6 +273,13 @@ app.post('/sync', async (c) => {
   if (user.last_sync_at && Date.now() - user.last_sync_at < 60_000) return c.redirect('/home?done=recent');
   await syncUser(c.env, user);
   return c.redirect('/home?done=synced');
+});
+
+// The confirmation as a page, for when JavaScript is off and the confirmation dialog can't open.
+app.get('/account/delete', async (c) => {
+  const user = c.get('user');
+  if (!user) return c.redirect('/');
+  return c.html(<DeleteData user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} counts={await eventCounts(c.env.DB, user.id)} />);
 });
 
 app.post('/account/delete', async (c) => {

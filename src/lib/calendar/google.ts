@@ -1,4 +1,5 @@
 import { TIME_ZONE } from '../../config.js';
+import { fetchWithin } from '../http.js';
 import type { TokenProvider } from './tokens.js';
 import type { CalendarBackend, EventOp, OpResult } from './types.js';
 
@@ -16,8 +17,9 @@ export class GoogleCalendar implements CalendarBackend {
   }
 
   async shareWith(calendarId: string, email: string): Promise<void> {
-    // Read-only: Canvas and NUSMods stay the source of truth. Google emails them an "Add calendar" link too.
-    await this.call('POST', `/calendars/${encodeURIComponent(calendarId)}/acl?sendNotifications=true`, {
+    // Read-only: Canvas and NUSMods stay the source of truth. No email: Google's invite comes from the service
+    // account's robot address and reads like spam; the "Add to Google Calendar" button on their page does the same.
+    await this.call('POST', `/calendars/${encodeURIComponent(calendarId)}/acl?sendNotifications=false`, {
       role: 'reader',
       scope: { type: 'user', value: email },
     });
@@ -48,7 +50,7 @@ export class GoogleCalendar implements CalendarBackend {
       return [...head, `${method} ${path} HTTP/1.1`, 'Content-Type: application/json', '', JSON.stringify(body)].join('\r\n');
     });
 
-    const res = await fetch(BATCH_URL, {
+    const res = await fetchWithin(45_000, 'Google Calendar', BATCH_URL, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${await this.token()}`,
@@ -61,7 +63,7 @@ export class GoogleCalendar implements CalendarBackend {
   }
 
   private async call(method: string, path: string, body?: unknown, okStatuses: number[] = []): Promise<Response> {
-    const res = await fetch(`${API}${path}`, {
+    const res = await fetchWithin(30_000, 'Google Calendar', `${API}${path}`, {
       method,
       headers: {
         authorization: `Bearer ${await this.token()}`,

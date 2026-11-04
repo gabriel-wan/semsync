@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { UserRow } from '../src/lib/db';
-import { Foundations, Landing, OgCard, Privacy, Setup, Terms } from '../src/views/pages';
+import { DeleteData, Foundations, Home, Landing, OgCard, Privacy, Setup, Terms } from '../src/views/pages';
+import { semesterWeek } from '../src/config';
 import { CSS } from '../src/views/styles';
 import { CORE, SYSTEM, SYSTEM_SPEC, contrast, mirror, resolve, saturation, type Mode } from '../src/views/tokens';
 
@@ -253,5 +254,71 @@ describe('navigation, continued', () => {
     const html = await page(Landing({}));
     expect(/<title>([^<]*)<\/title>/.exec(html)![1]).toBe('Semsync');
     expect(html).toContain('<meta property="og:title" content="Semsync: your NUS semester in Google Calendar"/>');
+  });
+});
+
+describe('your Semsync page', () => {
+  const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
+  const user: UserRow = {
+    id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', mode: 'shared', calendar_id: 'c',
+    nusmods_link: 'https://nusmods.com/timetable/sem-1/share?CS2103T=LEC:G26&ST2334=LEC:1', google_refresh_enc: null,
+    needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null,
+  };
+  const props = { user, csrf: 't', addUrl: 'https://calendar.google.com/x', needsConnect: false, counts: { deadline: 2, class: 5, exam: 1 }, dev: false,
+    upcoming: [{ title: '[CS2103T] Quiz', kind: 'deadline' as const, start_ms: Date.now() + 3600_000, all_day: 0 }] };
+
+  it('asks before deleting, in a dialog, with the real numbers', async () => {
+    const html = await page(Home(props));
+    expect(html).toMatch(/<dialog[^>]*id="delete-dialog"[\s\S]*action="\/account\/delete"[\s\S]*Delete everything[\s\S]*<\/dialog>/);
+    expect(html).toContain('data-confirm="delete-dialog"');
+    expect(html).toContain('its 8 events');
+    expect(html).not.toContain('type="checkbox"');
+  });
+
+  it('has the same confirmation as a page for when JavaScript is off', async () => {
+    const html = await page(DeleteData({ user, csrf: 't', counts: props.counts }));
+    expect(html).toContain('Delete everything');
+    expect(html).toContain('href="/home"');
+  });
+
+  it('shows the courses from the NUSMods link and today first in the agenda', async () => {
+    const html = await page(Home(props));
+    expect(html).toContain('<span class="mod caption-4">CS2103T</span>');
+    expect(html).toMatch(/agenda-date today[\s\S]*Today/);
+  });
+});
+
+describe('semester week', () => {
+  it('names the NUS week, counting recess week', () => {
+    expect(semesterWeek(new Date('2026-11-04T04:00:00Z')).label).toBe('Week 12');
+    expect(semesterWeek(new Date('2026-09-22T04:00:00Z')).label).toBe('Recess week');
+    expect(semesterWeek(new Date('2026-09-29T04:00:00Z')).label).toBe('Week 7');
+    expect(semesterWeek(new Date('2026-11-17T04:00:00Z')).label).toBe('Reading week');
+    expect(semesterWeek(new Date('2026-11-25T04:00:00Z')).label).toBe('Exams');
+    expect(semesterWeek(new Date('2026-12-20T04:00:00Z'))).toEqual({ label: 'Semester break', detail: 'AY2026/27 Semester 2 starts 11 Jan' });
+  });
+});
+
+describe('account menu', () => {
+  const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
+  it('puts sign out and delete in a menu in the nav, not on the page', async () => {
+    const user: UserRow = {
+      id: 'dev:a@example.com', email: 'a@example.com', name: 'Ann', canvas_feed_enc: 'x', mode: 'main', calendar_id: 'primary',
+      nusmods_link: null, google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null,
+    };
+    const html = await page(Home({ user, csrf: 't', addUrl: null, needsConnect: false, counts: {}, upcoming: [], dev: false }));
+    const nav = /<nav[\s\S]*?<\/nav>/.exec(html)![0];
+    expect(nav).toContain('popovertarget="account-menu"');
+    expect(nav).toMatch(/action="\/auth\/logout"[\s\S]*Sign out/);
+    expect(nav).toContain('Delete my data');
+    expect(html.replace(nav, '')).not.toContain('action="/auth/logout"');
+  });
+});
+
+describe('page script', () => {
+  it('parses, so one mistake can not switch off every interactive part at once', async () => {
+    const { SCRIPT, THEME_INIT } = await import('../src/views/styles');
+    expect(() => new Function(SCRIPT)).not.toThrow();
+    expect(() => new Function(THEME_INIT)).not.toThrow();
   });
 });

@@ -1,4 +1,5 @@
 import { UserError } from './errors.js';
+import { TimeoutError, USER_AGENT, fetchWithin } from './http.js';
 import type { CalEvent } from './events.js';
 import { parseIcs, parseIcsTime, unescapeText } from './ics.js';
 
@@ -25,7 +26,13 @@ export function validateCanvasFeedUrl(raw: string, allowedHosts: string[]): stri
 }
 
 export async function fetchCanvasFeed(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { accept: 'text/calendar' } });
+  let res: Response;
+  try {
+    res = await fetchWithin(20_000, 'Canvas', url, { headers: { accept: 'text/calendar', 'user-agent': USER_AGENT } });
+  } catch (err) {
+    if (err instanceof TimeoutError) throw new UserError("Canvas didn't answer in time. Semsync will try again shortly.");
+    throw err;
+  }
   if (res.status === 401 || res.status === 404) {
     throw new UserError('Canvas rejected your feed link. It may have been reset; paste the new one.');
   }
@@ -66,7 +73,11 @@ export function canvasEvents(icsText: string): CalEvent[] {
 
 const MODULE_CODE = /\b([A-Z]{2,4}\d{4}[A-Z]{0,3})\b/;
 
-/** "Problem Set 3 [CS2040 Data Structures]" becomes "[CS2040] Problem Set 3". */
+/**
+ * "Problem Set 3 [CS2040 Data Structures]" becomes "[CS2040] Problem Set 3". When the item's own name repeats the
+ * course (course events often do), the repeat goes too: "ST2334 Probability [2610] [ST2334 Probability [2610]]"
+ * becomes "[ST2334] Probability", without the code twice or the section number.
+ */
 export function formatTitle(summary: string): string {
   const s = summary.trimEnd();
   if (!s.endsWith(']')) return summary;
@@ -78,7 +89,11 @@ export function formatTitle(summary: string): string {
       const name = s.slice(0, i).trim();
       if (!name) return summary;
       const course = s.slice(i + 1, -1);
-      return `[${MODULE_CODE.exec(course)?.[1] ?? course}] ${name}`;
+      const code = MODULE_CODE.exec(course)?.[1];
+      if (!code) return `[${course}] ${name}`;
+      // Drop a leading copy of the code and Canvas's trailing section number, like "[2610]".
+      const tidy = name.replace(new RegExp(`^${code}\\b[\\s:-]*`), '').replace(/\s*\[\d{4}\]$/, '').trim();
+      return `[${code}] ${tidy || name}`;
     }
   }
   return summary;

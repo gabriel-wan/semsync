@@ -32,6 +32,13 @@ The UI follows the `landing-page-design` and `figma-designer` skills from
   dark backgrounds. `test/copy.test.ts` renders every page and fails on hyphenated words, banned filler words, a period in
   the hero heading, more than one call to action above the fold, missing FAQ structured data, or a missing Privacy or
   Terms link.
+- **The hero follows a mouse:** with a mouse (never on touch screens or with reduced motion), the hero glow drifts
+  after the pointer, the calendar tilts up to about 4 degrees toward it with a faint spotlight, and the reminder card
+  floats a little more than the calendar. It only animates transforms and eases toward the pointer each frame.
+- **Third party marks:** the hero's "Canvas + NUSMods → Google Calendar" line uses the real Canvas and NUSMods marks,
+  copied from their own repositories (see `CanvasMark` and `NusmodsMark` in `src/views/icons.tsx`), on white tiles.
+  Google Calendar keeps Semsync's own icon, because Google's brand rules need permission to use its product logos and
+  Google reviews the homepage during verification. The footer says Semsync isn't affiliated with NUS, NUSMods or Instructure.
 - **Link guides:** the landing page and the setup page walk through where to find the Canvas feed and the NUSMods
   share link (`Guide` in `src/views/pages.tsx`). They click through their steps on their own while on screen, and fall
   back to plain numbered steps without JavaScript.

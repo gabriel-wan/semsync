@@ -1,5 +1,6 @@
 import { NO_CLASS_DATES, addDays, teachingWeekDate, TZ_OFFSET, type Term } from '../config.js';
 import { UserError } from './errors.js';
+import { USER_AGENT, fetchWithin } from './http.js';
 import type { CalEvent } from './events.js';
 
 export type LessonChoice = { lessonType: string; classNos: string[]; indices: number[] };
@@ -209,7 +210,9 @@ export async function nusmodsEvents(
 }
 
 export async function fetchModuleFromApi(acadYear: string, code: string): Promise<ModuleData | null> {
-  const res = await fetch(`https://api.nusmods.com/v2/${acadYear}/modules/${encodeURIComponent(code)}.json`);
+  const res = await fetchWithin(15_000, `NUSMods (${code})`, `https://api.nusmods.com/v2/${acadYear}/modules/${encodeURIComponent(code)}.json`, {
+    headers: { 'user-agent': USER_AGENT },
+  });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`NUSMods returned ${res.status} for ${code}`);
   return res.json();
