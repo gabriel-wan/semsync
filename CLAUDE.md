@@ -10,4 +10,4 @@ every coding agent reads the same rules:
 - Check UI changes in a real browser before calling them done: run the dev server, sign in with the dev login, and
   look at the page at 390px and desktop widths in both light and dark mode.
 - When a change touches the sync, run `npm test` (it includes a real Postgres) rather than only the file you changed.
-- Ask before pushing. When pushing, update both branches: `main` is what goes live.
+- Ask before pushing. Push to `main`: that's what goes live.

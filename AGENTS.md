@@ -101,15 +101,14 @@ Copy `.env.example` to `.env.local` first. With `DEV_LOGIN=1` and `FAKE_GOOGLE=1
 
 ## Deploying
 
-- Vercel's live site deploys from **`main`**. Pushes to other branches (including `vercel`) only make preview
-  deployments. Production builds apply new migrations before going live.
+- Vercel's live site deploys from **`main`**. Pushes to other branches only make preview deployments. Production
+  builds apply new migrations before going live.
 - The scheduled sync is run by Supabase's own scheduler (`pg_cron`), which every production build sets up again
   (`src/lib/scheduler.ts`, called from `scripts/migrate.ts`). That's the only schedule; Vercel's daily cron is a safety
   net, and `.github/workflows/sync-now.yml` runs it once by hand. Don't add another scheduler.
 - `MOVE_OLD_ADDRESS=1` on Vercel sends visitors from the old `.vercel.app` address to `semsync.live`. Leave it off
   until the domain resolves on NUS networks.
-- Commit or push only when asked. This repo keeps `main` and `vercel` level: `git push origin vercel` then
-  `git push origin vercel:main`.
+- Commit or push only when asked. Push to `main`: that's what goes live.
 
 ## Don't
 
