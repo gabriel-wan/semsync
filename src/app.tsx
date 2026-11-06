@@ -127,8 +127,8 @@ app.get('/settings', async (c) => {
 app.get('/terms', async (c) => c.html(<Terms {...await viewer(c)} />));
 
 // Design reference (tokens and every component state), and the card behind public/og.png.
-app.get('/foundations', (c) => c.html(<Foundations section={c.req.query('section')} />));
-app.get('/og', (c) => c.html(<OgCard />));
+app.get('/foundations', (c) => (isDev(c.env) ? c.html(<Foundations section={c.req.query('section')} />) : c.notFound()));
+app.get('/og', (c) => (isDev(c.env) ? c.html(<OgCard />) : c.notFound()));
 
 // --- Google sign-in and calendar access ---
 

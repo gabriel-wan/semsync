@@ -417,7 +417,7 @@ describe('Outlook and Apple Calendar', () => {
     last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]', nusmods_ay: null, input_hash: null,
     full_sync_at: null, sync_claimed_at: null, feed_token_hash: null, feed_token_enc: null,
   };
-  const link = 'https://getsemsync.vercel.app/feed/abcdefghijklmnopqrstuvwxyz012345.ics';
+  const link = 'https://semsync.live/feed/abcdefghijklmnopqrstuvwxyz012345.ics';
   const home = { csrf: 't', addUrl: null, needsConnect: false, counts: {}, upcoming: [], dev: false };
 
   it('offers a subscribe link at setup, as a second way to finish', async () => {
@@ -429,7 +429,7 @@ describe('Outlook and Apple Calendar', () => {
     const html = await page(Home({ ...home, user: { ...user, mode: 'feed', calendar_id: 'feed', google_refresh_enc: null }, feedLink: link }));
     expect(html).toContain('In your calendar app');
     expect(html).toContain(`value="${link}"`);
-    expect(html).toContain('href="webcal://getsemsync.vercel.app/feed/');
+    expect(html).toContain('href="webcal://semsync.live/feed/');
     expect(html).toContain('data-copy="feed-url"');
     expect(html).toContain('Add Subscribed Calendar');
     expect(html).not.toContain('Open Google Calendar');

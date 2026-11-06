@@ -86,12 +86,12 @@ describe('a new semester', () => {
   } as UserRow;
 
   it('puts a reminder in the calendar two weeks before the next term, linking to Semsync', () => {
-    expect(timetableReminder(user, 'https://getsemsync.vercel.app', at('2026-11-06'))).toMatchObject({
+    expect(timetableReminder(user, 'https://semsync.live', at('2026-11-06'))).toMatchObject({
       kind: 'event',
       title: 'Add your new timetable to Semsync',
       start: { date: '2026-12-28' },
       end: { date: '2026-12-29' },
-      url: 'https://getsemsync.vercel.app/setup?edit=1',
+      url: 'https://semsync.live/setup?edit=1',
     });
     // Long after that term started, the page asks instead.
     expect(timetableReminder(user, 'x', at('2027-03-01'))).toBeNull();

@@ -1329,7 +1329,7 @@ export const Terms: FC<Viewer> = ({ signedIn, setupPending, account, origin }) =
   </Layout>
 );
 
-/** 1200 × 630 card, screenshotted into public/og.png for link previews (see docs/design.md). */
+/** 1200 × 630 card, screenshotted into public/og.png for link previews (see CONTRIBUTING.md). */
 export const OgCard: FC = () => (
   <html lang="en">
     <head>

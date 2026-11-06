@@ -1,6 +1,6 @@
 # Deploying
 
-The live copy runs at https://getsemsync.vercel.app. These are the steps to set up your own.
+The live copy runs at https://semsync.live. These are the steps to set up your own.
 
 ## 1. Google Cloud (one project, free)
 
@@ -72,6 +72,20 @@ verified this app" screen and no 100-user cap, and there's nothing to submit for
 
 Two things would bring the review back: adding a sensitive scope (like `calendar.events.owned`, which Semsync used
 before it made its own calendar), or uploading an app logo in **Branding**, which needs a lighter brand check.
+
+## 5. Your own domain (optional)
+
+1. **Vercel → your project → Settings → Domains → Add** your domain (for example `semsync.live`). Vercel shows the DNS
+   records it needs.
+2. Add those records where you bought the domain (on name.com: **My Domains → your domain → Manage DNS Records**).
+   It usually works within minutes, and at most a day.
+3. **Google Cloud → Google Auth Platform:** under **Clients**, add `https://<your domain>/auth/callback` to the
+   authorized redirect URIs; under **Branding**, add the domain to the authorized domains and update the homepage,
+   privacy and terms links.
+4. **GitHub → Settings → Secrets and variables → Actions:** set `SEMSYNC_URL` to `https://<your domain>`.
+
+Keep the old `.vercel.app` address working (Vercel does by default): subscribe links people already added and existing
+sign ins use it. Links Semsync puts in calendars use the production domain on their own, or whatever `APP_URL` says.
 
 ## Ready for 1,000 users
 
