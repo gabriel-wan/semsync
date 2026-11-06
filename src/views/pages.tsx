@@ -5,7 +5,7 @@ import { jsonList, type Course, type UpcomingRow, type UserRow } from '../lib/db
 import { GOOGLE_EVENT_COLORS, moduleColors } from '../lib/events.js';
 import { parseNusmodsLink } from '../lib/nusmods.js';
 import { BrandMark, CanvasMark, FAVICON, GithubMark, GoogleMark, Icon, NusmodsMark, type IconName } from './icons.js';
-import { CSS, SCRIPT, THEME_INIT } from './styles.js';
+import { CSS, THEME_INIT } from './styles.js';
 import { CORE, RADIUS, SPACING, SYSTEM, SYSTEM_SPEC, TEXT_STYLES } from './tokens.js';
 
 
@@ -80,6 +80,7 @@ export const Layout: FC<LayoutProps> = ({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
         <link href={FONTS} rel="stylesheet" />
         <style>{raw(CSS)}</style>
+        <link rel="stylesheet" href="/site.css" />
         {head}
       </head>
       <body>
@@ -125,7 +126,7 @@ export const Layout: FC<LayoutProps> = ({
             </span>
           </div>
         </footer>
-        <script>{raw(SCRIPT)}</script>
+        <script src="/app.js" defer></script>
       </body>
     </html>
   );
@@ -1335,7 +1336,9 @@ export const OgCard: FC = () => (
     <head>
       <meta charset="utf-8" />
       <link href={FONTS} rel="stylesheet" />
-      <style>{raw(`${CSS}\nhtml, body { width: 1200px; height: 630px; overflow: hidden; }`)}</style>
+      <style>{raw(CSS)}</style>
+      <link rel="stylesheet" href="/site.css" />
+      <style>{raw('html, body { width: 1200px; height: 630px; overflow: hidden; }')}</style>
     </head>
     <body class="mode-dark" style="background: var(--surface-primary); color: var(--text-primary);">
       <div style="padding: var(--space-800) var(--space-800) 0; display: flex; flex-direction: column; height: 630px;">

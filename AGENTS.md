@@ -17,7 +17,9 @@ The people using it are students, not developers. Everything on screen should ma
 | --- | --- |
 | `src/app.tsx` | Every route: pages, Google sign in, setup, settings, sync, subscribe links (`/feed/…`), the scheduled run (`/api/cron`) |
 | `src/views/pages.tsx` | All pages, as Hono JSX rendered on the server |
-| `src/views/styles.ts` | The CSS and the page script (`SCRIPT`, a string sent to the browser) |
+| `src/views/styles.ts` | What each page carries inline: the tokens as CSS variables, spacing helpers, and the theme script that runs before the page draws |
+| `public/site.css` | Every style rule, using only the token variables |
+| `public/app.js` | The browser script, loaded with `defer` on every page |
 | `src/views/tokens.ts` | Design tokens: spacing, radii, colours for light and dark mode, text styles |
 | `src/views/icons.tsx` | Icons (Phosphor), the Semsync mark, and the Canvas, NUSMods, GitHub and Google marks |
 | `src/lib/sync.ts` | The sync: build the events someone should have, compare with what was written, send only the changes |
@@ -57,9 +59,11 @@ Copy `.env.example` to `.env.local` first. With `DEV_LOGIN=1` and `FAKE_GOOGLE=1
 **Code**
 
 - TypeScript ES modules: imports inside `src` end in `.js`.
-- Pages are Hono JSX on the server. There's no client framework; the little browser behaviour there is lives in
-  `SCRIPT` in `styles.ts`, a string inside a template literal, so it can't contain backticks or `${`. A test checks it
-  still parses.
+- Pages are Hono JSX on the server. There's no client framework: the little browser behaviour there is lives in
+  `public/app.js`, plain JavaScript that runs in every modern browser without a build step. Every page must still work
+  without it. A test checks it parses.
+- Styles live in `public/site.css`. `public/` is served as is (by the CDN on Vercel, by `npm run dev` locally), so
+  nothing there is compiled; keep both files readable rather than minified.
 - Comments say why, in full sentences. Keep the existing style.
 
 **Words on screen**

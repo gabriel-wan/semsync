@@ -1,8 +1,14 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { UserRow } from '../src/lib/db';
 import { DeleteData, Foundations, Help, Home, Landing, OgCard, Privacy, Settings, Setup, Terms } from '../src/views/pages';
 import { semesterWeek } from '../src/config';
-import { CSS } from '../src/views/styles';
+import { CSS, THEME_KEY } from '../src/views/styles';
+
+// The rules and the browser script are real files the pages load; the tokens are written inline by styles.ts.
+const SITE_CSS = readFileSync('public/site.css', 'utf8');
+const APP_JS = readFileSync('public/app.js', 'utf8');
+const ALL_CSS = `${CSS}\n${SITE_CSS}`;
 import { CORE, SYSTEM, SYSTEM_SPEC, contrast, mirror, resolve, saturation, type Mode } from '../src/views/tokens';
 
 const MODES: Mode[] = ['light', 'dark'];
@@ -148,9 +154,9 @@ describe('Color System follows the figma-designer skill', () => {
   });
 
   it('only references tokens that exist', async () => {
-    const defined = new Set([...CSS.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+    const defined = new Set([...ALL_CSS.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]));
     const html = await Promise.all([Foundations({}), Landing({}), OgCard({})].map(async (n) => String(await (n as { toString(): string }).toString())));
-    const used = new Set([...`${CSS}\n${html.join('\n')}`.matchAll(/var\(--([a-z0-9-]+)\)/g)].map((m) => m[1]));
+    const used = new Set([...`${ALL_CSS}\n${html.join('\n')}`.matchAll(/var\(--([a-z0-9-]+)\)/g)].map((m) => m[1]));
     expect([...used].filter((u) => !defined.has(u))).toEqual([]);
   });
 
@@ -374,9 +380,19 @@ describe('account menu', () => {
 
 describe('page script', () => {
   it('parses, so one mistake can not switch off every interactive part at once', async () => {
-    const { SCRIPT, THEME_INIT } = await import('../src/views/styles');
-    expect(() => new Function(SCRIPT)).not.toThrow();
+    const { THEME_INIT } = await import('../src/views/styles');
+    expect(() => new Function(APP_JS)).not.toThrow();
     expect(() => new Function(THEME_INIT)).not.toThrow();
+  });
+
+  it('saves the light or dark choice under the key the page reads before it draws', () => {
+    expect(APP_JS).toContain(`localStorage.setItem('${THEME_KEY}'`);
+  });
+
+  it('is loaded on every page, after the inline tokens, with the stylesheet', async () => {
+    const html = String(await (Landing({}) as unknown as { toString(): Promise<string> }).toString());
+    expect(html).toMatch(/<script src="\/app\.js" defer(="")?><\/script>/);
+    expect(html.indexOf('<link rel="stylesheet" href="/site.css"')).toBeGreaterThan(html.indexOf('<style>'));
   });
 });
 

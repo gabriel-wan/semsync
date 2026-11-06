@@ -42,7 +42,7 @@ npm run typecheck
 Both must pass before a change goes in. The tests also check the design and the words:
 
 - `test/design.test.ts` checks colour contrast in light and dark mode, that every colour comes from
-  `src/views/tokens.ts`, and that the page script still parses.
+  `src/views/tokens.ts`, and that the browser script (`public/app.js`) still parses.
 - `test/copy.test.ts` renders every page and fails on things like hyphenated words, filler words, or more than one
   call to action at the top of the landing page.
 
@@ -51,7 +51,8 @@ Both must pass before a change goes in. The tests also check the design and the 
 | Where | What |
 | --- | --- |
 | `src/app.tsx` | Every route: pages, sign in, setup, sync, the subscribe link, the scheduled run |
-| `src/views/` | The pages (`pages.tsx`, server rendered with Hono JSX), styles and page script (`styles.ts`), design tokens (`tokens.ts`), icons |
+| `src/views/` | The pages (`pages.tsx`, server rendered with Hono JSX), design tokens (`tokens.ts`), icons |
+| `public/site.css`, `public/app.js` | The styles and the browser script, served as they are |
 | `src/lib/sync.ts` | The sync: what should be in the calendar, what changed, and sending only that to Google |
 | `src/lib/canvas.ts`, `nusmods.ts` | Reading the Canvas feed and NUSMods timetables |
 | `src/config.ts`, `src/lib/holidays.ts` | NUS term dates (worked out, never typed in) and public holidays |
