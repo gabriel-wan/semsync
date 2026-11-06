@@ -143,6 +143,9 @@ export async function touchSync(db: Db, id: string) {
 }
 
 const CLAIM_MS = 10 * 60_000;
+// A sync that didn't get everything through (more changes than one run sends) is picked up again at the next run
+// rather than an hour later.
+const UNFINISHED_MS = 15 * 60_000;
 
 /**
  * Takes on up to `limit` users who are due, oldest first, marking them so another run that starts meanwhile skips
@@ -152,7 +155,8 @@ export async function claimDueUsers(db: Db, olderThanMs: number, limit: number):
   const now = Date.now();
   const due = `calendar_id IS NOT NULL AND needs_reconnect = 0
          AND (canvas_feed_enc IS NOT NULL OR nusmods_link IS NOT NULL)
-         AND (last_sync_at IS NULL OR last_sync_at < ?)
+         AND (last_sync_at IS NULL OR last_sync_at < ?
+              OR (input_hash IS NULL AND last_sync_ok = 1 AND last_sync_at < ?))
          AND (sync_claimed_at IS NULL OR sync_claimed_at < ?)`;
   // The outer check runs again on each row as it's updated, so a row another run claimed in the meantime drops out.
   const { results } = await db
@@ -162,7 +166,7 @@ export async function claimDueUsers(db: Db, olderThanMs: number, limit: number):
          AND ${due}
        RETURNING *`,
     )
-    .bind(now, now - olderThanMs, now - CLAIM_MS, limit, now - olderThanMs, now - CLAIM_MS)
+    .bind(now, now - olderThanMs, now - UNFINISHED_MS, now - CLAIM_MS, limit, now - olderThanMs, now - UNFINISHED_MS, now - CLAIM_MS)
     .all<UserRow>();
   return results.sort((a, b) => (a.last_sync_at ?? 0) - (b.last_sync_at ?? 0));
 }

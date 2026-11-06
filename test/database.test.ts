@@ -102,6 +102,13 @@ describe('Postgres database adapter', () => {
     await db.prepare('UPDATE users SET sync_claimed_at = 1').run();
     expect((await claimDueUsers(db, 55 * 60_000, 10)).map((u) => u.id)).toEqual(['google:2']);
 
+    // A sync that didn't get everything through comes back at the next run (15 minutes on), not an hour later.
+    const twentyMinutesAgo = Date.now() - 20 * 60_000;
+    await db.prepare('UPDATE users SET sync_claimed_at = NULL, last_sync_at = ?, last_sync_ok = 1, input_hash = NULL').bind(twentyMinutesAgo).run();
+    expect((await claimDueUsers(db, 55 * 60_000, 10)).map((u) => u.id).sort()).toEqual(['google:1', 'google:2']);
+    await db.prepare("UPDATE users SET sync_claimed_at = NULL, input_hash = 'done'").run();
+    expect(await claimDueUsers(db, 55 * 60_000, 10)).toEqual([]);
+
     const soon = Date.now() + 86_400_000;
     await db.batch([
       db.prepare("INSERT INTO synced_events VALUES ('google:1', 'e1', 'h', 'deadline', 'PS5', ?, 0)").bind(soon),

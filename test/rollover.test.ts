@@ -104,3 +104,14 @@ describe('a new semester', () => {
     expect(timetableNotice(user, at('2027-09-01'))).toEqual({ saved: 'AY2026/27 Semester 1', wanted: 'AY2027/28 Semester 1' });
   });
 });
+
+describe('a first sync too big for one run', () => {
+  it('says calmly what is still coming, and when', async () => {
+    const { addingMessage, isAddingMessage } = await import('../src/lib/messages');
+    expect(addingMessage(23)).toBe("Adding the last 23 events to your calendar. They'll be there within 20 minutes.");
+    expect(addingMessage(1)).toBe("Adding one more event to your calendar. It'll be there within 20 minutes.");
+    expect(isAddingMessage(addingMessage(23))).toBe(true);
+    // Mixed with a real warning, it stays a warning.
+    expect(isAddingMessage(`CS9999 isn't offered in AY2026/27 Semester 1, so it was skipped. ${addingMessage(3)}`)).toBe(false);
+  });
+});

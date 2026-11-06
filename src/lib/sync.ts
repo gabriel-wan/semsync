@@ -34,11 +34,13 @@ import {
 } from './events.js';
 import { gzipBase64, toIcs } from './feed.js';
 import { noClassDates } from './holidays.js';
+import { addingMessage } from './messages.js';
 import { fetchModuleFromApi, nusmodsEvents, parseNusmodsLink } from './nusmods.js';
 
 const DAY_MS = 24 * 3600_000;
-// Per sync run, so a first sync of a big semester spreads over a few runs instead of hitting limits.
-const MAX_OPS_PER_SYNC = 200;
+// Per sync run, so Google never gets more than this at once. A normal semester (about 250 events) goes in at once; a
+// bigger one finishes on the next run, 20 minutes later (claimDueUsers picks up unfinished syncs early).
+const MAX_OPS_PER_SYNC = 400;
 
 export const SAMPLE_FEED = 'sample';
 
@@ -384,7 +386,7 @@ export async function syncUser(env: Env, user: UserRow, opts: SyncOptions = {}):
     });
 
     const notes = [...warnings];
-    if (applied.remaining) notes.push(`${applied.remaining} more changes will go through on the next sync.`);
+    if (applied.remaining) notes.push(addingMessage(applied.remaining));
     if (applied.failed) notes.push(`${applied.failed} changes failed and will be retried.`);
     // Only a sync that got everything through can be skipped next time.
     const complete = applied.failed === 0 && applied.remaining === 0;

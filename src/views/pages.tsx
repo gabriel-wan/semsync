@@ -3,6 +3,7 @@ import { raw } from 'hono/html';
 import { TESTIMONIAL, semesterWeek } from '../config.js';
 import { jsonList, type Course, type UpcomingRow, type UserRow } from '../lib/db.js';
 import { GOOGLE_EVENT_COLORS, moduleColors } from '../lib/events.js';
+import { isAddingMessage } from '../lib/messages.js';
 import { parseNusmodsLink } from '../lib/nusmods.js';
 import { BrandMark, CanvasMark, FAVICON, GithubMark, GoogleMark, Icon, NusmodsMark, type IconName } from './icons.js';
 import { CSS, THEME_INIT } from './styles.js';
@@ -1105,11 +1106,15 @@ export const Home: FC<{
             </span>
           </div>
         )}
-        {user.last_sync_message && (
+        {user.last_sync_message && (isAddingMessage(user.last_sync_message) && user.last_sync_ok !== 0 ? (
+          <div class="notice notice-info body-6" role="status">
+            <Icon name="arrowsClockwise" />{user.last_sync_message}
+          </div>
+        ) : (
           <div class={`notice ${user.last_sync_ok === 0 ? 'notice-error' : 'notice-warning'} body-6`} role="status">
             <Icon name="warningCircle" />{user.last_sync_message}
           </div>
-        )}
+        ))}
 
         <div class="dash">
           <section class="panel dash-agenda" aria-labelledby="coming-up">
