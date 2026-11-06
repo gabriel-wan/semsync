@@ -42,8 +42,8 @@ const app = new Hono<AppEnv>();
 
 /**
  * On the live site, the old getsemsync.vercel.app address (and Vercel's per-deployment ones) send people on to the
- * site's own domain, so nobody sees the old address. Two things stay put: the scheduled sync, which the GitHub Action
- * calls at whatever address it's set to, and subscribe links, which calendar apps keep exactly as they were given.
+ * site's own domain, so nobody sees the old address. Two things stay put: the sync endpoint, which schedulers call at
+ * whatever address they were given, and subscribe links, which calendar apps keep exactly as they were given.
  * Nothing moves until the site has a domain of its own and MOVE_OLD_ADDRESS=1 is set: a brand new domain can take a
  * while to show up on some networks (NUS's own DNS among them), and moving people before then strands them.
  */
@@ -473,13 +473,13 @@ app.post('/feed/:action', async (c) => {
 
 // --- Scheduled sync ---
 
-// Called hourly by the GitHub Action (.github/workflows/hourly-sync.yml) and daily by Vercel Cron as a backup.
-// Both send "Authorization: Bearer <CRON_SECRET>".
+// Called every 20 minutes by the database's scheduler (src/lib/scheduler.ts), once a day by Vercel Cron as a safety
+// net, and by hand from GitHub (.github/workflows/sync-now.yml). All send "Authorization: Bearer <CRON_SECRET>".
 app.get('/api/cron', async (c) => {
   const secret = c.env.CRON_SECRET;
   if (!secret || !safeEqual(c.req.header('authorization') ?? '', `Bearer ${secret}`)) return c.json({ error: 'unauthorized' }, 401);
   const result = await runDueSyncs(c.env);
-  // A run where many syncs fail on our side answers 500, so the GitHub Action fails and GitHub emails the owner.
+  // A run where many syncs fail on our side answers 500, which shows in the scheduler's responses and fails a manual run.
   const tried = result.synced + result.unchanged + result.failed;
   const broken = result.failed >= 5 && result.failed > tried / 4;
   if (broken) console.error('sync run mostly failed', result);

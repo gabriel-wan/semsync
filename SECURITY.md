@@ -38,7 +38,8 @@ Deleting your data in Settings removes all of it, deletes the calendar Semsync m
 ### Contributor and automation tooling
 
 Local development switches (`DEV_LOGIN`, `FAKE_GOOGLE`) sign anyone in without Google. They're ignored on Vercel, and
-`.env.local` is never committed. The GitHub Action that runs the sync holds only the site address and the cron secret.
+`.env.local` is never committed. The database's scheduler keeps the cron secret encrypted in Supabase Vault, and the GitHub workflow that runs the sync
+by hand holds only the site address and the cron secret.
 
 ## Hardening Recommendations
 

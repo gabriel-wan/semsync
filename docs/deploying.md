@@ -49,9 +49,9 @@ Test with real Google locally first: put the values in `.env.local`, remove `DEV
 Generate the secrets with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
 Never change `ENCRYPTION_KEY` after launch: stored Canvas links and Google tokens can't be decrypted without it.
 
-## 3. Turn on the hourly sync
+## 3. The hourly sync
 
-**The database runs it.** On Supabase, every production deploy sets up Postgres's own scheduler (`pg_cron`) to call
+**One clock: the database.** On Supabase, every production deploy sets up Postgres's own scheduler (`pg_cron`) to call
 `/api/cron` at :02, :22 and :42 past each hour, with `CRON_SECRET` kept encrypted in Supabase Vault. Each call syncs
 whoever hasn't been synced for 55 minutes, so everyone is synced about hourly. There's nothing to do by hand: the
 build log says `Scheduled sync: scheduled semsync-sync …`. It needs `CRON_SECRET` set in Vercel and the site's
@@ -66,19 +66,16 @@ select status_code, left(content::text, 300) from net._http_response order by cr
 
 To switch it off: `select cron.unschedule('semsync-sync');` (the next deploy sets it up again).
 
-**GitHub runs it too, as a backup.** GitHub's scheduled workflows are best effort and can run hours late, which is
-why they're no longer the main schedule. Two runs at once never sync the same person twice. On GitHub, open the
-repo's **Settings → Secrets and variables → Actions** and add two repository secrets:
+Each call answers with a tally (synced, unchanged, needing the user, failed, and the errors grouped), which the second
+query above shows. A run where most syncs fail on Semsync's side answers 500. Vercel also calls the endpoint once a
+day (`vercel.json`), as a safety net if the database's scheduler ever stops.
 
-- `SEMSYNC_URL`: `https://<your-project>.vercel.app`
-- `CRON_SECRET`: the same value as in Vercel
+**Running it by hand.** The **Sync now** workflow on GitHub (Actions → Sync now → Run workflow) calls the same
+endpoint once, which is handy to check things work. It needs two repository secrets under **Settings → Secrets and
+variables → Actions**: `SEMSYNC_URL` (`https://<your domain>`) and `CRON_SECRET` (the same value as in Vercel).
 
-Then **Actions → Hourly sync → Run workflow** once to check it works. After that it asks to run three times an hour.
-(Vercel also calls the same endpoint once a day.)
-
-If a run fails for most people for a reason on Semsync's side, the endpoint answers 500, the Action fails, and GitHub
-emails you. Each run's tally (synced, unchanged, needing the user, failed, and the errors grouped) is in the Action's
-log, which GitHub keeps for 90 days; Vercel's own logs only last an hour on Hobby.
+Don't add another scheduler (GitHub's schedule, cron-job.org) on top: it's harmless, since each run skips anyone synced
+in the last 55 minutes, but it makes it hard to tell what's running.
 
 ## 4. Publish the app (no Google review needed)
 
@@ -117,7 +114,7 @@ What it costs per hour at 1,000 people, and why it fits the free plans:
   Google calls. A full sync still runs at least once a day, for NUSMods changes and new weeks.
 - **Several at once.** A run works on 8 people at a time (`SYNC_CONCURRENCY`), mostly waiting on Canvas, so about
   1,000 people take a couple of minutes, well inside the 4-minute budget. Runs come three times an hour, so each one
-  only has about a third of everyone.
+  only has about a third of everyone, and the database's scheduler waits up to 5 minutes for each to finish.
 - **No double syncs.** A run claims the people it takes, so a late run and the next one never sync the same person.
 - **Database transfer.** Supabase's free plan includes 5 GB of transfer a month. A sync that stops early reads one
   row. NUSMods module data, the biggest read, is read once per run per module rather than once per student.
@@ -131,13 +128,10 @@ test users can sign in, and their access expires after 7 days.
 ## Limits to know
 
 - **Vercel Hobby** runs each request for up to 300 seconds. The sync endpoint stops picking up new users after
-  4 minutes, and anyone left over is first in line on the next run. Cron jobs can only run daily on Hobby, which is
-  why the regular runs come from GitHub Actions (free; GitHub may start them a few minutes late).
-- **GitHub Actions** minutes are free for public repos. GitHub pauses scheduled workflows in public repos after
-  60 days without activity; push a commit to wake it up. A private repo gets 2,000 free minutes a month, enough for
-  hourly runs but not three an hour: change the schedule in `.github/workflows/hourly-sync.yml` to once an hour.
+  4 minutes, and anyone left over is first in line on the next run. Vercel's own cron jobs can only run daily on
+  Hobby, which is why the regular runs come from the database's scheduler.
 - **Supabase's free plan** (500 MB database) is plenty for a student project. It pauses a project after a week with no
-  activity at all; the hourly sync queries the database every hour, so that doesn't happen while the sync is running.
+  activity at all; the scheduled sync uses the database every 20 minutes, so that doesn't happen while it's running.
   Every table has row-level security on with no policies, so Supabase's public web API can't read them.
 - **Shared calendars** count against Google's per-account limits: about 60 new calendars and 750 shares in a short
   period, and 100,000 events. Main-calendar users don't, since events go into their own calendar.
