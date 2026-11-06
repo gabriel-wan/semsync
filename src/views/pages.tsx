@@ -315,6 +315,17 @@ const LinkGuides: FC = () => (
   </div>
 );
 
+/** What Semsync works with: Canvas and NUSMods, into Google Calendar (or `dest`, where there's room to name the others). */
+const Flow: FC<{ dest?: string }> = ({ dest = 'Google Calendar' }) => (
+  <p class="flow" aria-label={`Works with Canvas and NUSMods, into ${dest}`}>
+    <span class="flow-item"><span class="flow-icon flow-logo"><CanvasMark size={22} /></span><span class="title-3">Canvas</span></span>
+    <span class="flow-plus title-3" aria-hidden="true">+</span>
+    <span class="flow-item"><span class="flow-icon flow-logo"><NusmodsMark size={22} /></span><span class="title-3">NUSMods</span></span>
+    <span class="flow-arrow" aria-hidden="true"><Icon name="arrowRight" size={20} /></span>
+    <span class="flow-item flow-dest"><span class="flow-icon"><Icon name="calendarCheck" size={18} /></span><span class="title-3">{dest}</span></span>
+  </p>
+);
+
 /** Proof beside the claim: a real testimonial once there is one, otherwise what Semsync works with (both true). */
 const Proof: FC = () =>
   TESTIMONIAL ? (
@@ -323,13 +334,7 @@ const Proof: FC = () =>
       <figcaption class="caption-2">{TESTIMONIAL.name}, {TESTIMONIAL.detail}</figcaption>
     </figure>
   ) : (
-    <p class="flow" aria-label="Works with Canvas and NUSMods, into Google Calendar">
-      <span class="flow-item"><span class="flow-icon flow-logo"><CanvasMark size={22} /></span><span class="title-3">Canvas</span></span>
-      <span class="flow-plus title-3" aria-hidden="true">+</span>
-      <span class="flow-item"><span class="flow-icon flow-logo"><NusmodsMark size={22} /></span><span class="title-3">NUSMods</span></span>
-      <span class="flow-arrow" aria-hidden="true"><Icon name="arrowRight" size={20} /></span>
-      <span class="flow-item flow-dest"><span class="flow-icon"><Icon name="calendarCheck" size={18} /></span><span class="title-3">Google Calendar</span></span>
-    </p>
+    <Flow />
   );
 
 // The hero picture: Week 12 of Semester 1 (2 to 6 Nov 2026) as Semsync puts it in Google Calendar.
@@ -383,48 +388,60 @@ const Showcase: FC = () => (
     aria-label="Two links pasted into Semsync, then a week in Google Calendar filling with NUSMods classes, Canvas deadlines and a Semsync reminder">
     <div class="cal">
       <DemoPaste />
-      <div class="cal-head">
-        <div>
-          <p class="title-3">November 2026</p>
-          <p class="caption-5 text-secondary">Week 12 · Semester 1</p>
-        </div>
-        <div class="cal-legend">
-          <span class="chip chip-class caption-4">Class</span>
-          <span class="chip chip-deadline caption-4">Deadline</span>
-          <span class="chip chip-exam caption-4">Exam</span>
-        </div>
+      <Week />
+    </div>
+    <Reminder style={`--i: ${EVENTS.length + 2};`} />
+  </div>
+);
+
+/** The finished week inside the hero calendar, shared with the link preview card. */
+const Week: FC = () => (
+  <>
+    <div class="cal-head">
+      <div>
+        <p class="title-3">November 2026</p>
+        <p class="caption-5 text-secondary">Week 12 · Semester 1</p>
       </div>
-      <div class="divider" />
-      <div class="cal-grid">
-        <div class="cal-day" style="grid-column: 1; grid-row: 1;" />
-        {DAYS.map(([name, date], i) => (
-          <div class={`cal-day c${i + 1}`} style="grid-row: 1;">
-            <span class="caption-4">{name}</span>
-            <span class={`cal-date title-3${i + 1 === TODAY ? ' today' : ''}`}>{date}</span>
-          </div>
-        ))}
-        <div class="cal-time caption-5" style="grid-column: 1; grid-row: 2;">Due</div>
-        {DAYS.map((_, i) => <div class={`cell c${i + 1}`} style="grid-row: 2; min-height: var(--space-600);" />)}
-        {HOURS.map((h) => (
-          <>
-            <div class="cal-time caption-5 mono" style={`grid-column: 1; grid-row: ${hourRow(h)};`}>{pad(h)}</div>
-            {DAYS.map((_, i) => <div class={`cell c${i + 1}`} style={`grid-row: ${hourRow(h)};`} />)}
-          </>
-        ))}
-        {EVENTS.map((e, i) => (
-          <div class={`ev chip-${e.kind} c${e.day}`} style={`grid-row: ${e.row} / span ${e.span}; --i: ${i};`}>
-            <span class="caption-3">{e.title}</span>
-            <span class="caption-5 mono">{e.time}</span>
-          </div>
-        ))}
+      <div class="cal-legend">
+        <span class="chip chip-class caption-4">Class</span>
+        <span class="chip chip-deadline caption-4">Deadline</span>
+        <span class="chip chip-exam caption-4">Exam</span>
       </div>
     </div>
-    <div class="toast" style={`--i: ${EVENTS.length + 2};`}>
-      <span class="toast-icon"><Icon name="bell" size={20} /></span>
-      <div>
-        <p class="title-4">[CS2040] Problem Set 5 is due tonight</p>
-        <p class="caption-5">Semsync reminder · 23:59, in 3 hours</p>
-      </div>
+    <div class="divider" />
+    <div class="cal-grid">
+      <div class="cal-day" style="grid-column: 1; grid-row: 1;" />
+      {DAYS.map(([name, date], i) => (
+        <div class={`cal-day c${i + 1}`} style="grid-row: 1;">
+          <span class="caption-4">{name}</span>
+          <span class={`cal-date title-3${i + 1 === TODAY ? ' today' : ''}`}>{date}</span>
+        </div>
+      ))}
+      <div class="cal-time caption-5" style="grid-column: 1; grid-row: 2;">Due</div>
+      {DAYS.map((_, i) => <div class={`cell c${i + 1}`} style="grid-row: 2; min-height: var(--space-600);" />)}
+      {HOURS.map((h) => (
+        <>
+          <div class="cal-time caption-5 mono" style={`grid-column: 1; grid-row: ${hourRow(h)};`}>{pad(h)}</div>
+          {DAYS.map((_, i) => <div class={`cell c${i + 1}`} style={`grid-row: ${hourRow(h)};`} />)}
+        </>
+      ))}
+      {EVENTS.map((e, i) => (
+        <div class={`ev chip-${e.kind} c${e.day}`} style={`grid-row: ${e.row} / span ${e.span}; --i: ${i};`}>
+          <span class="caption-3">{e.title}</span>
+          <span class="caption-5 mono">{e.time}</span>
+        </div>
+      ))}
+    </div>
+  </>
+);
+
+/** The reminder that floats over the edge of the week. */
+const Reminder: FC<{ style: string }> = ({ style }) => (
+  <div class="toast" style={style}>
+    <span class="toast-icon"><Icon name="bell" size={20} /></span>
+    <div>
+      <p class="title-4">[CS2040] Problem Set 5 is due tonight</p>
+      <p class="caption-5">Semsync reminder · 23:59, in 3 hours</p>
     </div>
   </div>
 );
@@ -439,10 +456,10 @@ const faqSchema = (faq: [string, string][]) =>
     }).replace(/</g, '\\u003c')}</script>`,
   );
 
-const Chip: FC<{ kind: 'class' | 'deadline' | 'exam'; title: string; time: string; large?: boolean }> = ({ kind, title, time, large }) => (
-  <div class={`chip chip-${kind} ${large ? 'title-2' : 'caption-4'}`} style={large ? 'padding: var(--space-100) var(--space-200);' : undefined}>
+const Chip: FC<{ kind: 'class' | 'deadline' | 'exam'; title: string; time: string }> = ({ kind, title, time }) => (
+  <div class={`chip chip-${kind} caption-4`}>
     {title}
-    <span class={`mono ${large ? 'body-3' : 'caption-5'}`}>{time}</span>
+    <span class="mono caption-5">{time}</span>
   </div>
 );
 
@@ -1345,7 +1362,10 @@ export const Terms: FC<Viewer> = ({ signedIn, setupPending, account, origin }) =
   </Layout>
 );
 
-/** 1200 × 630 card, screenshotted into public/og.png for link previews (see CONTRIBUTING.md). */
+/**
+ * 1200 × 630 card, screenshotted into public/og.png for link previews (see CONTRIBUTING.md). The hero's week rises from
+ * the bottom edge in its glow, with the reminder over it, so a shared link shows what Semsync does at a glance.
+ */
 export const OgCard: FC = () => (
   <html lang="en">
     <head>
@@ -1353,20 +1373,24 @@ export const OgCard: FC = () => (
       <link href={FONTS} rel="stylesheet" />
       <style>{raw(CSS)}</style>
       <link rel="stylesheet" href="/site.css" />
-      <style>{raw('html, body { width: 1200px; height: 630px; overflow: hidden; }')}</style>
+      <style>{raw('html, body { width: 1200px; height: 630px; overflow: hidden; } .flow { margin-top: 0; }')}</style>
     </head>
     <body class="mode-dark" style="background: var(--surface-primary); color: var(--text-primary);">
-      <div style="padding: var(--space-800) var(--space-800) 0; display: flex; flex-direction: column; height: 630px;">
-        <div class="brand title-1"><BrandMark size={40} />Semsync</div>
-        <h1 class="heading-2 hero-title" style="margin: var(--space-500) 0 0; max-width: 960px;">
+      <div style="position: relative; isolation: isolate; height: 630px; padding: var(--space-600) var(--space-700) 0; display: flex; flex-direction: column;">
+        <div style="position: absolute; inset: 0; z-index: -1; background: radial-gradient(30% 50% at 6% 78%, color-mix(in srgb, var(--surface-glow-brand) 95%, transparent), transparent), radial-gradient(28% 50% at 94% 74%, color-mix(in srgb, var(--surface-glow-accent) 85%, transparent), transparent), radial-gradient(40% 14% at 32% 44%, color-mix(in srgb, var(--surface-glow-brand) 45%, transparent), transparent), radial-gradient(30% 14% at 74% 45%, color-mix(in srgb, var(--surface-glow-accent) 40%, transparent), transparent);" />
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="brand title-1"><BrandMark size={40} />Semsync</div>
+          <Flow dest="Google, Outlook or Apple Calendar" />
+        </div>
+        <h1 class="heading-2 hero-title" style="margin: var(--space-400) 0 0;">
           Every Canvas deadline in your calendar,<br /> without typing a thing
         </h1>
-        <p class="body-7 text-secondary mt-300">Canvas deadlines, NUSMods classes and exams, kept up to date in Google Calendar.</p>
-        <div style="display: flex; gap: var(--space-200); margin-top: auto; padding: var(--space-400); background: radial-gradient(40% 120% at 80% 100%, color-mix(in srgb, var(--surface-glow-accent) 70%, transparent), transparent 70%), radial-gradient(55% 130% at 20% 100%, color-mix(in srgb, var(--surface-glow-brand) 85%, transparent), transparent 70%);">
-          <Chip large kind="class" title="CS2040 Lecture" time="Thu 10:00" />
-          <Chip large kind="deadline" title="[CS2040] Problem Set 5" time="Fri 23:59" />
-          <Chip large kind="exam" title="MA1521 final exam" time="Sat 28 Nov 17:00" />
+        {/* The week fills the rest of the card, a little larger than on the site so the events read at feed size, and
+            fades out at the bottom edge instead of being cut through a row. */}
+        <div class="cal" style="flex: 1; min-height: 0; max-width: none; margin: var(--space-500) 0 0; mask-image: linear-gradient(to bottom, black calc(100% - 110px), transparent);">
+          <div style="zoom: 1.15;"><Week /></div>
         </div>
+        <Reminder style="width: auto; right: var(--space-500); bottom: var(--space-400);" />
       </div>
     </body>
   </html>
