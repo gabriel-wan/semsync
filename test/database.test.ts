@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { vi, afterEach, describe, expect, it } from 'vitest';
 import { numberPlaceholders, type Db } from '../src/lib/database';
 import { cachedModuleFetcher, deleteUserData, dueUsers, eventCounts, getUser, recordSync, upcomingEvents, upsertUserOnLogin } from '../src/lib/db';
 import { migrate } from '../src/lib/migrate';
 import { testDb } from './pg';
+
+// The in-memory Postgres starts slowly when every test file runs at once, so these get longer than the 5 s default.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 let stop: (() => Promise<void>) | undefined;
 async function freshDb(): Promise<Db> {

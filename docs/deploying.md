@@ -6,8 +6,8 @@ The live copy runs at https://getsemsync.vercel.app. These are the steps to set 
 
 1. Create a project at console.cloud.google.com.
 2. **APIs & Services → Library:** enable **Google Calendar API**.
-3. **Service account** (only needed for the shared-calendar option): IAM & Admin → Service accounts → Create. No roles
-   needed. Open it → Keys → Add key → JSON. Keep this file secret; it's `GOOGLE_SERVICE_ACCOUNT_JSON`.
+3. **Service account:** not needed for a new deployment. It only served the old shared-calendar option; keep
+   `GOOGLE_SERVICE_ACCOUNT_JSON` set if any of your users are still on a shared calendar.
 4. **Consent screen:** Google Auth Platform → Branding/Audience → External. App name "Semsync", your support email,
    homepage and privacy page on your domain. Don't upload a logo yet (it adds a brand review).
    Under **Data access**, add `openid`, `email`, `profile` and `https://www.googleapis.com/auth/calendar.app.created`
@@ -38,7 +38,7 @@ Test with real Google locally first: put the values in `.env.local`, remove `DEV
    | `CRON_SECRET` | a random string |
    | `GOOGLE_OAUTH_CLIENT_ID` | from Google Cloud |
    | `GOOGLE_OAUTH_CLIENT_SECRET` | from Google Cloud |
-   | `GOOGLE_SERVICE_ACCOUNT_JSON` | optional, the whole JSON on one line (shared-calendar option) |
+   | `GOOGLE_SERVICE_ACCOUNT_JSON` | optional, only for users still on the old shared calendar |
 
 4. **Deploy.** Until the database is connected in the next step, the public pages work but signing in shows an error page.
 5. **Storage → Create Database → Supabase** (Marketplace). Pick the **Singapore** region and the free plan, and connect

@@ -8,6 +8,10 @@ const COMPONENTS = `
 :root { --ease: cubic-bezier(0.22, 1, 0.36, 1); }
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
+/* Links to a spot on a page ("How it works", Help's "Where to find your links") stop below the floating nav, and glide
+   there unless motion is turned down. */
+html { scroll-padding-top: 104px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 body { margin: 0; background: var(--surface-primary); color: var(--text-primary); font-family: 'Geist', system-ui, sans-serif;
   font-size: 16px; line-height: 24px; overflow-x: clip; }
 a { color: inherit; }
@@ -34,8 +38,8 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
   border-radius: var(--radius-full); border: 1px solid var(--border-primary); box-shadow: 0 8px 24px var(--overlay-xs);
   background: color-mix(in srgb, var(--surface-primary-subtle) 80%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .brand { display: flex; align-items: center; gap: var(--space-75); min-height: 44px; text-decoration: none; }
-.brand-mark { width: 28px; height: 28px; border-radius: var(--radius-8); display: grid; place-items: center;
-  background: var(--surface-brand); color: var(--text-on-brand); }
+.brand-mark { flex: none; display: block; }
+.brand-mark svg { display: block; width: 100%; height: 100%; }
 .nav-links { display: flex; align-items: center; gap: var(--space-25); }
 .nav-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--space-200); border-radius: var(--radius-full);
   text-decoration: none; color: var(--text-secondary); transition: background-color 300ms var(--ease), color 300ms var(--ease); }
@@ -61,6 +65,41 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 :root[data-theme="dark"] .theme-toggle .icon-moon { opacity: 0; transform: rotate(90deg) scale(0.5); }
 @media (prefers-reduced-motion: reduce) { .theme-toggle svg { transition: none; } }
 
+/* GitHub in the nav: an icon button the same size as the theme toggle. */
+.icon-link { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-full); color: var(--icon-secondary);
+  transition: background-color 300ms var(--ease), color 300ms var(--ease); }
+.icon-link:hover { background: var(--surface-primary-hover); color: var(--text-primary); }
+.footer-links .footer-github { display: inline-flex; align-items: center; gap: var(--space-50); }
+/* Settings: one card per topic, stacked. */
+.settings-sections { display: flex; flex-direction: column; gap: var(--space-200); margin-top: var(--space-300); }
+.help-section { padding: var(--space-600) 0 0; }
+/* Your setup, on your page: one line per thing, the value on the right. */
+.summary { list-style: none; margin: var(--space-200) 0 0; padding: 0; display: flex; flex-direction: column; }
+.summary li { display: flex; align-items: center; gap: var(--space-100); padding: var(--space-75) 0; color: var(--icon-secondary); }
+.summary li + li { margin-top: 0; }
+.summary li .body-5 { color: var(--text-primary); }
+.summary li .caption-2 { margin-left: auto; text-align: right; }
+.dash-summary { display: flex; flex-direction: column; }
+
+/* Course tiles: an even grid, each the same size. Ticked: outlined in blue with a filled tick. Left out: plain and grey. */
+.course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: var(--space-100); margin-top: var(--space-200); }
+.course-tile { position: relative; display: block; cursor: pointer; }
+.course-tile input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.tile-body { display: flex; flex-direction: column; gap: var(--space-25); height: 100%; min-height: 80px; padding: var(--space-100) var(--space-200);
+  border-radius: var(--radius-12); border: 1px solid var(--border-primary); background: var(--surface-primary);
+  transition: border-color 300ms var(--ease), background-color 300ms var(--ease); }
+.tile-head { display: flex; align-items: center; gap: var(--space-75); }
+.tile-check { margin-left: auto; flex: none; width: 22px; height: 22px; border-radius: var(--radius-full); display: grid; place-items: center;
+  border: 1.5px solid var(--border-action-secondary); color: transparent; transition: background-color 300ms var(--ease), color 300ms var(--ease); }
+.tile-name { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.course-tile:hover .tile-body { border-color: var(--border-action-secondary); }
+.course-tile input:checked + .tile-body { border-color: var(--border-action-primary); background: var(--surface-primary-subtle); }
+.course-tile input:checked + .tile-body .tile-check { border-color: transparent; background: var(--surface-brand); color: var(--text-on-brand); }
+.course-tile input:not(:checked) + .tile-body .title-3 { color: var(--text-secondary); }
+.course-tile input:focus-visible + .tile-body { outline: 2px solid var(--border-action-primary); outline-offset: 2px; }
+@media (max-width: 480px) { .course-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tile-body { padding: var(--space-100); } }
+@media (prefers-reduced-motion: reduce) { .tile-body, .tile-check { transition: none; } }
+
 /* "Back to Semsync" at the top of plain pages; the arrow nudges left on hover. */
 .back { display: inline-flex; align-items: center; gap: var(--space-50); min-height: 44px; margin-bottom: var(--space-100);
   color: var(--text-secondary); text-decoration: none; transition: color 300ms var(--ease); }
@@ -72,12 +111,12 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
    in three sizes. The .is-* classes force a state, for the Foundations page. The skill gives Error and Warning no
    Click token, so their pressed state is the hover fill plus the press scale. */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-75); min-height: 44px;
-  padding: var(--space-75) var(--space-100); border-radius: var(--radius-8); border: 1px solid transparent;
+  padding: var(--space-75) var(--space-200); border-radius: var(--radius-full); border: 1px solid transparent; white-space: nowrap;
   font-family: inherit; text-decoration: none; cursor: pointer;
   transition: background-color 300ms var(--ease), border-color 300ms var(--ease), transform 500ms var(--ease); }
-.btn-lg { min-height: 52px; padding: var(--space-100) var(--space-200); }
+.btn-lg { min-height: 52px; padding: var(--space-100) var(--space-300); }
 /* Small buttons are for dense desktop rows (like the Foundations grid), never as a page's main touch target. */
-.btn-sm { min-height: 32px; padding: var(--space-50) var(--space-75); gap: var(--space-50); border-radius: var(--radius-6); }
+.btn-sm { min-height: 32px; padding: var(--space-50) var(--space-100); gap: var(--space-50); }
 .btn:active, .btn.is-pressed { transform: scale(0.98); }
 .btn.is-focus { outline: 2px solid var(--border-action-primary); outline-offset: 2px; }
 /* Primary buttons are white on dark pages and near black on light ones. On hover and focus an orange glow fades in:
@@ -88,9 +127,10 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .btn-primary:hover::after, .btn-primary:focus-visible::after, .btn-primary.is-hover::after { opacity: 1; }
 .btn-primary:hover, .btn-primary.is-hover { background: var(--action-primary-hover); }
 .btn-primary:active, .btn-primary.is-pressed { background: var(--action-primary-click); }
-.btn-secondary { background: var(--action-secondary); color: var(--text-primary); }
-.btn-secondary:hover, .btn-secondary.is-hover { background: var(--action-secondary-hover); }
-.btn-secondary:active, .btn-secondary.is-pressed { background: var(--action-secondary-click); }
+/* Secondary buttons are outlined, so they read as buttons without competing with the one primary action. */
+.btn-secondary { background: var(--surface-primary-subtle); border-color: var(--border-action-secondary); color: var(--text-primary); }
+.btn-secondary:hover, .btn-secondary.is-hover { background: var(--action-secondary); }
+.btn-secondary:active, .btn-secondary.is-pressed { background: var(--action-secondary-hover); }
 .btn-tertiary { background: transparent; color: var(--text-info); }
 .btn-tertiary:hover, .btn-tertiary.is-hover { background: var(--surface-primary-hover); }
 .btn-tertiary:active, .btn-tertiary.is-pressed { background: var(--surface-primary-selected); }
@@ -124,17 +164,34 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .input:disabled { background: var(--surface-secondary-subtle); color: var(--text-secondary-disabled); border-color: var(--border-primary-disabled);
   cursor: not-allowed; }
 
-.hero { padding-top: var(--space-800); text-align: center; }
-.hero-title { max-width: 680px; margin: 0 auto; color: transparent; -webkit-background-clip: text; background-clip: text;
-  background-image: linear-gradient(90deg, var(--text-hero-from), var(--text-hero-to)); }
-.hero-sub { max-width: 680px; margin: var(--space-300) auto 0; color: var(--text-secondary); }
-.cta { margin-top: var(--space-400); display: flex; flex-direction: column; align-items: center; gap: var(--space-100); }
-.proof { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-75);
-  margin-top: var(--space-400); color: var(--text-secondary); }
+/* Hero: left aligned copy beside the live calendar on wide screens, stacked on narrower ones. Left alignment keeps the
+   paragraph and the button on one reading edge, which is easier to read than centred lines of uneven length. */
+.hero { padding-top: var(--space-800); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: var(--space-500);
+  align-items: center; }
+.hero-copy { min-width: 0; max-width: 560px; }
+.eyebrow { display: inline-flex; align-items: center; gap: var(--space-75); margin-bottom: var(--space-300); padding: var(--space-50) var(--space-100);
+  border-radius: var(--radius-full); border: 1px solid var(--border-primary); background: var(--surface-primary-subtle); color: var(--text-secondary); }
+.hero-title { margin: 0; font-size: clamp(44px, 4.4vw, 60px); line-height: 1.04; color: transparent; -webkit-background-clip: text;
+  background-clip: text; background-image: linear-gradient(90deg, var(--text-hero-from), var(--text-hero-to)); }
+.hero-sub { max-width: 34em; margin: var(--space-300) 0 0; color: var(--text-secondary); }
+.cta { margin-top: var(--space-400); display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-100); }
+.hero .showcase { margin-top: 0; padding: var(--space-400) var(--space-300) var(--space-600); }
+/* Beside the copy the day columns are narrow, so names wrap onto two lines instead of being cut off, and the start time
+   (already in the time column) makes way. */
+@media (min-width: 1081px) {
+  .hero .ev span { white-space: normal; overflow-wrap: anywhere; }
+  .hero .ev .mono { display: none; }
+}
+@media (max-width: 1080px) {
+  .hero { grid-template-columns: minmax(0, 1fr); gap: var(--space-200); }
+  .hero-copy { max-width: 640px; }
+  .hero .showcase { margin-top: var(--space-300); }
+}
+.proof { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-75); margin-top: var(--space-400); color: var(--text-secondary); }
 .proof blockquote { margin: 0; max-width: 520px; }
 /* What it connects, as one line instead of a row of logo pills: the two sources, then an arrow into the calendar.
    The icons sit in small app style tiles; the calendar's is solid blue, since that's where everything ends up. */
-.flow { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-100) var(--space-200);
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-100) var(--space-200);
   margin-top: var(--space-400); }
 .flow-item { display: inline-flex; align-items: center; gap: var(--space-75); white-space: nowrap; }
 .flow-icon { width: 36px; height: 36px; border-radius: var(--radius-8); display: grid; place-items: center;
@@ -145,11 +202,10 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .flow-plus { color: var(--text-tertiary); }
 .flow-arrow { display: grid; color: var(--icon-info); }
 /* Phones: the calendar drops to its own line, still after the arrow. */
-@media (max-width: 480px) { .flow { column-gap: var(--space-100); } .flow-arrow { transform: rotate(90deg); flex-basis: 100%; place-items: center; } }
+@media (max-width: 480px) { .flow { column-gap: var(--space-100); } }
 @media (max-width: 640px) {
-  .hero { padding-top: var(--space-600); }
-  .hero-title { font-size: 36px; line-height: 40px; } /* heading-3 on phones */
-  .hero-title br { display: none; }
+  .hero { padding-top: var(--space-500); }
+  .hero-title { font-size: 38px; line-height: 42px; }
 }
 
 /* The hero picture: one week of Google Calendar sitting in a soft blue and orange glow, with a reminder floating over
@@ -199,6 +255,34 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 @keyframes drop-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .showcase .ev, .showcase .toast { animation: drop-in 500ms var(--ease) both; animation-delay: calc(300ms + var(--i, 0) * 140ms); }
 @media (prefers-reduced-motion: reduce) { .showcase .ev, .showcase .toast { animation: none; } }
+/* The demo. The script steps data-scene through paste, fill, remind and reset; until it does, nothing here changes. */
+.demo-paste { display: none; }
+/* Flex, not grid, centres the card: a grid track would stretch to fit the pasted link and push the card off to the side. */
+.showcase[data-scene] .demo-paste { display: flex; align-items: center; justify-content: center; position: absolute; inset: 0; z-index: 2; border-radius: inherit;
+  background: color-mix(in srgb, var(--surface-primary) 55%, transparent); opacity: 0; transition: opacity 300ms var(--ease); }
+.showcase[data-scene="paste"] .demo-paste { opacity: 1; }
+.demo-card { width: min(360px, calc(100% - 32px)); min-width: 0; display: flex; flex-direction: column; gap: var(--space-100); padding: var(--space-300);
+  border-radius: var(--radius-16); border: 1px solid var(--border-primary); background: var(--surface-primary-subtle);
+  box-shadow: 0 16px 32px var(--overlay-md); transform: translateY(12px) scale(0.97); transition: transform 400ms var(--ease); }
+.showcase[data-scene="paste"] .demo-card { transform: none; }
+.demo-field { display: flex; flex-direction: column; gap: var(--space-50); min-width: 0; }
+.demo-input { display: flex; align-items: center; gap: var(--space-75); min-height: 40px; padding: 0 var(--space-100); border-radius: var(--radius-8);
+  border: 1px solid var(--border-action-secondary); background: var(--surface-primary-subtle); transition: border-color 200ms, box-shadow 200ms; }
+.demo-field.focus .demo-input { border-color: var(--border-action-primary); box-shadow: 0 0 0 1px var(--border-action-primary); }
+.demo-text { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; border-radius: var(--radius-4); }
+.demo-field.done .demo-text { animation: paste-flash 800ms var(--ease); }
+@keyframes paste-flash { from { background: var(--surface-info-subtle); } }
+.demo-input svg { flex: none; color: var(--icon-success); opacity: 0; transform: scale(0.4); transition: opacity 200ms, transform 300ms var(--ease); }
+.demo-field.done .demo-input svg { opacity: 1; transform: none; }
+.demo-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-50); min-height: 40px; margin-top: var(--space-50);
+  padding: 0 var(--space-200); border-radius: var(--radius-full); background: var(--action-primary); color: var(--text-inverted);
+  transition: transform 150ms var(--ease), background 150ms; }
+.demo-btn.pressed { transform: scale(0.93); background: var(--action-primary-click); }
+.showcase[data-scene] .ev, .showcase[data-scene] .toast { animation: none; opacity: 0; transform: translateY(12px);
+  transition: opacity 400ms var(--ease), transform 400ms var(--ease); }
+.showcase[data-scene="fill"] .ev, .showcase[data-scene="remind"] .ev { opacity: 1; transform: none; transition-delay: calc(var(--i, 0) * 110ms); }
+.showcase[data-scene="remind"] .toast { opacity: 1; transform: none; }
+@media (max-width: 480px) { .demo-card { padding: var(--space-200); } }
 @media (max-width: 768px) {
   .showcase { padding: var(--space-200); }
   .cal { border-radius: var(--radius-8); } /* nested: 24 - 16 = 8 */
@@ -430,11 +514,15 @@ header.hero + section { padding-top: var(--space-900); } /* room for the reminde
   .tagline { font-size: 30px; line-height: 36px; } /* heading-4 on phones */
 }
 
-.final { border-radius: var(--radius-24); padding: var(--space-800) var(--space-300); text-align: center; border: 1px solid var(--border-primary);
+/* The closing card: the pitch on the left, the button on the right, both on one left edge when stacked. */
+.final { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-600);
+  border-radius: var(--radius-24); padding: var(--space-700) var(--space-600); border: 1px solid var(--border-primary);
   background: radial-gradient(45% 55% at 32% 125%, color-mix(in srgb, var(--surface-glow-brand) 80%, transparent), transparent),
     radial-gradient(32% 45% at 72% 125%, color-mix(in srgb, var(--surface-glow-accent) 65%, transparent), transparent),
     var(--surface-primary-subtle); }
-.final .section-title { max-width: 680px; margin: 0 auto; }
+.final .section-title { max-width: 560px; }
+.final .cta { margin-top: 0; }
+@media (max-width: 768px) { .final { grid-template-columns: minmax(0, 1fr); gap: var(--space-300); padding: var(--space-500) var(--space-300); } }
 
 .reveal { opacity: 0; transform: translateY(32px); transition: opacity 700ms var(--ease), transform 700ms var(--ease); }
 .reveal.in { opacity: 1; transform: none; }
@@ -524,14 +612,20 @@ footer { margin-top: var(--space-600); }
 .dash-title { margin-top: var(--space-50); }
 .sync-pill { display: flex; align-items: center; gap: var(--space-100); margin: 0; padding: var(--space-50) var(--space-50) var(--space-50) var(--space-200);
   border-radius: var(--radius-full); border: 1px solid var(--border-primary); background: var(--surface-primary-subtle); color: var(--text-secondary); }
-.sync-pill .btn { border-radius: var(--radius-full); }
+.sync-pill .btn { border-color: transparent; background: var(--action-secondary); }
+.sync-pill .btn:hover { background: var(--action-secondary-hover); }
 /* Both columns end on the same line: the agenda stretches to the side column's height, and the last side card stretches
    to the agenda's, with its button pinned to the bottom. */
 .dash { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-200); margin-top: var(--space-400); align-items: stretch; }
 .dash-side { display: flex; flex-direction: column; gap: var(--space-200); min-width: 0; }
 .dash-sources, .dash-courses { display: flex; flex-direction: column; }
-.dash-side > :last-child { flex: 1; }
-.sources-actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: var(--space-75); }
+/* On your page the calendar card takes any extra height, with its button at the bottom, so the columns end level
+   without an empty gap in a plain card. */
+.dash-dest { flex: 1; display: flex; }
+.dash-dest .dest { flex: 1; display: flex; flex-direction: column; }
+.dash-dest .dest-actions { margin-top: auto; padding-top: var(--space-300); }
+.sources-actions { margin-top: auto; padding-top: var(--space-200); display: flex; flex-wrap: wrap; gap: var(--space-75); }
+.sources-actions form { display: flex; margin: 0; }
 @media (max-width: 880px) {
   .dash { grid-template-columns: minmax(0, 1fr); }
   .dash-side { display: contents; }
@@ -548,6 +642,16 @@ footer { margin-top: var(--space-600); }
 .dest-icon.warn { background: var(--surface-warning-subtle); color: var(--icon-warning); }
 .dest p { margin-top: var(--space-75); overflow-wrap: anywhere; } /* long email addresses wrap instead of widening the page */
 .dest-actions { display: flex; flex-wrap: wrap; gap: var(--space-75); margin-top: var(--space-300); }
+/* "My calendars" as Google shows it, with Semsync's row lit up. Only beside the agenda, where there's room for it. */
+.mini-cals { margin-top: var(--space-300); padding: var(--space-200); border-radius: var(--radius-12); border: 1px solid var(--border-primary);
+  background: var(--surface-primary); display: flex; flex-direction: column; gap: var(--space-50); }
+.mini-cals > p { margin: 0 0 var(--space-25); }
+.mini-cal { display: flex; align-items: center; gap: var(--space-100); padding: var(--space-50) var(--space-75); margin: 0 calc(-1 * var(--space-75));
+  border-radius: var(--radius-8); min-width: 0; }
+.mini-on { background: var(--surface-info-subtle); font-weight: 600; }
+.mini-on .badge { margin-left: auto; }
+.mini-box { flex: none; width: 16px; height: 16px; border-radius: var(--radius-4); display: grid; place-items: center; color: #fff; }
+@media (max-width: 880px) { .mini-cals { display: none; } }
 
 /* Agenda: a date block per day (today circled in orange, as in the hero), events as the same chips as the calendar. */
 .agenda { margin-top: var(--space-100); }
@@ -577,6 +681,34 @@ footer { margin-top: var(--space-600); }
 .mods { display: flex; flex-wrap: wrap; gap: var(--space-50); margin-top: var(--space-50); }
 .mod { padding: var(--space-25) var(--space-75); border-radius: var(--radius-full); background: var(--surface-secondary); color: var(--text-primary); }
 .danger-link { color: var(--text-error); }
+@media (max-width: 640px) {
+  .dest-actions .btn, .sources-actions .btn, .courses-actions .btn, .setup-actions .btn, .confirm-actions .btn { width: 100%; }
+  .sync-pill { width: 100%; }
+  .sync-pill .btn { margin-left: auto; }
+}
+
+/* Setup: three numbered steps, each its own card, then one clear button. */
+.setup-form { display: flex; flex-direction: column; gap: var(--space-200); margin-top: var(--space-400); }
+.setup-step .input { margin-top: var(--space-200); }
+.step-head { display: flex; gap: var(--space-200); align-items: flex-start; }
+.step-head .step-no { flex: none; width: 32px; height: 32px; }
+.step-head .hint { margin-top: var(--space-25); overflow-wrap: anywhere; } /* the long example link wraps instead of poking out */
+legend.step-head { align-items: center; padding: 0; margin-bottom: var(--space-200); }
+.setup-step .choices { margin: 0; }
+.badge { display: inline-flex; align-items: center; margin-left: var(--space-75); padding: var(--space-25) var(--space-75); border-radius: var(--radius-full);
+  background: var(--surface-secondary); color: var(--text-secondary); vertical-align: middle; }
+.badge-brand { background: var(--surface-info-subtle); color: var(--text-info); }
+.help-toggle { list-style: none; gap: var(--space-50); }
+.help-toggle::-webkit-details-marker { display: none; }
+.help-toggle svg { transition: transform 300ms var(--ease); }
+.help[open] > .help-toggle svg { transform: rotate(180deg); }
+/* What happens after Continue, so Google's screen isn't a surprise. */
+.setup-next { display: flex; gap: var(--space-75); align-items: flex-start; margin: 0; }
+.setup-next svg { flex: none; margin-top: 1px; }
+.setup-actions { display: flex; flex-wrap: wrap; gap: var(--space-100); margin-top: var(--space-100); }
+.link-button { min-height: 44px; padding: 0; border: 0; background: none; color: var(--text-info); font-family: inherit; text-decoration: underline;
+  text-underline-offset: 3px; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .help-toggle svg { transition: none; } }
 
 /* What goes in: a row per course, with a switch. The whole row is the tap target. */
 .courses-form { display: flex; flex-direction: column; flex: 1; margin: var(--space-100) 0 0; }
@@ -716,6 +848,17 @@ export const SCRIPT = `
     }), { rootMargin: '0px 0px -10% 0px' });
     obs.observe(el);
   });
+  // A section you jump to ("How it works") is shown at once, so it doesn't slide up under the nav after the jump lands.
+  const showTarget = (hash) => {
+    const el = hash.length > 1 && document.getElementById(decodeURIComponent(hash.slice(1)));
+    const r = el && (el.classList.contains('reveal') ? el : el.closest('.reveal'));
+    if (r && !r.classList.contains('in')) { r.style.transition = 'none'; r.classList.add('in'); }
+  };
+  showTarget(location.hash);
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a[href*="#"]');
+    if (a && a.pathname === location.pathname) showTarget(a.hash);
+  }, true);
   const words = io && new IntersectionObserver((entries) => entries.forEach((e) => {
     e.target.classList.toggle('lit', e.isIntersecting || e.boundingClientRect.top < 0);
   }), { rootMargin: '0px 0px -40% 0px' });
@@ -798,6 +941,43 @@ export const SCRIPT = `
       go();
     });
     hero.addEventListener('pointerleave', () => { tx = 0; ty = 0; stage.style.setProperty('--spot', '0'); go(); });
+  }
+
+  // The hero demo, looping while it's on screen: the two links go in, Continue, the week fills, the reminder arrives.
+  // With reduced motion the finished week stays as it is.
+  const demo = document.querySelector('[data-demo]');
+  if (demo && !still && io) {
+    const fields = [...demo.querySelectorAll('[data-paste]')];
+    const button = demo.querySelector('.demo-btn');
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const scene = (s) => { demo.dataset.scene = s; };
+    let seen = false, playing = false;
+    const play = async () => {
+      playing = true;
+      while (seen && !document.hidden) {
+        fields.forEach((f) => { f.classList.remove('focus', 'done'); f.querySelector('.demo-text').textContent = ''; });
+        button.classList.remove('pressed');
+        scene('paste');
+        for (const f of fields) {
+          await wait(f === fields[0] ? 350 : 500); f.classList.add('focus');
+          await wait(450);
+          const text = f.querySelector('.demo-text');
+          text.textContent = f.dataset.paste;
+          text.scrollLeft = text.scrollWidth; // like a real field, it shows the end of the link
+          f.classList.add('done');
+          await wait(400); f.classList.remove('focus');
+        }
+        await wait(400); button.classList.add('pressed');
+        await wait(300); scene('fill');
+        await wait(1800); scene('remind');
+        await wait(4000); scene('reset');
+        await wait(700);
+      }
+      playing = false;
+    };
+    scene('reset');
+    new IntersectionObserver(([e]) => { seen = e.isIntersecting; if (seen && !playing) play(); }, { threshold: 0.25 }).observe(demo);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && seen && !playing) play(); });
   }
 
   // Tabs: arrow keys move between them, as the ARIA tabs pattern expects.

@@ -8,13 +8,12 @@ import {
   type Course, type UserRow,
 } from './lib/db.js';
 import { UserError } from './lib/errors.js';
-import type { CalendarMode } from './lib/events.js';
 import { authorizationUrl, CALENDAR_SCOPE, exchangeCode, type AuthPurpose } from './lib/googleSignIn.js';
 import { parseNusmodsLink } from './lib/nusmods.js';
 import { csrfToken, readSession, sessionValue, SESSION_MAX_AGE } from './lib/session.js';
 import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser } from './lib/sync.js';
 import {
-  DeleteData, DevCalendar, DevLogin, Foundations, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms, type SetupErrors,
+  DeleteData, DevCalendar, DevLogin, Foundations, Help, Settings, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms, type SetupErrors, type Viewer,
 } from './views/pages.js';
 
 type AppEnv = { Bindings: Env; Variables: { user: UserRow | null } };
@@ -25,7 +24,7 @@ const STATE_COOKIE = 'ss_oauth_state';
 
 const FLASH: Record<string, string> = {
   created: 'Your calendar is ready.',
-  connected: "Calendar connected. Your deadlines, classes and exams are in your Google Calendar.",
+  connected: 'Calendar connected. Look for "NUS semester" in your Google Calendar.',
   updated: 'Saved and synced.',
   synced: 'Synced.',
   recent: 'Synced less than a minute ago, so this one was skipped.',
@@ -74,22 +73,16 @@ function addSharedCalendarUrl(env: Env, user: UserRow): string | null {
   return `https://calendar.google.com/calendar/r?cid=${cid}&authuser=${encodeURIComponent(user.email)}`;
 }
 
-/** Turns on main-calendar mode with a fresh grant, taking down the shared calendar if there was one. */
+/** Someone who set up before the shared-calendar option went away, and hasn't moved to their own calendar yet. */
+const keepsShared = (user: UserRow) => user.mode === 'shared' && !!user.calendar_id;
+
+/** Turns on own-calendar mode with a fresh grant, taking down an old shared calendar if there was one. */
 async function connectMainCalendar(env: Env, user: UserRow, refreshToken: string) {
   if (user.mode === 'shared') await removeFromCalendar(env, user);
   await setRefreshToken(env.DB, user.id, await encrypt(env.ENCRYPTION_KEY, refreshToken));
   await setMode(env.DB, user.id, 'main');
   const fresh = (await getUser(env.DB, user.id))!;
   if (fresh.canvas_feed_enc || fresh.nusmods_link) await syncUser(env, fresh);
-}
-
-/** Moves a main-calendar user to a shared calendar: removes Semsync's events from their calendar and revokes access. */
-async function switchToShared(env: Env, user: UserRow) {
-  if (user.mode === 'main') {
-    await removeFromCalendar(env, user);
-    await disconnectCalendar(env, user);
-  }
-  await setMode(env.DB, user.id, 'shared');
 }
 
 app.get('/', (c) => {
@@ -99,8 +92,28 @@ app.get('/', (c) => {
   return c.html(<Landing origin={origin(c)} pendingSetup={!!user} />);
 });
 
-app.get('/privacy', (c) => c.html(<Privacy signedIn={!!c.get('user')} origin={origin(c)} />));
-app.get('/terms', (c) => c.html(<Terms signedIn={!!c.get('user')} origin={origin(c)} />));
+/** The nav for a plain page: signed-out links, or your account menu (and Finish setup if you haven't). */
+async function viewer(c: Ctx): Promise<Viewer> {
+  const user = c.get('user');
+  if (!user) return { origin: origin(c) };
+  const setUp = !!(user.calendar_id || user.canvas_feed_enc || user.nusmods_link);
+  const csrf = await csrfToken(c.env.SESSION_SECRET, user.id);
+  return { origin: origin(c), signedIn: true, setupPending: !setUp, account: { email: user.email, name: user.name, csrf } };
+}
+
+app.get('/privacy', async (c) => c.html(<Privacy {...await viewer(c)} />));
+app.get('/help', async (c) => c.html(<Help {...await viewer(c)} />));
+
+app.get('/settings', async (c) => {
+  const user = c.get('user');
+  if (!user) return c.redirect('/');
+  if (!user.calendar_id && !user.canvas_feed_enc && !user.nusmods_link) return c.redirect('/setup');
+  return c.html(
+    <Settings user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} counts={await eventCounts(c.env.DB, user.id)}
+      flash={FLASH[c.req.query('done') ?? '']} dev={isDev(c.env)} />,
+  );
+});
+app.get('/terms', async (c) => c.html(<Terms {...await viewer(c)} />));
 
 // Design reference (tokens and every component state), and the card behind public/og.png.
 app.get('/foundations', (c) => c.html(<Foundations section={c.req.query('section')} />));
@@ -137,8 +150,8 @@ app.get('/auth/callback', async (c) => {
     return purpose === 'connect' && user
       ? c.html(
           <Message title="Calendar access wasn't given" signedIn
-            body="That's fine. You can try again, or use a separate shared calendar that needs no permission."
-            action={{ href: '/setup?edit=1', label: 'Choose another option' }} />,
+            body={'Semsync needs it to make its "NUS semester" calendar in your Google account. It can\'t see or change your other calendars.'}
+            action={{ href: '/connect', label: 'Try again' }} />,
         )
       : c.html(<Message title="You cancelled signing in" body="No problem. You can try again whenever you like." action={{ href: '/', label: 'Back to Semsync' }} />);
   }
@@ -161,7 +174,7 @@ app.get('/auth/callback', async (c) => {
     if (!result.scopes.includes(CALENDAR_SCOPE) || !result.refreshToken) {
       return c.html(
         <Message title="Calendar access is needed" signedIn
-          body='On the Google screen, tick the box that lets Semsync make its own calendar. Or use a separate shared calendar instead.'
+          body="On the Google screen, tick the box that lets Semsync make its own calendar. It can't see or change your other calendars."
           action={{ href: '/connect', label: 'Try again' }} />, 400,
       );
     }
@@ -194,12 +207,15 @@ app.post('/auth/dev', async (c) => {
 
 // --- Setup and home ---
 
+/** Whether saving setup goes on to Google to ask for calendar access (everyone but those with it, or on the old shared calendar). */
+const asksAccess = (user: UserRow) => !keepsShared(user) && !(user.mode === 'main' && hasCalendarAccess(user));
+
 app.get('/setup', async (c) => {
   const user = c.get('user');
   if (!user) return c.redirect('/');
   return c.html(
     <Setup user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} editing={!!user.calendar_id} dev={isDev(c.env)}
-      values={{ canvas: '', nusmods: user.nusmods_link ?? '', mode: user.mode }} errors={{}} />,
+      values={{ canvas: '', nusmods: user.nusmods_link ?? '' }} errors={{}} asksAccess={asksAccess(user)} />,
   );
 });
 
@@ -210,8 +226,7 @@ app.post('/setup', async (c) => {
   const csrf = await csrfToken(c.env.SESSION_SECRET, user.id);
   if (!(await validCsrf(c, user, form))) return c.redirect('/setup');
 
-  const mode: CalendarMode = form.mode === 'shared' ? 'shared' : 'main';
-  const values = { canvas: String(form.canvas ?? '').trim(), nusmods: String(form.nusmods ?? '').trim(), mode };
+  const values = { canvas: String(form.canvas ?? '').trim(), nusmods: String(form.nusmods ?? '').trim() };
   const errors: SetupErrors = {};
   const editing = !!user.calendar_id;
 
@@ -238,17 +253,16 @@ app.post('/setup', async (c) => {
     errors.canvas = 'Paste your Canvas calendar feed link to get started.';
   }
   if (Object.keys(errors).length) {
-    return c.html(<Setup user={user} csrf={csrf} values={values} errors={errors} editing={editing} dev={isDev(c.env)} />, 400);
+    return c.html(<Setup user={user} csrf={csrf} values={values} errors={errors} editing={editing} dev={isDev(c.env)} asksAccess={asksAccess(user)} />, 400);
   }
 
   await saveSources(c.env.DB, user.id, canvasEnc, nusmods);
 
-  if (mode === 'main' && !(user.mode === 'main' && hasCalendarAccess(user))) {
-    // Calendar access comes next. A shared-calendar user keeps their calendar until access is actually granted.
-    if (user.mode === 'main' || !user.calendar_id) await setMode(c.env.DB, user.id, 'main');
+  if (asksAccess(user)) {
+    // Google's OK for the user's own calendar comes next, then the first sync.
+    if (user.mode !== 'main') await setMode(c.env.DB, user.id, 'main');
     return c.redirect('/connect');
   }
-  if (mode === 'shared' && user.mode !== 'shared') await switchToShared(c.env, user);
 
   const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!);
   return c.redirect(ok ? `/home?done=${editing ? 'updated' : 'created'}` : '/home');
@@ -278,7 +292,7 @@ app.post('/sync', async (c) => {
   return c.redirect(ok ? '/home?done=synced' : '/home');
 });
 
-// The course switches on the Semsync page: save them, then sync so switched off courses leave the calendar now.
+// The course tiles in Settings: save them, then sync so switched off courses leave the calendar now.
 app.post('/courses', async (c) => {
   const user = c.get('user');
   if (!user) return c.redirect('/');
@@ -288,7 +302,7 @@ app.post('/courses', async (c) => {
   const hidden = jsonList<Course>(user.courses).map((k) => k.key).filter((k) => !shown.has(k));
   await saveCourseSettings(c.env.DB, user.id, hidden, form.weeks === '1');
   const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!);
-  return c.redirect(ok ? '/home?done=updated' : '/home?done=saved');
+  return c.redirect(ok ? '/settings?done=updated' : '/settings?done=saved');
 });
 
 // The confirmation as a page, for when JavaScript is off and the confirmation dialog can't open.

@@ -53,7 +53,7 @@ Social proof as its own section is left out until there are real quotes to show.
 
 1. Sign in with Google: just your name and email to start
 2. Paste two links: Canvas calendar feed and, optionally, the NUSMods share link
-3. Allow calendar access: or pick a separate shared calendar instead
+3. Allow calendar access: Semsync makes its own "NUS semester" calendar and can't see the others
 
 ## 6. FAQ
 

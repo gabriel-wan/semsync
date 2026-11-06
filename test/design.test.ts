@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UserRow } from '../src/lib/db';
-import { DeleteData, Foundations, Home, Landing, OgCard, Privacy, Setup, Terms } from '../src/views/pages';
+import { DeleteData, Foundations, Help, Home, Landing, OgCard, Privacy, Settings, Setup, Terms } from '../src/views/pages';
 import { semesterWeek } from '../src/config';
 import { CSS } from '../src/views/styles';
 import { CORE, SYSTEM, SYSTEM_SPEC, contrast, mirror, resolve, saturation, type Mode } from '../src/views/tokens';
@@ -192,7 +192,7 @@ describe('navigation', () => {
     calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null,
     last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]',
   };
-  const setup = (user: UserRow) => Setup({ user, csrf: 't', values: { canvas: '', nusmods: '', mode: 'main' }, errors: {}, editing: false, dev: false });
+  const setup = (user: UserRow) => Setup({ user, csrf: 't', values: { canvas: '', nusmods: '' }, errors: {}, editing: false, dev: false });
 
   it('lets a new user leave setup: back to the landing page, or sign out', async () => {
     const html = await page(setup(newUser));
@@ -202,6 +202,14 @@ describe('navigation', () => {
     expect(html).toContain('Signed in as a@example.com');
     // /home would only send them back to setup, so the nav doesn't offer it.
     expect(/<nav[\s\S]*?<\/nav>/.exec(html)![0]).not.toContain('href="/home"');
+  });
+
+  it('asks only for two links, and says Google asks for calendar access next', async () => {
+    const html = await page(Setup({ user: newUser, csrf: 't', values: { canvas: '', nusmods: '' }, errors: {}, editing: false, dev: false, asksAccess: true }));
+    expect(html).not.toContain('type="radio"');
+    expect(html.toLowerCase()).not.toContain('shared calendar');
+    expect(html).toContain('Next, Google asks');
+    expect(await page(setup(newUser))).not.toContain('Next, Google asks');
   });
 
   it('sends someone who has set up back to their calendar from setup', async () => {
@@ -224,8 +232,8 @@ describe('navigation', () => {
 describe('link guides', () => {
   const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
 
-  it('walks through Canvas and NUSMods on the landing page, three steps each, with a target for every step', async () => {
-    const html = await page(Landing({}));
+  it('walks through Canvas and NUSMods on the Help page, three steps each, with a target for every step', async () => {
+    const html = await page(Help({}));
     expect(html).toContain('id="links"');
     const guides = html.split('data-guide="true"').slice(1);
     expect(guides).toHaveLength(2);
@@ -237,10 +245,30 @@ describe('link guides', () => {
     }
   });
 
+  it('shows the same signed-out nav on every public page, without a Sign in button that comes and goes', async () => {
+    const nav = async (node: unknown) => /<nav[\s\S]*?<\/nav>/.exec(await page(node))![0].replace(/ aria-current="page"/g, '').replace(/href="#/g, 'href="/#');
+    const landing = await nav(Landing({}));
+    expect(landing).not.toContain('/auth/google');
+    for (const node of [Help({}), Privacy({}), Terms({})]) expect(await nav(node)).toBe(landing);
+    // "How it works" lands on the whole section (steps and the setup picture), not just its heading.
+    expect(await page(Landing({}))).toMatch(/<section[^>]*id="how"/);
+  });
+
+  it('keeps your account menu on Help, Privacy and Terms, and shows Finish setup until you have', async () => {
+    const account = { email: 'a@example.com', name: null, csrf: 't' };
+    for (const View of [Help, Privacy, Terms]) {
+      const html = await page(View({ signedIn: true, account }));
+      expect(html).toContain('id="account-menu"');
+      expect(html).toContain('href="/settings"');
+      expect(await page(View({ signedIn: true, setupPending: true, account }))).toContain('Finish setup');
+      expect(await page(View({}))).not.toContain('id="account-menu"');
+    }
+  });
+
   it('puts the matching guide under each "Where do I find this?" on setup', async () => {
     const html = await page(Setup({ user: { id: 'x', email: 'a@example.com', name: null, canvas_feed_enc: null, nusmods_link: null, mode: 'main',
       calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]' },
-      csrf: 't', values: { canvas: '', nusmods: '', mode: 'main' }, errors: {}, editing: false, dev: false }));
+      csrf: 't', values: { canvas: '', nusmods: '' }, errors: {}, editing: false, dev: false }));
     expect(html).toContain('canvas.nus.edu.sg/calendar');
     expect(html).toContain('nusmods.com/timetable/sem-1');
     expect(html.match(/data-guide="true"/g)).toHaveLength(2);
@@ -281,16 +309,39 @@ describe('your Semsync page', () => {
     expect(dialog).not.toContain('type="checkbox"'); // the dialog is the confirmation, not a tick box
   });
 
+  it('offers anyone still on the old shared calendar a one-step move to their own', async () => {
+    const html = await page(Home(props));
+    expect(html).toContain('Move to your own calendar');
+    expect(html).toMatch(/href="\/connect"[^>]*>Move my events/);
+    expect(await page(Settings({ user, csrf: 't', counts: props.counts, dev: false }))).toContain('href="/connect"');
+  });
+
+  it("never offers a shared calendar to someone on their own", async () => {
+    const own = { ...user, mode: 'main' as const, calendar_id: 'nus-semester', google_refresh_enc: 'x' };
+    for (const node of [Home({ ...props, user: own, addUrl: null }), Settings({ user: own, csrf: 't', counts: props.counts, dev: false })]) {
+      const html = (await page(node)).toLowerCase();
+      expect(html).not.toContain('shared calendar');
+      expect(html).not.toContain('href="/connect"');
+    }
+    expect((await page(Home({ ...props, user: { ...own, google_refresh_enc: null }, addUrl: null, needsConnect: true })))).toContain('href="/connect"');
+  });
+
   it('has the same confirmation as a page for when JavaScript is off', async () => {
     const html = await page(DeleteData({ user, csrf: 't', counts: props.counts }));
     expect(html).toContain('Delete everything');
     expect(html).toContain('href="/home"');
   });
 
-  it('shows the courses from the NUSMods link and today first in the agenda', async () => {
+  it('puts today first in the agenda, and the courses from the NUSMods link on Settings', async () => {
+    expect(await page(Home(props))).toMatch(/agenda-date today[\s\S]*Today/);
+    expect(await page(Settings({ user, csrf: 't', counts: props.counts, dev: false }))).toContain('<span class="mod caption-4">CS2103T</span>');
+  });
+
+  it('keeps your page to the glance, with settings one click away', async () => {
     const html = await page(Home(props));
-    expect(html).toContain('<span class="mod caption-4">CS2103T</span>');
-    expect(html).toMatch(/agenda-date today[\s\S]*Today/);
+    expect(html).not.toContain('action="/courses"');
+    expect(html).toContain('href="/settings"');
+    expect(html).toContain('2 deadlines · 5 classes · 1 exams this semester');
   });
 });
 
@@ -326,5 +377,34 @@ describe('page script', () => {
     const { SCRIPT, THEME_INIT } = await import('../src/views/styles');
     expect(() => new Function(SCRIPT)).not.toThrow();
     expect(() => new Function(THEME_INIT)).not.toThrow();
+  });
+});
+
+describe('brand mark', () => {
+  const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
+
+  it('is one drawing everywhere: the nav, the browser tab and the link preview card', async () => {
+    const { BRAND_SVG, FAVICON } = await import('../src/views/icons');
+    expect(FAVICON).toBe(`data:image/svg+xml,${encodeURIComponent(BRAND_SVG)}`);
+    const html = await page(Landing({}));
+    expect(html).toContain(`href="${FAVICON}"`);
+    expect(/<nav[\s\S]*?<\/nav>/.exec(html)![0]).toContain(BRAND_SVG);
+    expect(await page(OgCard({}))).toContain(BRAND_SVG);
+    // Browsers and phones that skip SVG icons get the same mark as files.
+    expect(html).toContain('href="/favicon.ico"');
+    expect(html).toContain('rel="apple-touch-icon" href="/apple-touch-icon.png"');
+  });
+});
+
+describe('hero demo', () => {
+  const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
+
+  it('has both links to paste, and the finished week underneath for anyone without the animation', async () => {
+    const html = await page(Landing({}));
+    const hero = /<header class="hero">[\s\S]*?<\/header>/.exec(html)![0];
+    expect(hero).toContain('data-demo');
+    expect(hero.match(/data-paste="https:\/\/(canvas\.nus\.edu\.sg|nusmods\.com)\//g)).toHaveLength(2);
+    expect(hero.match(/class="ev chip-/g)!.length).toBeGreaterThan(5);
+    expect(hero).toContain('due tonight');
   });
 });

@@ -3,7 +3,7 @@ import { courseOf } from '../src/lib/canvas';
 import { toGoogleEvent, type CalEvent } from '../src/lib/events';
 import { applyCourses, weekLabelEvents } from '../src/lib/sync';
 import type { UserRow } from '../src/lib/db';
-import { Home } from '../src/views/pages';
+import { Settings } from '../src/views/pages';
 
 const ev = (key: string, kind: CalEvent['kind'], course?: string): CalEvent => ({
   key, kind, title: key, course, courseLabel: course && `${course} name`, start: { date: '2026-11-06' }, end: { date: '2026-11-06' },
@@ -74,7 +74,7 @@ describe('week labels', () => {
   });
 });
 
-describe('the course switches on the Semsync page', () => {
+describe('the course tiles on the Settings page', () => {
   const user: UserRow = {
     id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', nusmods_link: null, mode: 'main', calendar_id: 'primary',
     google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null,
@@ -82,15 +82,15 @@ describe('the course switches on the Semsync page', () => {
     courses: JSON.stringify([{ key: 'CS2040', label: 'CS2040 Data Structures and Algorithms' }, { key: 'MA1521', label: 'MA1521 Calculus for Computing' }]),
   };
   const page = async (u: UserRow) =>
-    String(await (Home({ user: u, csrf: 't', addUrl: null, needsConnect: false, counts: {}, upcoming: [], dev: false }) as unknown as { toString(): Promise<string> }).toString());
+    String(await (Settings({ user: u, csrf: 't', counts: {}, dev: false }) as unknown as { toString(): Promise<string> }).toString());
 
   it('shows a switch per course, off for the hidden ones, and the week labels switch', async () => {
     const html = await page(user);
     expect(html).toMatch(/action="\/courses"/);
-    expect(html).toMatch(/class="course-chip"[^>]*><input type="checkbox" name="show" value="CS2040" checked=""/);
+    expect(html).toMatch(/class="course-tile"><input type="checkbox" name="show" value="CS2040" checked=""/);
     expect(html).toMatch(/name="show" value="MA1521"(?! checked)/);
     expect(html).toMatch(/name="weeks" value="1"(?! checked)/);
-    expect(html).toContain('title="CS2040 Data Structures and Algorithms"'); // the full name on hover
+    expect(html).toContain('<span class="caption-2 text-secondary tile-name">Data Structures and Algorithms</span>');
   });
 
   it('shows module colours only where Google shows them, in your own calendar', async () => {

@@ -7,16 +7,16 @@ https://github.com/user-attachments/assets/32ada096-2538-4f55-8997-1c42293b7316
 
 ## What it does
 
-Sign in with Google, paste your Canvas calendar feed and, if you like, your NUSMods share link, then pick where events go:
+Sign in with Google and paste your Canvas calendar feed and, if you like, your NUSMods share link. Semsync makes an
+"NUS semester" calendar in your Google account, with reminders 1 day and 3 hours before deadlines and 1 week and 1 day
+before exams, and a colour per module (exams stay red). It asks for `calendar.app.created`, which only covers calendars
+it makes itself; Google classes it as non-sensitive, so there's no unverified app screen.
 
-- **Your own Google account** (the default): Semsync makes an "NUS semester" calendar there, with reminders 1 day and 3
-  hours before deadlines and 1 week and 1 day before exams, and a colour per module. It asks for `calendar.app.created`,
-  which only covers calendars it makes itself; Google classes it as non-sensitive, so there's no unverified app screen.
-- **A separate "NUS semester" calendar** that Semsync shares with you. It needs no calendar permission.
+In Settings you can switch off any course, and turn off the "Week 7" labels Semsync puts on each Monday.
 
-On your Semsync page you can switch off any course, and turn off the "Week 7" labels Semsync puts on each Monday. With
-your own calendar, each module gets its own colour (exams stay red); a shared calendar shows in the one colour you pick
-for it, because Google doesn't show event colours to people a calendar is shared with.
+Early versions also offered a calendar that Semsync kept in its own Google account and shared with you. That option is
+gone because it couldn't have reminders or colours. Anyone still on one keeps syncing, and their page offers a one-step
+move to their own calendar.
 
 Every event Semsync adds is tagged, and it only ever changes or removes its own. Deleting your data removes all of them
 and revokes its access.

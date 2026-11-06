@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UserRow } from '../src/lib/db';
-import { Home, Landing, Message, NotFound, Privacy, Setup, Terms } from '../src/views/pages';
+import { Help, Home, Landing, Message, NotFound, Privacy, Settings, Setup, Terms } from '../src/views/pages';
 
 const user: UserRow = {
   id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', nusmods_link: null, mode: 'main',
@@ -23,12 +23,14 @@ async function visibleText(node: unknown): Promise<string> {
 
 const PAGES: [string, unknown][] = [
   ['landing', Landing({ origin: 'https://semsync.example' })],
-  ['setup, new', Setup({ user: { ...user, canvas_feed_enc: null }, csrf: 't', values: { canvas: '', nusmods: '', mode: 'main' }, errors: {}, editing: false, dev: false })],
-  ['setup, editing with errors', Setup({ user, csrf: 't', values: { canvas: 'x', nusmods: 'y', mode: 'shared' }, errors: { canvas: 'Bad link.', nusmods: 'Bad link.' }, editing: true, dev: false })],
+  ['setup, new', Setup({ user: { ...user, canvas_feed_enc: null }, csrf: 't', values: { canvas: '', nusmods: '' }, errors: {}, editing: false, dev: false })],
+  ['setup, editing with errors', Setup({ user, csrf: 't', values: { canvas: 'x', nusmods: 'y' }, errors: { canvas: 'Bad link.', nusmods: 'Bad link.' }, editing: true, dev: false })],
   ['home, main', Home({ user, ...home, needsConnect: false })],
   ['home, needs connect', Home({ user, ...home, needsConnect: true, upcoming: [] })],
   ['home, shared', Home({ user: { ...user, mode: 'shared' }, ...home, addUrl: 'https://calendar.google.com', needsConnect: false })],
   ['privacy', Privacy({})],
+  ['help', Help({})],
+  ['settings', Settings({ user, csrf: 't', counts: { deadline: 3 }, dev: false })],
   ['terms', Terms({})],
   ['home, sync failed', Home({ user: { ...user, last_sync_ok: 0, last_sync_message: "Couldn't sync just now." }, ...home, upcoming: [], needsConnect: false })],
   ['message', Message({ title: 'Your data is deleted', body: 'Gone.' })],
