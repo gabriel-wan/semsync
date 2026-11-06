@@ -25,6 +25,8 @@ It works with **Google Calendar**, **Outlook**, **Apple Calendar** and **Notion 
 3. Let Semsync make its own "NUS semester" calendar in your Google account. Use Outlook or Apple Calendar instead?
    Choose **Get a subscribe link** and add it to your calendar app.
 
+![Pasting the Canvas and NUSMods links into Semsync, then a week in Google Calendar filling with classes and deadlines](docs/media/semsync-google-calendar.gif)
+
 That's it. You can leave out courses you don't need, or turn off the week labels, in Settings.
 
 ## Next semester
