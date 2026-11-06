@@ -26,6 +26,7 @@ import {
   trackedEvents,
   type TrackedRow,
   type UserRow,
+  WHILE_USER_EXISTS,
 } from './db.js';
 import type { Db } from './database.js';
 import { UserError } from './errors.js';
@@ -130,12 +131,13 @@ export async function applyPlan(backend: CalendarBackend, calendarId: string, pl
   };
 }
 
-async function storeApplied(db: Db, userId: string, applied: { upserts: PlannedUpsert[]; deletes: string[] }) {
+export async function storeApplied(db: Db, userId: string, applied: { upserts: PlannedUpsert[]; deletes: string[] }) {
   const statements = [
     ...applied.upserts.map((u) =>
       db
         .prepare(
-          `INSERT INTO synced_events (user_id, event_id, hash, kind, title, start_ms, all_day) VALUES (?, ?, ?, ?, ?, ?, ?)
+          `${WHILE_USER_EXISTS}
+           INSERT INTO synced_events (user_id, event_id, hash, kind, title, start_ms, all_day) SELECT id, ?, ?, ?, ?, ?, ? FROM owner
            ON CONFLICT (user_id, event_id) DO UPDATE SET hash = excluded.hash, kind = excluded.kind, title = excluded.title,
              start_ms = excluded.start_ms, all_day = excluded.all_day`,
         )
@@ -412,8 +414,13 @@ export async function removeFromCalendar(env: Env, user: UserRow): Promise<boole
   let removed = true;
   if (user.calendar_id) {
     try {
-      const backend = calendarFor(env, user);
-      if (!inMainCalendar(user)) {
+      // Someone who lost Google access and then chose a subscribe link still has the calendar Semsync made in their
+      // Google account. Their own account, not the subscribe link, is what can take it down (and when it can't, this
+      // says so rather than reporting it gone).
+      const leftInGoogle = user.mode === 'feed' && user.calendar_id !== 'feed';
+      const holder: UserRow = leftInGoogle ? { ...user, mode: 'main' } : user;
+      const backend = calendarFor(env, holder);
+      if (!inMainCalendar(holder)) {
         // The shared calendar, or the user's own "NUS semester": Semsync made it, so it can delete it whole.
         await backend.deleteCalendar(user.calendar_id);
       } else {

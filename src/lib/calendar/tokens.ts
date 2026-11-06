@@ -1,6 +1,6 @@
 import type { Env } from '../../env.js';
 import { b64url, decrypt, encrypt } from '../crypto.js';
-import type { UserRow } from '../db.js';
+import { WHILE_USER_EXISTS, type UserRow } from '../db.js';
 import { UserError } from '../errors.js';
 import { fetchWithin } from '../http.js';
 
@@ -16,16 +16,23 @@ export class ReconnectNeeded extends UserError {
   }
 }
 
-async function cached(env: Env, key: string, fetchToken: () => Promise<{ token: string; expiresIn: number }>): Promise<string> {
+/** A cached access token. `ownerId` is the user it belongs to, if any: it's only cached while they still exist. */
+async function cached(
+  env: Env,
+  key: string,
+  fetchToken: () => Promise<{ token: string; expiresIn: number }>,
+  ownerId?: string,
+): Promise<string> {
   const row = await env.DB.prepare('SELECT value FROM kv WHERE key = ? AND expires_at > ?').bind(key, Date.now()).first<{ value: string }>();
   if (row) return decrypt(env.ENCRYPTION_KEY, row.value);
   const { token, expiresIn } = await fetchToken();
-  await env.DB.prepare(
-    `INSERT INTO kv (key, value, expires_at) VALUES (?, ?, ?)
-     ON CONFLICT (key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at`,
-  )
-    .bind(key, await encrypt(env.ENCRYPTION_KEY, token), Date.now() + (expiresIn - 300) * 1000)
-    .run();
+  const value = await encrypt(env.ENCRYPTION_KEY, token);
+  const expiresAt = Date.now() + (expiresIn - 300) * 1000;
+  const upsert = 'ON CONFLICT (key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at';
+  await (ownerId
+    ? env.DB.prepare(`${WHILE_USER_EXISTS} INSERT INTO kv (key, value, expires_at) SELECT ?, ?, ? FROM owner ${upsert}`).bind(ownerId, key, value, expiresAt)
+    : env.DB.prepare(`INSERT INTO kv (key, value, expires_at) VALUES (?, ?, ?) ${upsert}`).bind(key, value, expiresAt)
+  ).run();
   return token;
 }
 
@@ -66,7 +73,7 @@ export function userTokens(env: Env, user: UserRow): TokenProvider {
         client_id: env.GOOGLE_OAUTH_CLIENT_ID ?? '',
         client_secret: env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
       });
-    });
+    }, user.id);
 }
 
 async function requestToken(params: Record<string, string>): Promise<{ token: string; expiresIn: number }> {

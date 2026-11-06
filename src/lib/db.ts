@@ -2,6 +2,14 @@ import type { Db } from './database.js';
 import type { CalendarMode, EventKind } from './events.js';
 import type { ModuleData } from './nusmods.js';
 
+/**
+ * Starts a write that only happens while the user still exists, so a sync that was running when someone deleted their
+ * data can't write any of it back. It locks their row the way a foreign key would: a deletion at the same moment either
+ * waits for this write and then removes it, or goes first and leaves this with no row to write for. Select from
+ * `owner` (one column, the user's id) to insert.
+ */
+export const WHILE_USER_EXISTS = 'WITH owner AS (SELECT id FROM users WHERE id = ? FOR KEY SHARE)';
+
 export type UserRow = {
   id: string;
   email: string;
@@ -186,7 +194,11 @@ export async function clearFeed(db: Db, id: string) {
 
 export async function saveFeed(db: Db, userId: string, body: string) {
   await db
-    .prepare('INSERT INTO feeds (user_id, body, updated_at) VALUES (?, ?, ?) ON CONFLICT (user_id) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at')
+    .prepare(
+      `${WHILE_USER_EXISTS}
+       INSERT INTO feeds (user_id, body, updated_at) SELECT id, ?, ? FROM owner
+       ON CONFLICT (user_id) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
+    )
     .bind(userId, body, Date.now())
     .run();
 }
@@ -230,11 +242,13 @@ export async function eventCounts(db: Db, userId: string): Promise<Record<string
 }
 
 export async function deleteUserData(db: Db, id: string) {
+  // The user's row goes first: a sync still writing for them holds a lock on it (see WHILE_USER_EXISTS), so this waits
+  // for that write to finish, then removes it with the rest.
   await db.batch([
+    db.prepare('DELETE FROM users WHERE id = ?').bind(id),
     db.prepare('DELETE FROM synced_events WHERE user_id = ?').bind(id),
     db.prepare('DELETE FROM feeds WHERE user_id = ?').bind(id),
     db.prepare('DELETE FROM kv WHERE key = ?').bind(`token:user:${id}`),
-    db.prepare('DELETE FROM users WHERE id = ?').bind(id),
   ]);
 }
 

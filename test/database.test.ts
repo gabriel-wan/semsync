@@ -1,7 +1,23 @@
+import { readFileSync } from 'node:fs';
 import { vi, afterEach, describe, expect, it } from 'vitest';
+import type { Env } from '../src/env';
+import { FakeCalendar } from '../src/lib/calendar/fake';
+import { userTokens } from '../src/lib/calendar/tokens';
+import { encrypt } from '../src/lib/crypto';
 import { numberPlaceholders, type Db } from '../src/lib/database';
-import { cachedModuleFetcher, claimDueUsers, deleteUserData, eventCounts, getUser, recordSync, upcomingEvents, upsertUserOnLogin } from '../src/lib/db';
+import {
+  cachedModuleFetcher,
+  claimDueUsers,
+  deleteUserData,
+  eventCounts,
+  getUser,
+  recordSync,
+  saveFeed,
+  upcomingEvents,
+  upsertUserOnLogin,
+} from '../src/lib/db';
 import { migrate } from '../src/lib/migrate';
+import { removeFromCalendar, storeApplied, type PlannedUpsert } from '../src/lib/sync';
 import { testDb } from './pg';
 
 // The in-memory Postgres starts slowly when every test file runs at once, so these get longer than the 5 s default.
@@ -73,7 +89,12 @@ describe('Postgres database adapter', () => {
 
   it('applies each migration once and turns on row-level security for every table', async () => {
     const db = await freshDb();
-    expect(await migrate(db)).toEqual(['0001_init.sql', '0002_course_settings.sql', '0003_feeds_and_rollover.sql']);
+    expect(await migrate(db)).toEqual([
+      '0001_init.sql',
+      '0002_course_settings.sql',
+      '0003_feeds_and_rollover.sql',
+      '0004_clear_rows_left_after_deletion.sql',
+    ]);
     expect(await migrate(db)).toEqual([]);
     const { results } = await db
       .prepare("SELECT relname, relrowsecurity FROM pg_class WHERE relkind = 'r' AND relnamespace = 'public'::regnamespace ORDER BY relname")
@@ -130,5 +151,102 @@ describe('Postgres database adapter', () => {
     await deleteUserData(db, 'google:1');
     expect(await getUser(db, 'google:1')).toBeNull();
     expect(await eventCounts(db, 'google:1')).toEqual({});
+  });
+});
+
+describe('deleting your data', () => {
+  const ids = async (db: Db, sql: string) => (await db.prepare(sql).all<{ id: string }>()).results.map((r) => r.id).sort();
+
+  it("lets a sync that was still running write nothing back for someone who's gone", async () => {
+    const db = await freshDb();
+    await migrate(db);
+    await upsertUserOnLogin(db, { id: 'google:1', email: 'a@example.com', name: 'A' });
+    await upsertUserOnLogin(db, { id: 'google:2', email: 'b@example.com', name: 'B' });
+    const env = { DB: db, ENCRYPTION_KEY: 'test key' } as unknown as Env;
+    const refresh = await encrypt(env.ENCRYPTION_KEY, 'refresh token');
+    const [one, two] = await Promise.all(['google:1', 'google:2'].map(async (id) => ({ ...(await getUser(db, id))!, google_refresh_enc: refresh })));
+    await deleteUserData(db, 'google:2');
+
+    // What a sync saves at the end of a run, for someone still here and for someone who deleted their data meanwhile.
+    const written = { upserts: [{ eventId: 'e1', hash: 'h', kind: 'deadline', title: 'PS5', startMs: 1, allDay: false } as PlannedUpsert], deletes: [] };
+    const original = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => Response.json({ access_token: 'access', expires_in: 3600 })) as typeof fetch;
+    try {
+      for (const user of [one, two]) {
+        await storeApplied(db, user.id, written);
+        await saveFeed(db, user.id, 'BEGIN:VCALENDAR');
+        expect(await userTokens(env, user)()).toBe('access'); // the token still works for the run, it just isn't kept
+      }
+    } finally {
+      globalThis.fetch = original;
+    }
+
+    expect(await ids(db, 'SELECT user_id AS id FROM synced_events')).toEqual(['google:1']);
+    expect(await ids(db, 'SELECT user_id AS id FROM feeds')).toEqual(['google:1']);
+    expect(await ids(db, "SELECT key AS id FROM kv WHERE key LIKE 'token:user:%'")).toEqual(['token:user:google:1']);
+  });
+
+  it('clears rows left behind before that, and nothing else', async () => {
+    const db = await freshDb();
+    await migrate(db);
+    await upsertUserOnLogin(db, { id: 'google:1', email: 'a@example.com', name: 'A' });
+    const later = Date.now() + 3600_000;
+    for (const id of ['google:1', 'google:gone']) {
+      await db.batch([
+        db.prepare("INSERT INTO synced_events VALUES (?, 'e1', 'h', 'deadline', 'PS5', 1, 0)").bind(id),
+        db.prepare('INSERT INTO feeds (user_id, body, updated_at) VALUES (?, ?, 1)').bind(id, 'BEGIN:VCALENDAR'),
+        db.prepare("INSERT INTO kv (key, value, expires_at) VALUES (?, 'x', ?)").bind(`token:user:${id}`, later),
+      ]);
+    }
+    await db.prepare("INSERT INTO kv (key, value, expires_at) VALUES ('token:service_account', 'x', ?)").bind(later).run();
+
+    await db.exec(readFileSync('migrations/0004_clear_rows_left_after_deletion.sql', 'utf8'));
+    expect(await ids(db, 'SELECT user_id AS id FROM synced_events')).toEqual(['google:1']);
+    expect(await ids(db, 'SELECT user_id AS id FROM feeds')).toEqual(['google:1']);
+    expect(await ids(db, 'SELECT key AS id FROM kv')).toEqual(['token:service_account', 'token:user:google:1']);
+  });
+});
+
+describe('taking down the calendar Semsync made', () => {
+  async function onSubscribeLinkWith(db: Db, calendarId: string) {
+    await migrate(db);
+    await upsertUserOnLogin(db, { id: 'google:1', email: 'a@example.com', name: 'A' });
+    await db.prepare("UPDATE users SET mode = 'feed', calendar_id = ?, needs_reconnect = 1 WHERE id = 'google:1'").bind(calendarId).run();
+    return (await getUser(db, 'google:1'))!;
+  }
+
+  it('removes a Google calendar left from before someone switched to a subscribe link', async () => {
+    const db = await freshDb();
+    await migrate(db);
+    const left = await new FakeCalendar(db).createCalendar('NUS semester');
+    const user = await onSubscribeLinkWith(db, left);
+    const env = { DB: db, FAKE_GOOGLE: '1', ENCRYPTION_KEY: 'test key' } as unknown as Env;
+    expect(await removeFromCalendar(env, user)).toBe(true);
+    expect((await db.prepare('SELECT id FROM fake_calendars').all()).results).toEqual([]);
+    expect((await getUser(db, 'google:1'))!.calendar_id).toBeNull();
+  });
+
+  it("says it couldn't, rather than that it's gone, when that Google account can't be reached", async () => {
+    const db = await freshDb();
+    const user = await onSubscribeLinkWith(db, 'nus@group.calendar.google.com');
+    const env = { DB: db, ENCRYPTION_KEY: 'test key' } as unknown as Env;
+    const original = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error('no network in this test');
+    }) as typeof fetch;
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(await removeFromCalendar(env, user)).toBe(false);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = original;
+      quiet.mockRestore();
+    }
+  });
+
+  it('has nothing to take down for someone who only ever used the subscribe link', async () => {
+    const db = await freshDb();
+    const user = await onSubscribeLinkWith(db, 'feed');
+    expect(await removeFromCalendar({ DB: db } as unknown as Env, user)).toBe(true);
   });
 });

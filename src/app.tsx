@@ -103,11 +103,12 @@ const keepsShared = (user: UserRow) => user.mode === 'shared' && !!user.calendar
 
 /**
  * Turns on own-calendar mode with a fresh grant, taking down an old shared calendar if there was one. Someone moving
- * from the subscribe link keeps it, but their events start over in the new Google calendar.
+ * from the subscribe link keeps it, but their events start over in the new Google calendar. The grant is stored first,
+ * so a Google calendar left from before they switched to the subscribe link comes down instead of being duplicated.
  */
 async function connectMainCalendar(env: Env, user: UserRow, refreshToken: string) {
-  if (user.mode !== 'main') await removeFromCalendar(env, user);
   await setRefreshToken(env.DB, user.id, await encrypt(env.ENCRYPTION_KEY, refreshToken));
+  if (user.mode !== 'main') await removeFromCalendar(env, (await getUser(env.DB, user.id))!);
   await setMode(env.DB, user.id, 'main');
   const fresh = (await getUser(env.DB, user.id))!;
   if (fresh.canvas_feed_enc || fresh.nusmods_link) await syncUser(env, fresh);
