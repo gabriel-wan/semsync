@@ -1,0 +1,25 @@
+# Runs the typecheck and every test on each push to main and on every pull request, so a change that breaks something
+# shows a red cross next to it. The tests bring their own in-memory Postgres, so this needs no secrets.
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
