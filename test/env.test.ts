@@ -51,7 +51,7 @@ describe('a deployment that is not set up yet', () => {
 describe('the old address', () => {
   async function live(env: Record<string, string>) {
     vi.resetModules();
-    for (const [k, v] of Object.entries({ VERCEL: '1', VERCEL_ENV: 'production', APP_URL: 'https://semsync.live', CRON_SECRET: '', ...env })) vi.stubEnv(k, v);
+    for (const [k, v] of Object.entries({ VERCEL: '1', VERCEL_ENV: 'production', APP_URL: 'https://semsync.live', MOVE_OLD_ADDRESS: '1', CRON_SECRET: '', ...env })) vi.stubEnv(k, v);
     const { default: app } = await import('../src/app');
     return (url: string) => app.fetch(new Request(url));
   }
@@ -68,12 +68,17 @@ describe('the old address', () => {
     const fetch = await live({});
     expect((await fetch('https://getsemsync.vercel.app/api/cron')).status).toBe(401);
     const { movedTo } = await import('../src/app');
-    expect(movedTo('https://getsemsync.vercel.app/feed/abc.ics', { APP_URL: 'https://semsync.live', PRODUCTION: true })).toBeNull();
+    expect(movedTo('https://getsemsync.vercel.app/feed/abc.ics', { APP_URL: 'https://semsync.live', PRODUCTION: true, MOVE_OLD_ADDRESS: true })).toBeNull();
   });
 
   it('never moves anyone on a preview deployment, or before the site has its own domain', async () => {
     const { movedTo } = await import('../src/app');
-    expect(movedTo('https://semsync-git-x.vercel.app/', { APP_URL: 'https://semsync.live', PRODUCTION: false })).toBeNull();
-    expect(movedTo('https://getsemsync.vercel.app/', { APP_URL: 'https://getsemsync.vercel.app', PRODUCTION: true })).toBeNull();
+    expect(movedTo('https://semsync-git-x.vercel.app/', { APP_URL: 'https://semsync.live', PRODUCTION: false, MOVE_OLD_ADDRESS: true })).toBeNull();
+    expect(movedTo('https://getsemsync.vercel.app/', { APP_URL: 'https://getsemsync.vercel.app', PRODUCTION: true, MOVE_OLD_ADDRESS: true })).toBeNull();
+  });
+
+  it("stays off until MOVE_OLD_ADDRESS is set, so nobody is sent to a domain their network can't find yet", async () => {
+    const fetch = await live({ MOVE_OLD_ADDRESS: '' });
+    expect((await fetch('https://getsemsync.vercel.app/help')).status).toBe(200);
   });
 });

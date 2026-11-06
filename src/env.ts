@@ -9,6 +9,8 @@ export type Env = {
   APP_URL: string;
   /** The live site on Vercel (not a preview deployment or local development). */
   PRODUCTION: boolean;
+  /** Send visitors from the old .vercel.app address to APP_URL. Off until the new domain works on every network. */
+  MOVE_OLD_ADDRESS: boolean;
   ALLOWED_CANVAS_HOSTS: string;
   // Secrets
   SESSION_SECRET: string;
@@ -55,6 +57,7 @@ export function getEnv(): Env {
     APP_NAME: e.APP_NAME ?? 'Semsync',
     SYNC_CONCURRENCY: e.SYNC_CONCURRENCY ?? '8',
     PRODUCTION: e.VERCEL_ENV === 'production',
+    MOVE_OLD_ADDRESS: e.MOVE_OLD_ADDRESS === '1',
     // On Vercel, its production domain (or this deployment's address) unless APP_URL says otherwise.
     APP_URL: (e.APP_URL ?? (e.VERCEL_PROJECT_PRODUCTION_URL || e.VERCEL_URL ? `https://${e.VERCEL_PROJECT_PRODUCTION_URL || e.VERCEL_URL}` : 'http://localhost:8787')).replace(/\/$/, ''),
     ALLOWED_CANVAS_HOSTS: e.ALLOWED_CANVAS_HOSTS ?? 'canvas.nus.edu.sg',

@@ -87,6 +87,11 @@ before it made its own calendar), or uploading an app logo in **Branding**, whic
 Keep the old `.vercel.app` address working (Vercel does by default): subscribe links people already added and existing
 sign ins use it. Links Semsync puts in calendars use the production domain on their own, or whatever `APP_URL` says.
 
+A brand new domain can take a while to show up on some networks: a school's own DNS may remember "this domain doesn't
+exist" for an hour, and some block domains for their first few weeks. Once yours loads on the networks your users are
+on (for NUS, campus Wi-Fi), set `MOVE_OLD_ADDRESS=1` in Vercel and redeploy. Visitors to the old address are then sent
+to the new one, except the scheduled sync and subscribe links, which keep working where they are.
+
 ## Ready for 1,000 users
 
 What it costs per hour at 1,000 people, and why it fits the free plans:

@@ -100,6 +100,8 @@ Copy `.env.example` to `.env.local` first. With `DEV_LOGIN=1` and `FAKE_GOOGLE=1
 - Vercel's live site deploys from **`main`**. Pushes to other branches (including `vercel`) only make preview
   deployments. Production builds apply new migrations before going live.
 - GitHub runs the scheduled sync (`.github/workflows/hourly-sync.yml`) from `main` too.
+- `MOVE_OLD_ADDRESS=1` on Vercel sends visitors from the old `.vercel.app` address to `semsync.live`. Leave it off
+  until the domain resolves on NUS networks.
 - Commit or push only when asked. This repo keeps `main` and `vercel` level: `git push origin vercel` then
   `git push origin vercel:main`.
 

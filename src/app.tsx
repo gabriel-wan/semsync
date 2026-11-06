@@ -44,10 +44,11 @@ const app = new Hono<AppEnv>();
  * On the live site, the old getsemsync.vercel.app address (and Vercel's per-deployment ones) send people on to the
  * site's own domain, so nobody sees the old address. Two things stay put: the scheduled sync, which the GitHub Action
  * calls at whatever address it's set to, and subscribe links, which calendar apps keep exactly as they were given.
- * Nothing moves until the site has a domain of its own.
+ * Nothing moves until the site has a domain of its own and MOVE_OLD_ADDRESS=1 is set: a brand new domain can take a
+ * while to show up on some networks (NUS's own DNS among them), and moving people before then strands them.
  */
-export function movedTo(requestUrl: string, env: Pick<Env, 'APP_URL' | 'PRODUCTION'>): string | null {
-  if (!env.PRODUCTION) return null;
+export function movedTo(requestUrl: string, env: Pick<Env, 'APP_URL' | 'PRODUCTION' | 'MOVE_OLD_ADDRESS'>): string | null {
+  if (!env.PRODUCTION || !env.MOVE_OLD_ADDRESS) return null;
   const url = new URL(requestUrl);
   const home = new URL(env.APP_URL);
   if (url.host === home.host || home.host.endsWith('.vercel.app') || !url.host.endsWith('.vercel.app')) return null;
