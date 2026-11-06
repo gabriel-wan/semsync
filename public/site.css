@@ -64,10 +64,6 @@ code, .mono { font-family: 'Geist Mono', ui-monospace, monospace; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { opacity: 0; transform: rotate(90deg) scale(0.5); }
 @media (prefers-reduced-motion: reduce) { .theme-toggle svg { transition: none; } }
 
-/* GitHub in the nav: an icon button the same size as the theme toggle. */
-.icon-link { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-full); color: var(--icon-secondary);
-  transition: background-color 300ms var(--ease), color 300ms var(--ease); }
-.icon-link:hover { background: var(--surface-primary-hover); color: var(--text-primary); }
 .footer-links .footer-github { display: inline-flex; align-items: center; gap: var(--space-50); }
 /* Settings: one card per topic, stacked. */
 .settings-sections { display: flex; flex-direction: column; gap: var(--space-200); margin-top: var(--space-300); }
@@ -615,7 +611,7 @@ footer { margin-top: var(--space-600); }
    to the agenda's, with its button pinned to the bottom. */
 .dash { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-200); margin-top: var(--space-400); align-items: stretch; }
 .dash-side { display: flex; flex-direction: column; gap: var(--space-200); min-width: 0; }
-.dash-sources, .dash-courses { display: flex; flex-direction: column; }
+.dash-sources { display: flex; flex-direction: column; }
 /* On your page the calendar card takes any extra height, with its button at the bottom, so the columns end level
    without an empty gap in a plain card. */
 .dash-dest { flex: 1; display: flex; }
@@ -660,14 +656,6 @@ footer { margin-top: var(--space-600); }
 .agenda-ev { display: flex; flex-direction: column; gap: var(--space-25); padding: var(--space-75) var(--space-100); border-radius: var(--radius-8);
   overflow-wrap: anywhere; }
 .panel .empty { padding: var(--space-500) var(--space-200); }
-
-.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-75); margin-top: var(--space-200); }
-.tile { display: flex; flex-direction: column; gap: var(--space-25); min-width: 0; padding: var(--space-100); border-radius: var(--radius-12);
-  background: var(--surface-secondary); }
-.tile-key { width: 12px; height: 12px; border-radius: var(--radius-4); margin-bottom: var(--space-50); }
-.key-class { background: var(--text-info); }
-.key-deadline { background: var(--text-accent); }
-.key-exam { background: var(--surface-accent); }
 
 .sources { display: flex; flex-direction: column; gap: var(--space-200); margin: var(--space-200) 0 var(--space-300); }
 .source { display: flex; gap: var(--space-100); align-items: flex-start; }
@@ -733,21 +721,6 @@ legend.step-head { align-items: center; padding: 0; margin-bottom: var(--space-2
 .switch:checked::before { transform: translateX(18px); }
 .switch:focus-visible { outline: 2px solid var(--border-action-primary); outline-offset: 2px; }
 .courses-actions { margin-top: auto; padding-top: var(--space-200); }
-/* Course chips: on is tinted blue with a tick, off is outlined and struck through. The checkbox stays in the page for
-   keyboards and screen readers, just out of sight. */
-.course-chips { display: flex; flex-wrap: wrap; gap: var(--space-75); margin-top: var(--space-100); }
-.course-chip { position: relative; cursor: pointer; }
-.course-chip input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
-.course-chip > span { display: inline-flex; align-items: center; gap: var(--space-50); min-height: 44px; padding: 0 var(--space-100);
-  border-radius: var(--radius-full); border: 1px solid var(--border-action-secondary); color: var(--text-secondary);
-  transition: background-color 300ms var(--ease), border-color 300ms var(--ease), color 300ms var(--ease); }
-.course-chip input:checked + span { background: var(--surface-info-subtle); border-color: transparent; color: var(--text-info); }
-.course-chip input:not(:checked) + span { text-decoration: line-through; }
-.course-chip .chip-on { display: none; }
-.course-chip input:checked + span .chip-on { display: block; }
-.course-chip input:focus-visible + span { outline: 2px solid var(--border-action-primary); outline-offset: 2px; }
-.course-chip:hover > span { border-color: var(--border-action-primary); }
-@media (prefers-reduced-motion: reduce) { .course-chip > span { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .switch, .switch::before { transition: none; } }
 
 /* Account menu: your initial in the nav opens it. */

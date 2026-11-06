@@ -82,3 +82,22 @@ describe('the old address', () => {
     expect((await fetch('https://getsemsync.vercel.app/help')).status).toBe(200);
   });
 });
+
+describe('search engines', () => {
+  it('get the four public pages and are kept out of the signed in ones', async () => {
+    const { app } = await unconfigured();
+    const robots = await (await get(app, '/robots.txt')).text();
+    for (const path of ['/home', '/settings', '/setup', '/feed/']) expect(robots).toContain(`Disallow: ${path}`);
+    expect(robots).toContain('Sitemap: https://semsync.example/sitemap.xml');
+    const sitemap = await get(app, '/sitemap.xml');
+    expect(sitemap.headers.get('content-type')).toContain('application/xml');
+    const xml = await sitemap.text();
+    for (const path of ['/help', '/privacy', '/terms']) expect(xml).toContain(`<loc>https://semsync.example${path}</loc>`);
+    expect(xml).not.toContain('/home');
+  });
+
+  it('see one address for each public page', async () => {
+    const { app } = await unconfigured();
+    expect(await (await get(app, '/help')).text()).toContain('<link rel="canonical" href="https://semsync.example/help"/>');
+  });
+});

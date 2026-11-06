@@ -18,6 +18,8 @@ type LayoutProps = PropsWithChildren<{
   title: string; description?: string; current?: string; signedIn?: boolean; noindex?: boolean; origin?: string;
   /** The longer title for link previews and search results, when the browser tab shows a short one. */
   socialTitle?: string;
+  /** A public page's own path, so search engines and link previews use one address for it. */
+  path?: string;
   /** Signed in but not set up yet, so there's no calendar page to go to: the nav leads to setup instead. */
   setupPending?: boolean;
   /** Who's signed in, for the account menu (sign out, delete). Pages without a CSRF token at hand leave it out. */
@@ -51,9 +53,9 @@ const AccountMenu: FC<{ account: Account }> = ({ account }) => (
 );
 
 export const Layout: FC<LayoutProps> = ({
-  title, description, current, signedIn, noindex, origin, socialTitle, setupPending, account, head, children,
+  title, description, current, signedIn, noindex, origin, socialTitle, path, setupPending, account, head, children,
 }) => {
-  const desc = description ?? 'Canvas deadlines, NUSMods classes and exams in your Google Calendar, kept up to date.';
+  const desc = description ?? 'Canvas deadlines, NUSMods classes and exams in your calendar, kept up to date. Works with Google Calendar, Outlook and Apple Calendar.';
   const section = (id: string) => (current === 'landing' ? `#${id}` : `/#${id}`);
   return (
     <html lang="en">
@@ -67,7 +69,8 @@ export const Layout: FC<LayoutProps> = ({
         <meta property="og:title" content={socialTitle ?? title} />
         <meta property="og:description" content={desc} />
         <meta property="og:type" content="website" />
-        {origin && <meta property="og:url" content={origin} />}
+        {origin && <meta property="og:url" content={`${origin}${path && path !== '/' ? path : ''}`} />}
+        {origin && path && !noindex && <link rel="canonical" href={`${origin}${path}`} />}
         {origin && <meta property="og:image" content={`${origin}/og.png`} />}
         {origin && <meta property="og:image:width" content="1200" />}
         {origin && <meta property="og:image:height" content="630" />}
@@ -483,7 +486,7 @@ const FaqList: FC<{ faq?: [string, string][] }> = ({ faq = FAQ }) => (
 );
 
 export const Landing: FC<{ origin?: string; pendingSetup?: boolean }> = ({ origin, pendingSetup }) => (
-  <Layout title="Semsync" socialTitle="Semsync: your NUS semester in Google Calendar" origin={origin} current="landing"
+  <Layout title="Semsync" socialTitle="Semsync: your NUS semester in your calendar" origin={origin} path="/" current="landing"
     signedIn={pendingSetup} setupPending={pendingSetup} head={faqSchema(LANDING_FAQ)}>
     <div class="wrap">
       <header class="hero">
@@ -1212,7 +1215,7 @@ export const Settings: FC<{ user: UserRow; csrf: string; counts: Record<string, 
 
 /** How to find your links, and the questions, for anyone who needs more than the landing page. */
 export const Help: FC<Viewer> = ({ signedIn, setupPending, account, origin }) => (
-  <Layout title="Help · Semsync" current="help" signedIn={signedIn} setupPending={setupPending} account={account} origin={origin}>
+  <Layout title="Help · Semsync" current="help" path="/help" signedIn={signedIn} setupPending={setupPending} account={account} origin={origin}>
     <div class="wrap page">
       <BackLink signedIn={signedIn} />
       <h1 class="heading-2">Help</h1>
@@ -1261,7 +1264,7 @@ export const NotFound: FC<{ signedIn?: boolean }> = ({ signedIn }) => (
 );
 
 export const Privacy: FC<Viewer> = ({ signedIn, setupPending, account, origin }) => (
-  <Layout title="Privacy · Semsync" current="privacy" signedIn={signedIn} setupPending={setupPending} account={account} origin={origin}>
+  <Layout title="Privacy · Semsync" current="privacy" path="/privacy" signedIn={signedIn} setupPending={setupPending} account={account} origin={origin}>
     <div class="wrap narrow page prose">
       <BackLink signedIn={signedIn} />
       <h1 class="heading-4">Privacy</h1>
@@ -1300,12 +1303,19 @@ export const Privacy: FC<Viewer> = ({ signedIn, setupPending, account, origin })
         Use "Delete my data" in Settings. It removes every event Semsync added, revokes its Google access, and deletes every record
         about you straight away. You can also remove Semsync's access any time at myaccount.google.com/permissions.
       </p>
+      <h2 class="heading-6">Questions</h2>
+      <p class="body-3">
+        Ask anything about your data by opening an issue on{' '}
+        <a href="https://github.com/gabriel-wan/semsync/issues" target="_blank" rel="noopener">Semsync's GitHub page</a>. Never put your
+        Canvas link in it. For anything private, such as a security problem, use the private report form in the{' '}
+        <a href="https://github.com/gabriel-wan/semsync/blob/main/SECURITY.md" target="_blank" rel="noopener">security policy</a>.
+      </p>
     </div>
   </Layout>
 );
 
 export const Terms: FC<Viewer> = ({ signedIn, setupPending, account, origin }) => (
-  <Layout title="Terms · Semsync" current="terms" signedIn={signedIn} setupPending={setupPending} account={account} origin={origin}>
+  <Layout title="Terms · Semsync" current="terms" path="/terms" signedIn={signedIn} setupPending={setupPending} account={account} origin={origin}>
     <div class="wrap narrow page prose">
       <BackLink signedIn={signedIn} />
       <h1 class="heading-4">Terms</h1>

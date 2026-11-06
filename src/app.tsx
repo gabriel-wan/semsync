@@ -130,6 +130,21 @@ async function viewer(c: Ctx): Promise<Viewer> {
 }
 
 app.get('/privacy', async (c) => c.html(<Privacy {...await viewer(c)} />));
+
+// For search engines: the four public pages, and none of the signed in ones.
+const PUBLIC_PAGES = ['/', '/help', '/privacy', '/terms'];
+app.get('/robots.txt', (c) =>
+  c.text(
+    ['User-agent: *', ...['/home', '/settings', '/setup', '/auth/', '/account/', '/connect', '/api/', '/feed/', '/dev/'].map((p) => `Disallow: ${p}`),
+      '', `Sitemap: ${origin(c)}/sitemap.xml`, ''].join('\n'),
+  ),
+);
+app.get('/sitemap.xml', (c) => {
+  const urls = PUBLIC_PAGES.map((p) => `  <url><loc>${origin(c)}${p}</loc></url>`).join('\n');
+  return c.body(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`, 200, {
+    'Content-Type': 'application/xml; charset=utf-8',
+  });
+});
 app.get('/help', async (c) => c.html(<Help {...await viewer(c)} />));
 
 app.get('/settings', async (c) => {

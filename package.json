@@ -1,10 +1,10 @@
 {
   "name": "semsync",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "private": true,
   "license": "MIT",
   "homepage": "https://semsync.live",
-  "description": "Canvas deadlines, NUSMods classes and exams, synced into Google Calendar.",
+  "description": "Your NUS semester in your calendar: Canvas deadlines, NUSMods classes and exams, kept up to date in Google Calendar, Outlook or Apple Calendar.",
   "type": "module",
   "main": "dist/app.js",
   "engines": {

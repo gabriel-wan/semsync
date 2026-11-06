@@ -197,22 +197,6 @@ export const feedByHash = (db: Db, hash: string) =>
 export const feedBody = async (db: Db, userId: string) =>
   (await db.prepare('SELECT body FROM feeds WHERE user_id = ?').bind(userId).first<{ body: string }>())?.body ?? null;
 
-/** Set-up users whose last sync is older than `olderThanMs`, oldest first. */
-export async function dueUsers(db: Db, olderThanMs: number, limit: number): Promise<UserRow[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT * FROM users
-       WHERE calendar_id IS NOT NULL AND needs_reconnect = 0
-         AND (canvas_feed_enc IS NOT NULL OR nusmods_link IS NOT NULL)
-         AND (last_sync_at IS NULL OR last_sync_at < ?)
-       ORDER BY last_sync_at NULLS FIRST
-       LIMIT ?`,
-    )
-    .bind(Date.now() - olderThanMs, limit)
-    .all<UserRow>();
-  return results;
-}
-
 export async function trackedEvents(db: Db, userId: string): Promise<TrackedRow[]> {
   const { results } = await db
     .prepare('SELECT event_id, hash, start_ms FROM synced_events WHERE user_id = ?')

@@ -292,7 +292,7 @@ describe('navigation, continued', () => {
   it('shows just the name in the browser tab, and the full line in link previews', async () => {
     const html = await page(Landing({}));
     expect(/<title>([^<]*)<\/title>/.exec(html)![1]).toBe('Semsync');
-    expect(html).toContain('<meta property="og:title" content="Semsync: your NUS semester in Google Calendar"/>');
+    expect(html).toContain('<meta property="og:title" content="Semsync: your NUS semester in your calendar"/>');
   });
 });
 
