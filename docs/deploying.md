@@ -51,14 +51,30 @@ Never change `ENCRYPTION_KEY` after launch: stored Canvas links and Google token
 
 ## 3. Turn on the hourly sync
 
-On GitHub, open the repo's **Settings → Secrets and variables → Actions** and add two repository secrets:
+**The database runs it.** On Supabase, every production deploy sets up Postgres's own scheduler (`pg_cron`) to call
+`/api/cron` at :02, :22 and :42 past each hour, with `CRON_SECRET` kept encrypted in Supabase Vault. Each call syncs
+whoever hasn't been synced for 55 minutes, so everyone is synced about hourly. There's nothing to do by hand: the
+build log says `Scheduled sync: scheduled semsync-sync …`. It needs `CRON_SECRET` set in Vercel and the site's
+address (the production domain, or `APP_URL`).
+
+To see it working, run this in Supabase's **SQL Editor**:
+
+```sql
+select status, return_message, start_time from cron.job_run_details order by start_time desc limit 5;
+select status_code, left(content::text, 300) from net._http_response order by created desc limit 5;
+```
+
+To switch it off: `select cron.unschedule('semsync-sync');` (the next deploy sets it up again).
+
+**GitHub runs it too, as a backup.** GitHub's scheduled workflows are best effort and can run hours late, which is
+why they're no longer the main schedule. Two runs at once never sync the same person twice. On GitHub, open the
+repo's **Settings → Secrets and variables → Actions** and add two repository secrets:
 
 - `SEMSYNC_URL`: `https://<your-project>.vercel.app`
 - `CRON_SECRET`: the same value as in Vercel
 
-Then **Actions → Hourly sync → Run workflow** once to check it works. After that it runs three times an hour on its
-own, and each run syncs whoever hasn't been synced for 55 minutes, so everyone is synced about hourly.
-(Vercel also calls the same endpoint once a day, as a backup.)
+Then **Actions → Hourly sync → Run workflow** once to check it works. After that it asks to run three times an hour.
+(Vercel also calls the same endpoint once a day.)
 
 If a run fails for most people for a reason on Semsync's side, the endpoint answers 500, the Action fails, and GitHub
 emails you. Each run's tally (synced, unchanged, needing the user, failed, and the errors grouped) is in the Action's
