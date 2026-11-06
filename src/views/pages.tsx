@@ -456,11 +456,14 @@ const FAQ: [string, string][] = [
   ['Can I leave a course out?', 'Yes. In Settings, untick the course and save, and its upcoming events come out. You can turn off the "Week 7" labels there too.'],
   ['How quickly do changes show up?', 'Semsync checks Canvas about once an hour. If a deadline moves, your calendar follows within the hour.'],
   ['Do I get reminders?', 'Yes: 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam.'],
+  ['Does it work with Outlook or Apple Calendar?', 'Yes. Choose "Outlook or Apple Calendar" when you set up, or get a subscribe link in Settings, and add it to any calendar app. It stays up to date, though those apps only check it every few hours, and some ignore its reminders.'],
+  ['Does it work with Notion Calendar?', 'Yes. Notion Calendar shows the calendars in your Google account, so "NUS semester" is there once you connect that account to it.'],
+  ['What happens next semester?', 'Canvas deadlines keep coming by themselves, and each new term\'s weeks and holidays are worked out for you. NUSMods links are made one semester at a time, so two weeks before the next one starts, Semsync puts a reminder in your calendar to paste its link.'],
   ['How do I stop using it?', 'In Settings, choose Delete my data. That deletes the "NUS semester" calendar, takes back Semsync\'s access and erases everything it stored about you.'],
 ];
 
 /** The few questions people ask before signing up; the rest are on Help. */
-const LANDING_FAQ = FAQ.filter(([q]) => /official|access|reminders|stop/.test(q));
+const LANDING_FAQ = FAQ.filter(([q]) => /official|access|Outlook|next semester|stop/.test(q));
 
 /** The questions, each opening in place, between 1px rules. */
 const FaqList: FC<{ faq?: [string, string][] }> = ({ faq = FAQ }) => (
@@ -484,7 +487,6 @@ export const Landing: FC<{ origin?: string; pendingSetup?: boolean }> = ({ origi
     <div class="wrap">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow caption-1"><span class="dot" aria-hidden="true" />For NUS students · Free</p>
           <h1 class="heading-1 hero-title">Every Canvas deadline in your calendar, without typing a thing</h1>
           <p class="hero-sub body-7">
             Paste your Canvas calendar link and your NUSMods timetable once. Semsync puts your deadlines, classes and exams into
@@ -569,7 +571,7 @@ export const Landing: FC<{ origin?: string; pendingSetup?: boolean }> = ({ origi
           <ol class="steps">
             <li class="step"><span class="step-no title-3">1</span><div><h3 class="title-2">Sign in with Google</h3><p class="body-6 text-secondary mt-25">Just your name and email to start.</p></div></li>
             <li class="step"><span class="step-no title-3">2</span><div><h3 class="title-2">Paste two links</h3><p class="body-6 text-secondary mt-25">Your Canvas calendar feed and, if you like, your NUSMods share link. <a href="/help#links">See where to find them</a>.</p></div></li>
-            <li class="step"><span class="step-no title-3">3</span><div><h3 class="title-2">Allow calendar access</h3><p class="body-6 text-secondary mt-25">Google asks once, so Semsync can make its own "NUS semester" calendar. It can't see your other calendars.</p></div></li>
+            <li class="step"><span class="step-no title-3">3</span><div><h3 class="title-2">Allow calendar access</h3><p class="body-6 text-secondary mt-25">Google asks once, so Semsync can make its own "NUS semester" calendar. It can't see your other calendars. On Outlook or Apple Calendar? Get a subscribe link instead.</p></div></li>
           </ol>
         </div>
         <div class="mock" role="img" aria-label="The Semsync setup page with a Canvas link and a NUSMods link pasted in">
@@ -699,6 +701,12 @@ export const Setup: FC<{
             <button class="btn btn-primary btn-lg button-lg" type="submit">{editing ? 'Save and sync' : 'Continue'}<Icon name="arrowRight" size={18} /></button>
             {editing && <a class="btn btn-secondary btn-lg button-lg" href="/home">Cancel</a>}
           </div>
+          {asksAccess && (
+            <p class="setup-alt caption-2 text-secondary">
+              Use Outlook or Apple Calendar?{' '}
+              <button class="link-button caption-1" type="submit" name="dest" value="feed">Get a subscribe link instead</button>
+            </p>
+          )}
         </form>
         <form class="signed-in caption-2" method="post" action="/auth/logout">
           <input type="hidden" name="csrf" value={csrf} />
@@ -800,6 +808,33 @@ const UpcomingList: FC<{ upcoming: UpcomingRow[]; failed?: boolean; now?: number
   );
 };
 
+/** The subscribe link, ready to copy, with a button that opens it in the computer's calendar app (webcal://). */
+const FeedLink: FC<{ url: string }> = ({ url }) => (
+  <div class="feed-link">
+    <input class="input mono caption-5" id="feed-url" value={url} readonly aria-label="Your subscribe link" data-select />
+    <div class="feed-actions">
+      <button class="btn btn-primary button-md" type="button" data-copy="feed-url"><Icon name="copy" size={16} /><span>Copy link</span></button>
+      <a class="btn btn-secondary button-md" href={url.replace(/^https?:/, 'webcal:')}>Open in calendar app</a>
+    </div>
+  </div>
+);
+
+/** Where to paste the link in each app, folded away until someone asks. */
+const AppSteps: FC = () => (
+  <details class="help app-steps">
+    <summary class="help-toggle title-4"><Icon name="caretDown" size={16} />How to add it</summary>
+    <ul class="app-list body-6">
+      <li><span class="title-4">Outlook</span>Add calendar, then Subscribe from web, and paste the link.</li>
+      <li><span class="title-4">iPhone or iPad</span>Settings, Calendar, Accounts, Add Account, Other, then Add Subscribed Calendar.</li>
+      <li><span class="title-4">Mac</span>In Calendar, File, then New Calendar Subscription.</li>
+    </ul>
+    <p class="caption-2 text-secondary mt-100">
+      Calendar apps check the link every few hours, and some ignore its reminders. Anyone with the link can see your
+      calendar, so keep it to yourself; you can replace it in Settings.
+    </p>
+  </details>
+);
+
 /** A small picture of Google Calendar's "My calendars" list, showing where Semsync's calendar is. */
 const MyCalendars: FC<{ owner: string }> = ({ owner }) => (
   <div class="mini-cals" aria-hidden="true">
@@ -814,7 +849,20 @@ const MyCalendars: FC<{ owner: string }> = ({ owner }) => (
 );
 
 /** Where the events go, and the one thing to do there. */
-const Destination: FC<{ user: UserRow; addUrl: string | null; needsConnect: boolean; dev: boolean }> = ({ user, addUrl, needsConnect, dev }) => {
+const Destination: FC<{ user: UserRow; csrf: string; addUrl: string | null; needsConnect: boolean; feedLink?: string | null; dev: boolean }> = ({
+  user, csrf, addUrl, needsConnect, feedLink, dev,
+}) => {
+  if (user.mode === 'feed') {
+    return (
+      <section class="panel panel-glow dest" aria-labelledby="dest">
+        <span class="dest-icon"><Icon name="calendarPlus" /></span>
+        <h2 id="dest" class="title-1">In your calendar app</h2>
+        <p class="caption-2 text-secondary">Subscribe to this private link in Outlook, Apple Calendar or any calendar app, and it keeps itself up to date.</p>
+        {feedLink && <FeedLink url={feedLink} />}
+        <AppSteps />
+      </section>
+    );
+  }
   if (user.mode === 'main' && needsConnect) {
     return (
       <section class="panel panel-glow dest" aria-labelledby="dest">
@@ -823,6 +871,10 @@ const Destination: FC<{ user: UserRow; addUrl: string | null; needsConnect: bool
         <p class="caption-2 text-secondary">Semsync needs your OK to make its "NUS semester" calendar. It can't see your other calendars.</p>
         <div class="dest-actions">
           <a class="btn btn-primary button-md" href="/connect">Connect Google Calendar</a>
+          <form method="post" action="/feed/use" data-busy-label="Making your link…">
+            <input type="hidden" name="csrf" value={csrf} />
+            <button class="btn btn-secondary button-md" type="submit">Use Outlook or Apple Calendar</button>
+          </form>
         </div>
       </section>
     );
@@ -967,9 +1019,12 @@ const DeleteConfirm: FC<{ user: UserRow; csrf: string; total: number; dialog?: b
           <li>Deletes the "NUS semester" calendar and its {total} events from your Google account. Your own calendars aren't touched.</li>
           <li>Revokes Semsync's access to your Google account.</li>
         </>
+      ) : user.mode === 'feed' ? (
+        <li>Turns off your subscribe link. Remove "NUS semester" from your calendar app yourself.</li>
       ) : (
         <li>Deletes the "NUS semester" calendar and its {total} events. Your own calendar isn't touched.</li>
       )}
+      {user.mode !== 'feed' && user.feed_token_hash && <li>Turns off your subscribe link.</li>}
       <li>Deletes your saved Canvas and NUSMods links and signs you out.</li>
     </ul>
     <p class="caption-2 text-secondary mt-200">This can't be undone, but you can set Semsync up again any time.</p>
@@ -1013,8 +1068,10 @@ const countsLine = (counts: Record<string, number>) =>
 
 export const Home: FC<{
   user: UserRow; csrf: string; addUrl: string | null; needsConnect: boolean; counts: Record<string, number>;
-  upcoming: UpcomingRow[]; flash?: string; dev: boolean;
-}> = ({ user, csrf, addUrl, needsConnect, counts, upcoming, flash, dev }) => {
+  upcoming: UpcomingRow[]; flash?: string; dev: boolean; feedLink?: string | null;
+  /** Near a new term: which term the NUSMods link is for, and which one to paste now. */
+  timetable?: { saved: string; wanted: string } | null;
+}> = ({ user, csrf, addUrl, needsConnect, counts, upcoming, flash, dev, feedLink, timetable }) => {
   const failing = user.last_sync_ok === 0 || needsConnect;
   const week = semesterWeek();
   const status = needsConnect ? 'Not syncing' : user.last_sync_at ? `Synced ${timeAgo(user.last_sync_at)}` : 'Not synced yet';
@@ -1035,6 +1092,15 @@ export const Home: FC<{
         </header>
 
         {flash && <div class="notice notice-success body-6" role="status"><Icon name="checkCircle" />{flash}</div>}
+        {timetable && (
+          <div class="notice notice-warning body-6" role="status">
+            <Icon name="calendarDots" />
+            <span>
+              Your NUSMods link is for {timetable.saved}. Paste your {timetable.wanted} link to add its classes and exams.{' '}
+              <a href="/setup?edit=1">Update link</a>
+            </span>
+          </div>
+        )}
         {user.last_sync_message && (
           <div class={`notice ${user.last_sync_ok === 0 ? 'notice-error' : 'notice-warning'} body-6`} role="status">
             <Icon name="warningCircle" />{user.last_sync_message}
@@ -1050,7 +1116,7 @@ export const Home: FC<{
             <UpcomingList upcoming={upcoming} failed={failing} />
           </section>
           <div class="dash-side">
-            <div class="dash-dest"><Destination user={user} addUrl={addUrl} needsConnect={needsConnect} dev={dev} /></div>
+            <div class="dash-dest"><Destination user={user} csrf={csrf} addUrl={addUrl} needsConnect={needsConnect} feedLink={feedLink} dev={dev} /></div>
             <SetupSummary user={user} />
           </div>
         </div>
@@ -1064,8 +1130,47 @@ export const Home: FC<{
 };
 
 /** Everything you can change, in one place: courses, links and your account. */
-export const Settings: FC<{ user: UserRow; csrf: string; counts: Record<string, number>; flash?: string; dev: boolean }> = ({
-  user, csrf, counts, flash, dev,
+/** A button that posts a form with the CSRF token: for the small actions in Settings. */
+const PostButton: FC<{ action: string; csrf: string; label: string; kind?: 'primary' | 'secondary' | 'tertiary'; busy?: string }> = ({
+  action, csrf, label, kind = 'secondary', busy,
+}) => (
+  <form method="post" action={action} data-busy-label={busy}>
+    <input type="hidden" name="csrf" value={csrf} />
+    <button class={`btn btn-${kind} button-md`} type="submit">{label}</button>
+  </form>
+);
+
+/** The subscribe link in Settings: get one, or copy, replace and turn off the one you have. */
+const CalendarApps: FC<{ user: UserRow; csrf: string; feedLink?: string | null }> = ({ user, csrf, feedLink }) => (
+  <section class="panel" id="apps" aria-labelledby="apps-title">
+    <h2 id="apps-title" class="title-2">{user.mode === 'feed' ? 'Your calendar app' : 'Outlook and Apple Calendar'}</h2>
+    {feedLink ? (
+      <>
+        <p class="caption-2 text-secondary mt-75">
+          {user.mode === 'feed'
+            ? 'Your events reach your calendar app through this private link.'
+            : 'The same events, as a private link for Outlook, Apple Calendar or any other app.'}
+        </p>
+        <FeedLink url={feedLink} />
+        <AppSteps />
+        <div class="sources-actions">
+          <PostButton action="/feed/reset" csrf={csrf} label="Replace link" busy="Replacing…" />
+          {user.mode === 'feed'
+            ? <a class="btn btn-tertiary button-md" href="/connect">Use Google Calendar instead</a>
+            : <PostButton action="/feed/off" csrf={csrf} label="Turn off" kind="tertiary" />}
+        </div>
+      </>
+    ) : (
+      <>
+        <p class="caption-2 text-secondary mt-75">Use one of those too? Get a private link any calendar app can subscribe to.</p>
+        <div class="sources-actions"><PostButton action="/feed/on" csrf={csrf} label="Get a subscribe link" busy="Making your link…" /></div>
+      </>
+    )}
+  </section>
+);
+
+export const Settings: FC<{ user: UserRow; csrf: string; counts: Record<string, number>; flash?: string; dev: boolean; feedLink?: string | null }> = ({
+  user, csrf, counts, flash, dev, feedLink,
 }) => (
   <Layout title="Settings · Semsync" signedIn current="settings" noindex account={{ email: user.email, name: user.name, csrf }}>
     <div class="wrap narrow page">
@@ -1075,6 +1180,7 @@ export const Settings: FC<{ user: UserRow; csrf: string; counts: Record<string, 
       <div class="settings-sections">
         <CoursesPanel user={user} csrf={csrf} />
         <Sources user={user} dev={dev} />
+        <CalendarApps user={user} csrf={csrf} feedLink={feedLink} />
         {user.mode === 'shared' && (
           <section class="panel" aria-labelledby="where-title">
             <h2 id="where-title" class="title-2">Move to your own calendar</h2>
@@ -1163,6 +1269,10 @@ export const Privacy: FC<Viewer> = ({ signedIn, setupPending, account, origin })
       <ul class="body-3">
         <li>Your Google account ID, name and email address, from "Continue with Google".</li>
         <li>A Google access token that lets Semsync manage only the calendar it made in your account, encrypted.</li>
+        <li>
+          If you use a subscribe link (for Outlook or Apple Calendar): the link's secret, encrypted, and a copy of your
+          calendar for it. Anyone with the link can see that calendar, so replace it in Settings if it gets out.
+        </li>
         <li>Your Canvas calendar feed link, encrypted.</li>
         <li>Your NUSMods share link, if you add one.</li>
         <li>A list of the events it has added for you (title, type and start time), so each sync only sends changes.</li>

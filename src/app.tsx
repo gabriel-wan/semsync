@@ -2,16 +2,19 @@ import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { allowedCanvasHosts, getEnv, isDev, type Env } from './env.js';
 import { validateCanvasFeedUrl } from './lib/canvas.js';
-import { encrypt, safeEqual } from './lib/crypto.js';
+import { linkAcadYear } from './config.js';
+import { decrypt, encrypt, safeEqual } from './lib/crypto.js';
 import {
-  deleteUserData, eventCounts, getUser, jsonList, saveCourseSettings, saveSources, setMode, setRefreshToken, upcomingEvents, upsertUserOnLogin,
+  clearFeed, deleteUserData, eventCounts, feedBody, feedByHash, getUser, jsonList, saveCourseSettings, saveSources, setFeedToken, setMode,
+  setRefreshToken, upcomingEvents, upsertUserOnLogin,
   type Course, type UserRow,
 } from './lib/db.js';
 import { UserError } from './lib/errors.js';
 import { authorizationUrl, CALENDAR_SCOPE, exchangeCode, type AuthPurpose } from './lib/googleSignIn.js';
+import { feedTokenHash, feedUrl, gunzipBase64, newFeedToken } from './lib/feed.js';
 import { parseNusmodsLink } from './lib/nusmods.js';
 import { csrfToken, readSession, sessionValue, SESSION_MAX_AGE } from './lib/session.js';
-import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser } from './lib/sync.js';
+import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser, timetableNotice } from './lib/sync.js';
 import {
   DeleteData, DevCalendar, DevLogin, Foundations, Help, Settings, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms, type SetupErrors, type Viewer,
 } from './views/pages.js';
@@ -29,6 +32,10 @@ const FLASH: Record<string, string> = {
   synced: 'Synced.',
   recent: 'Synced less than a minute ago, so this one was skipped.',
   saved: "Saved. The sync didn't finish this time, so your calendar catches up on the next one.",
+  feed: 'Your subscribe link is ready. Add it to your calendar app.',
+  'feed-on': 'Subscribe link on. Add it to your calendar app.',
+  'feed-reset': 'New link made. The old one has stopped working, so add this one to your calendar app.',
+  'feed-off': 'Subscribe link turned off.',
 };
 
 const app = new Hono<AppEnv>();
@@ -76,9 +83,12 @@ function addSharedCalendarUrl(env: Env, user: UserRow): string | null {
 /** Someone who set up before the shared-calendar option went away, and hasn't moved to their own calendar yet. */
 const keepsShared = (user: UserRow) => user.mode === 'shared' && !!user.calendar_id;
 
-/** Turns on own-calendar mode with a fresh grant, taking down an old shared calendar if there was one. */
+/**
+ * Turns on own-calendar mode with a fresh grant, taking down an old shared calendar if there was one. Someone moving
+ * from the subscribe link keeps it, but their events start over in the new Google calendar.
+ */
 async function connectMainCalendar(env: Env, user: UserRow, refreshToken: string) {
-  if (user.mode === 'shared') await removeFromCalendar(env, user);
+  if (user.mode !== 'main') await removeFromCalendar(env, user);
   await setRefreshToken(env.DB, user.id, await encrypt(env.ENCRYPTION_KEY, refreshToken));
   await setMode(env.DB, user.id, 'main');
   const fresh = (await getUser(env.DB, user.id))!;
@@ -110,6 +120,7 @@ app.get('/settings', async (c) => {
   if (!user.calendar_id && !user.canvas_feed_enc && !user.nusmods_link) return c.redirect('/setup');
   return c.html(
     <Settings user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} counts={await eventCounts(c.env.DB, user.id)}
+      feedLink={await feedLinkOf(c, user)}
       flash={FLASH[c.req.query('done') ?? '']} dev={isDev(c.env)} />,
   );
 });
@@ -207,8 +218,22 @@ app.post('/auth/dev', async (c) => {
 
 // --- Setup and home ---
 
-/** Whether saving setup goes on to Google to ask for calendar access (everyone but those with it, or on the old shared calendar). */
-const asksAccess = (user: UserRow) => !keepsShared(user) && !(user.mode === 'main' && hasCalendarAccess(user));
+/**
+ * Whether saving setup goes on to Google to ask for calendar access: everyone but those who have it, those on the
+ * subscribe link only, and those still on the old shared calendar.
+ */
+const asksAccess = (user: UserRow) => !keepsShared(user) && user.mode !== 'feed' && !(user.mode === 'main' && hasCalendarAccess(user));
+
+/** Turns on the subscribe link if it isn't on yet, or replaces it with a new one. */
+async function newFeedLink(env: Env, user: UserRow) {
+  const token = newFeedToken();
+  await setFeedToken(env.DB, user.id, await feedTokenHash(token), await encrypt(env.ENCRYPTION_KEY, token));
+}
+
+/** The subscribe link to show the user, on this site's address. */
+async function feedLinkOf(c: Ctx, user: UserRow): Promise<string | null> {
+  return user.feed_token_enc ? feedUrl(origin(c), await decrypt(c.env.ENCRYPTION_KEY, user.feed_token_enc)) : null;
+}
 
 app.get('/setup', async (c) => {
   const user = c.get('user');
@@ -256,15 +281,24 @@ app.post('/setup', async (c) => {
     return c.html(<Setup user={user} csrf={csrf} values={values} errors={errors} editing={editing} dev={isDev(c.env)} asksAccess={asksAccess(user)} />, 400);
   }
 
-  await saveSources(c.env.DB, user.id, canvasEnc, nusmods);
+  // A link that didn't change keeps the year it was saved in, so re-saving last year's link doesn't move it.
+  const nusmodsAy = nusmods && nusmods === user.nusmods_link && user.nusmods_ay ? user.nusmods_ay : linkAcadYear();
+  await saveSources(c.env.DB, user.id, canvasEnc, nusmods, nusmodsAy);
 
+  if (form.dest === 'feed' && asksAccess(user)) {
+    // Outlook, Apple Calendar or another app: no Google Calendar, just the subscribe link.
+    await setMode(c.env.DB, user.id, 'feed');
+    if (!user.feed_token_hash) await newFeedLink(c.env, user);
+    await syncUser(c.env, (await getUser(c.env.DB, user.id))!, { force: true });
+    return c.redirect('/home?done=feed');
+  }
   if (asksAccess(user)) {
     // Google's OK for the user's own calendar comes next, then the first sync.
     if (user.mode !== 'main') await setMode(c.env.DB, user.id, 'main');
     return c.redirect('/connect');
   }
 
-  const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!);
+  const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!, { force: true });
   return c.redirect(ok ? `/home?done=${editing ? 'updated' : 'created'}` : '/home');
 });
 
@@ -278,7 +312,7 @@ app.get('/home', async (c) => {
   ]);
   return c.html(
     <Home user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} addUrl={addSharedCalendarUrl(c.env, user)}
-      needsConnect={user.mode === 'main' && !hasCalendarAccess(user)}
+      needsConnect={user.mode === 'main' && !hasCalendarAccess(user)} feedLink={await feedLinkOf(c, user)} timetable={timetableNotice(user)}
       counts={counts} upcoming={upcoming} flash={FLASH[c.req.query('done') ?? '']} dev={isDev(c.env)} />,
   );
 });
@@ -288,7 +322,7 @@ app.post('/sync', async (c) => {
   if (!user || !(await validCsrf(c, user, await c.req.parseBody()))) return c.redirect('/');
   if (user.last_sync_at && Date.now() - user.last_sync_at < 60_000) return c.redirect('/home?done=recent');
   // Only say it worked when it did; a failed sync shows its own message on the page.
-  const ok = await syncUser(c.env, user);
+  const ok = await syncUser(c.env, user, { force: true });
   return c.redirect(ok ? '/home?done=synced' : '/home');
 });
 
@@ -301,7 +335,7 @@ app.post('/courses', async (c) => {
   const shown = new Set([form.show ?? []].flat().map(String));
   const hidden = jsonList<Course>(user.courses).map((k) => k.key).filter((k) => !shown.has(k));
   await saveCourseSettings(c.env.DB, user.id, hidden, form.weeks === '1');
-  const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!);
+  const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!, { force: true });
   return c.redirect(ok ? '/settings?done=updated' : '/settings?done=saved');
 });
 
@@ -358,6 +392,52 @@ app.get('/dev/calendar', async (c) => {
   return c.html(<DevCalendar label={label} events={events} />);
 });
 
+// --- Subscribe link (Outlook, Apple Calendar and other apps) ---
+
+/** The .ics itself. The secret in the address is the only key, so it's checked against its hash and never logged. */
+app.get('/feed/:file', async (c) => {
+  const token = /^([A-Za-z0-9_-]{20,64})\.ics$/.exec(c.req.param('file'))?.[1];
+  const found = token ? await feedByHash(c.env.DB, await feedTokenHash(token)) : null;
+  if (!found) return c.text('This calendar link is turned off or was replaced. Get the current one in Semsync\'s Settings.', 404);
+  if (!found.updated_at) return c.text('This calendar is being made. Try again in a few minutes.', 503, { 'Retry-After': '300' });
+  const modified = new Date(Math.floor(found.updated_at / 1000) * 1000).toUTCString();
+  const headers = { 'Cache-Control': 'private, max-age=900', 'Last-Modified': modified };
+  const since = c.req.header('if-modified-since');
+  if (since && Date.parse(since) >= Math.floor(found.updated_at / 1000) * 1000) return c.body(null, 304, headers);
+  const body = await feedBody(c.env.DB, found.user_id);
+  if (!body) return c.text('This calendar is being made. Try again in a few minutes.', 503, { 'Retry-After': '300' });
+  return c.body(await gunzipBase64(body), 200, {
+    ...headers,
+    'Content-Type': 'text/calendar; charset=utf-8',
+    'Content-Disposition': 'inline; filename="nus-semester.ics"',
+  });
+});
+
+/** Turns the subscribe link on, makes a new one (the old one stops working), or turns it off. */
+app.post('/feed/:action', async (c) => {
+  const user = c.get('user');
+  if (!user || !(await validCsrf(c, user, await c.req.parseBody()))) return c.redirect('/');
+  const action = c.req.param('action');
+  if (action === 'use' && user.mode === 'main' && !hasCalendarAccess(user)) {
+    // From the "Connect Google Calendar" card: Outlook or Apple Calendar instead.
+    await setMode(c.env.DB, user.id, 'feed');
+    if (!user.feed_token_hash) await newFeedLink(c.env, user);
+    await syncUser(c.env, (await getUser(c.env.DB, user.id))!, { force: true });
+    return c.redirect('/home?done=feed');
+  }
+  if (action === 'on' || action === 'reset') {
+    await newFeedLink(c.env, user);
+    await syncUser(c.env, (await getUser(c.env.DB, user.id))!, { force: true });
+    return c.redirect(`/settings?done=feed-${action}#apps`);
+  }
+  // Someone on the link alone keeps it: it's the only way their events reach them.
+  if (action === 'off' && user.mode !== 'feed') {
+    await clearFeed(c.env.DB, user.id);
+    return c.redirect('/settings?done=feed-off#apps');
+  }
+  return c.redirect('/settings');
+});
+
 // --- Scheduled sync ---
 
 // Called hourly by the GitHub Action (.github/workflows/hourly-sync.yml) and daily by Vercel Cron as a backup.
@@ -365,7 +445,12 @@ app.get('/dev/calendar', async (c) => {
 app.get('/api/cron', async (c) => {
   const secret = c.env.CRON_SECRET;
   if (!secret || !safeEqual(c.req.header('authorization') ?? '', `Bearer ${secret}`)) return c.json({ error: 'unauthorized' }, 401);
-  return c.json(await runDueSyncs(c.env));
+  const result = await runDueSyncs(c.env);
+  // A run where many syncs fail on our side answers 500, so the GitHub Action fails and GitHub emails the owner.
+  const tried = result.synced + result.unchanged + result.failed;
+  const broken = result.failed >= 5 && result.failed > tried / 4;
+  if (broken) console.error('sync run mostly failed', result);
+  return c.json(result, broken ? 500 : 200);
 });
 
 app.notFound((c) => c.html(<NotFound signedIn={!!c.get('user')} />, 404));

@@ -1,7 +1,8 @@
-import { findTerm, termWeeks } from '../config.js';
+import { addDays, linkAcadYear, linkTerm, nextTerm, sgDate, termsAround, termWeeks, type Term } from '../config.js';
 import { isDev, type Env } from '../env.js';
 import { SAMPLE_CANVAS_FEED } from '../fixtures/sampleCanvas.js';
 import { FakeCalendar } from './calendar/fake.js';
+import { FeedOnlyCalendar } from './calendar/feedOnly.js';
 import { GoogleCalendar } from './calendar/google.js';
 import { ReconnectNeeded, revokeToken, serviceAccountTokens, userTokens } from './calendar/tokens.js';
 import type { CalendarBackend, EventOp } from './calendar/types.js';
@@ -9,11 +10,14 @@ import { canvasEvents, fetchCanvasFeed } from './canvas.js';
 import { decrypt } from './crypto.js';
 import {
   cachedModuleFetcher,
+  claimDueUsers,
   clearCalendar,
   jsonList,
+  memoModuleFetcher,
+  saveFeed,
   setCourses,
+  touchSync,
   type Course,
-  dueUsers,
   recordSync,
   setCalendarId,
   setNeedsReconnect,
@@ -28,6 +32,8 @@ import { UserError } from './errors.js';
 import {
   eventId, hashBody, moduleColors, startMs, toGoogleEvent, type CalEvent, type CalendarMode, type EventKind, type GoogleEventBody,
 } from './events.js';
+import { gzipBase64, toIcs } from './feed.js';
+import { noClassDates } from './holidays.js';
 import { fetchModuleFromApi, nusmodsEvents, parseNusmodsLink } from './nusmods.js';
 
 const DAY_MS = 24 * 3600_000;
@@ -36,8 +42,9 @@ const MAX_OPS_PER_SYNC = 200;
 
 export const SAMPLE_FEED = 'sample';
 
-/** The calendar account to act as for this user: their own in main mode, the app's in shared mode. */
+/** The calendar account to act as for this user: their own in main mode, the app's in shared mode, none for a feed. */
 export function calendarFor(env: Env, user: UserRow): CalendarBackend {
+  if (user.mode === 'feed') return new FeedOnlyCalendar();
   if (env.FAKE_GOOGLE === '1') return new FakeCalendar(env.DB);
   return new GoogleCalendar(user.mode === 'main' ? userTokens(env, user) : serviceAccountTokens(env));
 }
@@ -139,7 +146,6 @@ async function storeApplied(db: Db, userId: string, applied: { upserts: PlannedU
   for (let i = 0; i < statements.length; i += 100) await db.batch(statements.slice(i, i + 100));
 }
 
-/** Everything that should be in a user's calendar right now. Throws if any source fails, so nothing gets deleted by mistake. */
 /**
  * Applies the user's course switches and gives each module its colour (exams stay red). Also lists every course found,
  * switched off or not, for the switches on the Semsync page: modules by code first, then Canvas courses without one.
@@ -179,9 +185,9 @@ export function applyCourses(
   return { events: kept, courses };
 }
 
-/** An all day "Week 7", "Recess week" and so on, on the Monday of every week of every term. */
-export function weekLabelEvents(): CalEvent[] {
-  return termWeeks().map(({ term, index, monday, name }) => ({
+/** An all day "Week 7", "Recess week" and so on, on the Monday of every week of the current and next term. */
+export function weekLabelEvents(now = new Date()): CalEvent[] {
+  return termWeeks(now).map(({ term, index, monday, name }) => ({
     key: `week:${term.acadYear}:${term.semester}:${index}`,
     kind: 'week',
     title: name,
@@ -193,44 +199,106 @@ export function weekLabelEvents(): CalEvent[] {
 
 const addDaysIso = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
-export async function desiredEvents(
-  env: Env, user: UserRow,
-): Promise<{ events: CalEvent[]; warnings: string[]; courses: Course[] }> {
-  const events: CalEvent[] = [];
-  const warnings: string[] = [];
-  const part = (name: string, started: number, detail = '') => console.log('sync part', user.id, name, `${Date.now() - started} ms`, detail);
+/** The Canvas feed's events (or the sample's, in development), or none without a feed. */
+export async function canvasFeedEvents(env: Env, user: UserRow): Promise<CalEvent[]> {
+  if (!user.canvas_feed_enc) return [];
+  const url = await decrypt(env.ENCRYPTION_KEY, user.canvas_feed_enc);
+  const ics = isDev(env) && url === SAMPLE_FEED ? SAMPLE_CANVAS_FEED : await fetchCanvasFeed(url);
+  return canvasEvents(ics);
+}
 
-  if (user.canvas_feed_enc) {
-    let t = Date.now();
-    const url = await decrypt(env.ENCRYPTION_KEY, user.canvas_feed_enc);
-    const ics = isDev(env) && url === SAMPLE_FEED ? SAMPLE_CANVAS_FEED : await fetchCanvasFeed(url);
-    part('canvas download', t, `${ics.length} chars`);
-    t = Date.now();
-    events.push(...canvasEvents(ics));
-    part('canvas read', t, `${events.length} items`);
+/** The term the user's NUSMods link is for. Links only say "sem-1" or "sem-2"; the year was noted when it was saved. */
+export function userTerm(user: UserRow): Term | null {
+  if (!user.nusmods_link) return null;
+  try {
+    return linkTerm(parseNusmodsLink(user.nusmods_link).semester, user.nusmods_ay ?? linkAcadYear());
+  } catch {
+    return null;
   }
+}
 
-  if (user.nusmods_link) {
+/**
+ * A NUSMods link covers one semester, so Semsync puts a reminder in the calendar itself: an all day event two weeks
+ * before the next term starts, to paste that term's link. Once they do, it's no longer wanted, so it comes out.
+ */
+export function timetableReminder(user: UserRow, appUrl: string, now = new Date()): CalEvent | null {
+  const term = userTerm(user);
+  if (!term) return null;
+  const next = nextTerm(term);
+  // Long after the next term started, the notice on their Semsync page asks instead.
+  if (sgDate(now) > addDays(next.week1, 14)) return null;
+  const date = addDays(next.week1, -14);
+  const starts = new Date(`${next.week1}T00:00:00Z`).toLocaleDateString('en-SG', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+  return {
+    key: `semsync:timetable:${next.acadYear}:${next.semester}`,
+    kind: 'event',
+    title: 'Add your new timetable to Semsync',
+    start: { date },
+    end: { date: addDays(date, 1) },
+    description: `${next.label} starts on ${starts}. Paste its NUSMods share link in Semsync so your classes and exams carry on. Canvas deadlines keep coming by themselves.`,
+    url: `${appUrl}/setup?edit=1`,
+  };
+}
+
+/**
+ * From three weeks before the next term, the Semsync page asks for its NUSMods link: which term the saved link is for,
+ * and which one to paste now (the next one, or whichever is on if a few went by).
+ */
+export function timetableNotice(user: UserRow, now = new Date()): { saved: string; wanted: string } | null {
+  const term = userTerm(user);
+  if (!term) return null;
+  const next = nextTerm(term);
+  const today = sgDate(now);
+  if (today < addDays(next.week1, -21)) return null;
+  const wanted = today <= next.end ? next : termsAround(now).find((t) => t.end >= today) ?? next;
+  return { saved: term.label, wanted: wanted.label };
+}
+
+/** Everything that should be in a user's calendar right now. Throws if any source fails, so nothing gets deleted by mistake. */
+export async function desiredEvents(
+  env: Env, user: UserRow, canvas: CalEvent[], now = new Date(),
+): Promise<{ events: CalEvent[]; warnings: string[]; courses: Course[] }> {
+  const events: CalEvent[] = [...canvas];
+  const warnings: string[] = [];
+  const term = userTerm(user);
+  if (user.nusmods_link && term) {
     const t = Date.now();
     const link = parseNusmodsLink(user.nusmods_link);
-    const term = findTerm(link.semester);
-    if (term) {
-      const result = await nusmodsEvents(link, term, cachedModuleFetcher(env.DB, fetchModuleFromApi));
-      events.push(...result.events);
-      warnings.push(...result.warnings);
-    }
-    part('nusmods', t, `${link.modules.length} modules`);
+    const holidays = await noClassDates(env.DB, [Number(term.week1.slice(0, 4)), Number(term.end.slice(0, 4))]);
+    const result = await nusmodsEvents(link, term, memoModuleFetcher(cachedModuleFetcher(env.DB, fetchModuleFromApi)), holidays);
+    events.push(...result.events);
+    warnings.push(...result.warnings);
+    const reminder = timetableReminder(user, env.APP_URL, now);
+    if (reminder) events.push(reminder);
+    console.log('sync part', user.id, 'nusmods', `${Date.now() - t} ms`, `${link.modules.length} modules`);
   }
   const { events: kept, courses } = applyCourses(events, new Set(jsonList<string>(user.hidden_courses)), user.mode === 'main');
-  if (user.week_labels !== 0) kept.push(...weekLabelEvents());
+  if (user.week_labels !== 0) kept.push(...weekLabelEvents(now));
   return { events: kept, warnings, courses };
+}
+
+// Bump when the same inputs should now give different events (new rules, titles or kinds), so the next run does
+// everyone's sync in full once.
+const SYNC_VERSION = '2026-11-06';
+// NUSMods data, holidays and the date-based parts can change without the inputs changing, so a full sync runs at
+// least this often anyway.
+const FULL_SYNC_EVERY_MS = 20 * 3600_000;
+
+/** A fingerprint of everything a sync is built from, so a run can tell when nothing has changed. */
+async function syncInputHash(user: UserRow, canvas: CalEvent[]): Promise<string> {
+  return hashBody({
+    v: SYNC_VERSION, canvas, nusmods: user.nusmods_link, ay: user.nusmods_ay, hidden: user.hidden_courses,
+    weeks: user.week_labels, mode: user.mode, calendar: user.calendar_id, feed: !!user.feed_token_hash,
+  });
 }
 
 /** The calendar to write to: the user's primary calendar, or (shared mode) one created and shared the first time. */
 export async function ensureCalendar(env: Env, backend: CalendarBackend, user: UserRow): Promise<string> {
   if (user.calendar_id) return user.calendar_id;
   let calendarId: string;
-  if (user.mode === 'main') {
+  if (user.mode === 'feed') {
+    calendarId = 'feed';
+  } else if (user.mode === 'main') {
     if (!hasCalendarAccess(user)) throw new ReconnectNeeded();
     // A calendar of its own in the user's account: they own it, so its reminders and colours show, and Semsync can't
     // reach anything else. Google adds it to their calendar list by itself.
@@ -266,11 +334,21 @@ async function moveOffMainCalendar(env: Env, user: UserRow) {
   console.log('moved off the main calendar', user.id);
 }
 
-export async function syncUser(env: Env, user: UserRow, backend = calendarFor(env, user)) {
+export type SyncResult = { upserts: PlannedUpsert[]; deletes: string[]; failed: number; remaining: number; unchanged?: boolean };
+export type SyncOptions = {
+  backend?: CalendarBackend;
+  /** Do everything even if nothing changed: someone pressed Sync now, or saved their links. */
+  force?: boolean;
+  /** Told about a sync that failed: 'user' for problems only the user can fix (a dead link, access taken back). */
+  onError?: (kind: 'user' | 'system', where: string, message: string) => void;
+};
+
+export async function syncUser(env: Env, user: UserRow, opts: SyncOptions = {}): Promise<SyncResult | null> {
   if (inMainCalendar(user)) {
     await moveOffMainCalendar(env, user);
     return null;
   }
+  const backend = opts.backend ?? calendarFor(env, user);
   // Each step logs how long it took, so a slow or stuck service shows up by name in the logs.
   let step = 'start';
   const timed = async <T>(name: string, run: () => Promise<T>): Promise<T> => {
@@ -282,11 +360,25 @@ export async function syncUser(env: Env, user: UserRow, backend = calendarFor(en
   };
   try {
     const calendarId = await timed('calendar', () => ensureCalendar(env, backend, user));
-    const { events, warnings, courses } = await timed('canvas and nusmods', () => desiredEvents(env, user));
+    const canvas = await timed('canvas', () => canvasFeedEvents(env, user));
+    const inputHash = await syncInputHash(user, canvas);
+    // Most hours nothing has changed: stop here, before reading anything else or calling Google.
+    const fresh = user.full_sync_at !== null && Date.now() - user.full_sync_at < FULL_SYNC_EVERY_MS;
+    if (!opts.force && fresh && user.last_sync_ok === 1 && user.input_hash === inputHash) {
+      await touchSync(env.DB, user.id);
+      console.log('sync', user.id, 'unchanged');
+      return { upserts: [], deletes: [], failed: 0, remaining: 0, unchanged: true };
+    }
+
+    const { events, warnings, courses } = await timed('nusmods', () => desiredEvents(env, user, canvas));
     if (JSON.stringify(courses) !== user.courses) await setCourses(env.DB, user.id, courses);
     const plan = await timed('plan', async () => planSync(events, await trackedEvents(env.DB, user.id), Date.now(), user.mode));
     const applied = await timed('google calendar', () => applyPlan(backend, calendarId, plan));
     await timed('save', () => storeApplied(env.DB, user.id, applied));
+    if (user.feed_token_hash) {
+      const ics = await toIcs(events, { name: 'NUS semester', now: Date.now(), appUrl: env.APP_URL });
+      await timed('feed', async () => saveFeed(env.DB, user.id, await gzipBase64(ics)));
+    }
     console.log('sync', user.id, {
       upserts: applied.upserts.length, deletes: applied.deletes.length, failed: applied.failed, remaining: applied.remaining,
     });
@@ -294,13 +386,17 @@ export async function syncUser(env: Env, user: UserRow, backend = calendarFor(en
     const notes = [...warnings];
     if (applied.remaining) notes.push(`${applied.remaining} more changes will go through on the next sync.`);
     if (applied.failed) notes.push(`${applied.failed} changes failed and will be retried.`);
-    await recordSync(env.DB, user.id, applied.failed === 0, notes.join(' '));
+    // Only a sync that got everything through can be skipped next time.
+    const complete = applied.failed === 0 && applied.remaining === 0;
+    await recordSync(env.DB, user.id, applied.failed === 0, notes.join(' '), complete ? inputHash : null);
     return applied;
   } catch (err) {
+    const theirs = err instanceof ReconnectNeeded || err instanceof UserError;
     if (err instanceof ReconnectNeeded) await setNeedsReconnect(env.DB, user.id);
-    else console.error('sync failed', user.id, 'at', step, err);
+    else if (!theirs) console.error('sync failed', user.id, 'at', step, err);
+    opts.onError?.(theirs ? 'user' : 'system', step, err instanceof Error ? err.message : String(err));
     const message = err instanceof UserError ? err.message : "Couldn't sync just now. It'll try again within the hour.";
-    await recordSync(env.DB, user.id, false, message);
+    await recordSync(env.DB, user.id, false, message, null);
     return null;
   }
 }
@@ -345,21 +441,32 @@ export async function disconnectCalendar(env: Env, user: UserRow) {
 // Vercel Hobby functions get up to 300 s; stop picking up new users well before that.
 const RUN_BUDGET_MS = 240_000;
 
-/** Syncs every user who is due (last synced over 55 minutes ago), in batches, until none are left or time runs out. */
+/**
+ * Syncs everyone who is due (last synced over 55 minutes ago), several at once, until none are left or time runs out.
+ * Returns a tally for the logs, with the system errors grouped, so a GitHub Actions log shows what went wrong.
+ */
 export async function runDueSyncs(env: Env, budgetMs = RUN_BUDGET_MS) {
   const deadline = Date.now() + budgetMs;
-  const batch = Math.max(1, Number(env.SYNC_BATCH) || 1);
-  let synced = 0;
-  let failed = 0;
+  const workers = Math.max(1, Math.min(32, Number(env.SYNC_CONCURRENCY) || 8));
+  const tally = { synced: 0, unchanged: 0, needsUser: 0, failed: 0 };
+  const errors: Record<string, number> = {};
+  const onError: SyncOptions['onError'] = (kind, where, message) => {
+    if (kind === 'user') return void tally.needsUser++;
+    tally.failed++;
+    const key = `${where}: ${message.slice(0, 120)}`;
+    errors[key] = (errors[key] ?? 0) + 1;
+  };
   while (Date.now() < deadline) {
-    const users = await dueUsers(env.DB, 55 * 60_000, batch);
+    const users = await claimDueUsers(env.DB, 55 * 60_000, workers * 3);
     if (users.length === 0) break;
-    for (const user of users) {
-      if (Date.now() >= deadline) break;
-      // syncUser records every attempt, so a user who fails isn't picked again in this run.
-      if (await syncUser(env, user)) synced++;
-      else failed++;
-    }
+    let next = 0;
+    const work = async () => {
+      while (next < users.length && Date.now() < deadline) {
+        const result = await syncUser(env, users[next++], { onError });
+        if (result) tally[result.unchanged ? 'unchanged' : 'synced']++;
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(workers, users.length) }, work));
   }
-  return { synced, failed, timedOut: Date.now() >= deadline };
+  return { ...tally, timedOut: Date.now() >= deadline, errors };
 }

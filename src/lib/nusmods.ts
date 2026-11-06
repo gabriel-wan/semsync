@@ -1,4 +1,5 @@
-import { NO_CLASS_DATES, addDays, teachingWeekDate, TZ_OFFSET, type Term } from '../config.js';
+import { addDays, teachingWeekDate, TZ_OFFSET, type Term } from '../config.js';
+import { BUILT_IN_NO_CLASS_DATES } from './holidays.js';
 import { UserError } from './errors.js';
 import { USER_AGENT, fetchWithin } from './http.js';
 import type { CalEvent } from './events.js';
@@ -151,12 +152,12 @@ function hhmm(time: string): string {
   return `${time.slice(0, 2)}:${time.slice(2, 4)}:00`;
 }
 
-export function lessonEvents(code: string, lessons: Lesson[], term: Term): CalEvent[] {
+export function lessonEvents(code: string, lessons: Lesson[], term: Term, noClass: Set<string> = BUILT_IN_NO_CLASS_DATES): CalEvent[] {
   const events: CalEvent[] = [];
   for (const lesson of lessons) {
     const label = lesson.lessonType === 'Lecture' ? 'Lecture' : `${lesson.lessonType} ${lesson.classNo}`;
     for (const date of lessonDates(lesson, term)) {
-      if (NO_CLASS_DATES.has(date)) continue;
+      if (noClass.has(date)) continue;
       events.push({
         key: `nusmods:${term.acadYear}:${term.semester}:${code}:${abbrev(lesson.lessonType)}:${lesson.classNo}:${date}:${lesson.startTime}`,
         kind: 'class',
@@ -190,6 +191,7 @@ export async function nusmodsEvents(
   link: NusmodsLink,
   term: Term,
   fetchModule: ModuleFetcher,
+  noClass: Set<string> = BUILT_IN_NO_CLASS_DATES,
 ): Promise<{ events: CalEvent[]; warnings: string[] }> {
   const events: CalEvent[] = [];
   const warnings: string[] = [];
@@ -203,7 +205,7 @@ export async function nusmodsEvents(
       return;
     }
     const exam = examEvent(module, sem, term);
-    const own = [...lessonEvents(choice.code, chosenLessons(choice, sem.timetable ?? []), term), ...(exam ? [exam] : [])];
+    const own = [...lessonEvents(choice.code, chosenLessons(choice, sem.timetable ?? []), term, noClass), ...(exam ? [exam] : [])];
     events.push(...own.map((e) => ({ ...e, course: choice.code, courseLabel: `${choice.code} ${module.title}` })));
   });
   return { events, warnings };

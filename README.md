@@ -14,6 +14,15 @@ it makes itself; Google classes it as non-sensitive, so there's no unverified ap
 
 In Settings you can switch off any course, and turn off the "Week 7" labels Semsync puts on each Monday.
 
+**Outlook, Apple Calendar and others:** instead of Google Calendar (or as well), Semsync gives each person a private
+subscribe link to an `.ics` file with the same events and reminders. Those apps refresh subscriptions on their own
+schedule, every few hours. Notion Calendar shows Google calendars, so it works through the Google option.
+
+**Next semester and next year:** Canvas feeds carry on by themselves. Term dates are worked out with NUSMods' rule
+(Week 0 starts on the first Monday of August), public holidays come from the Ministry of Manpower's calendar file for
+each year, and two weeks before each new term Semsync puts a reminder in your calendar to paste that term's NUSMods
+link, since those are made one semester at a time.
+
 Early versions also offered a calendar that Semsync kept in its own Google account and shared with you. That option is
 gone because it couldn't have reminders or colours. Anyone still on one keeps syncing, and their page offers a one-step
 move to their own calendar.
@@ -28,16 +37,19 @@ and sends only the differences to Google Calendar's batch API.
 
 - Event ids come from each source item, so a re-sync updates events instead of duplicating them.
 - If Canvas or NUSMods can't be read, the sync stops before changing anything.
-- Teaching weeks (recess week, public holidays) come from the NUS Registrar calendar in `src/config.ts`. Add each new
-  academic year there.
+- Teaching weeks are worked out in `src/config.ts`; holidays come from MOM (`src/lib/holidays.ts`), with this year's
+  built in as a fallback. The only dates added by hand are NUS Well-Being Days, which aren't public holidays.
+- An hourly sync downloads the Canvas feed and stops there if nothing changed since the last full sync, which runs at
+  least daily. So most syncs never read NUSMods data or call Google.
 
 ## Stack
 
 - **[Hono](https://hono.dev) on Vercel** (Singapore). `npm run build` compiles `src/` to `dist/`, and Vercel runs `dist/app.js`.
 - **[Supabase](https://supabase.com) Postgres** (Singapore) through postgres.js. Locally and in tests,
   [PGlite](https://pglite.dev) runs Postgres inside Node, so you don't need an account.
-- **Hourly sync:** `GET /api/cron`, protected by `CRON_SECRET`. A GitHub Action calls it every hour, and Vercel Cron
-  calls it once a day as a backup.
+- **Hourly sync:** `GET /api/cron`, protected by `CRON_SECRET`. A GitHub Action calls it three times an hour (each
+  run takes whoever is due), and Vercel Cron calls it once a day as a backup.
+- **Subscribe links:** `GET /feed/<secret>.ics`, served from a gzipped copy each sync writes.
 
 ## Local development
 

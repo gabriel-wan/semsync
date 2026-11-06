@@ -3,7 +3,10 @@ import { openDb, type Db } from './lib/database.js';
 export type Env = {
   DB: Db;
   APP_NAME: string;
-  SYNC_BATCH: string;
+  /** How many users a sync run works on at once. */
+  SYNC_CONCURRENCY: string;
+  /** The site's address, for links Semsync puts in calendars. */
+  APP_URL: string;
   ALLOWED_CANVAS_HOSTS: string;
   // Secrets
   SESSION_SECRET: string;
@@ -48,7 +51,9 @@ export function getEnv(): Env {
       return (db ??= openDb(databaseUrl(e) ?? required('POSTGRES_URL')));
     },
     APP_NAME: e.APP_NAME ?? 'Semsync',
-    SYNC_BATCH: e.SYNC_BATCH ?? '10',
+    SYNC_CONCURRENCY: e.SYNC_CONCURRENCY ?? '8',
+    // On Vercel, its production domain (or this deployment's address) unless APP_URL says otherwise.
+    APP_URL: (e.APP_URL ?? (e.VERCEL_PROJECT_PRODUCTION_URL || e.VERCEL_URL ? `https://${e.VERCEL_PROJECT_PRODUCTION_URL || e.VERCEL_URL}` : 'http://localhost:8787')).replace(/\/$/, ''),
     ALLOWED_CANVAS_HOSTS: e.ALLOWED_CANVAS_HOSTS ?? 'canvas.nus.edu.sg',
     get SESSION_SECRET() {
       return required('SESSION_SECRET');

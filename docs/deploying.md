@@ -56,8 +56,13 @@ On GitHub, open the repo's **Settings → Secrets and variables → Actions** an
 - `SEMSYNC_URL`: `https://<your-project>.vercel.app`
 - `CRON_SECRET`: the same value as in Vercel
 
-Then **Actions → Hourly sync → Run workflow** once to check it works. After that it runs every hour on its own.
+Then **Actions → Hourly sync → Run workflow** once to check it works. After that it runs three times an hour on its
+own, and each run syncs whoever hasn't been synced for 55 minutes, so everyone is synced about hourly.
 (Vercel also calls the same endpoint once a day, as a backup.)
+
+If a run fails for most people for a reason on Semsync's side, the endpoint answers 500, the Action fails, and GitHub
+emails you. Each run's tally (synced, unchanged, needing the user, failed, and the errors grouped) is in the Action's
+log, which GitHub keeps for 90 days; Vercel's own logs only last an hour on Hobby.
 
 ## 4. Publish the app (no Google review needed)
 
@@ -68,13 +73,34 @@ verified this app" screen and no 100-user cap, and there's nothing to submit for
 Two things would bring the review back: adding a sensitive scope (like `calendar.events.owned`, which Semsync used
 before it made its own calendar), or uploading an app logo in **Branding**, which needs a lighter brand check.
 
+## Ready for 1,000 users
+
+What it costs per hour at 1,000 people, and why it fits the free plans:
+
+- **Most syncs stop early.** A sync downloads the Canvas feed and compares it, with the NUSMods link and settings,
+  to what the last full sync was built from. If nothing changed, it stops: no NUSMods data, no reading past events, no
+  Google calls. A full sync still runs at least once a day, for NUSMods changes and new weeks.
+- **Several at once.** A run works on 8 people at a time (`SYNC_CONCURRENCY`), mostly waiting on Canvas, so about
+  1,000 people take a couple of minutes, well inside the 4-minute budget. Runs come three times an hour, so each one
+  only has about a third of everyone.
+- **No double syncs.** A run claims the people it takes, so a late run and the next one never sync the same person.
+- **Database transfer.** Supabase's free plan includes 5 GB of transfer a month. A sync that stops early reads one
+  row. NUSMods module data, the biggest read, is read once per run per module rather than once per student.
+- **Google Calendar API.** Only changes are sent, batched 50 to a request, far below the default 1,000,000 a day.
+- **Subscribe links** are stored gzipped (about a tenth of the size) and answer "not modified" when the app already
+  has the latest, so the apps that poll them every few hours cost little.
+
+Before a big launch, check that the Google app is **published** (Audience → Publish app). In Testing, only listed
+test users can sign in, and their access expires after 7 days.
+
 ## Limits to know
 
 - **Vercel Hobby** runs each request for up to 300 seconds. The sync endpoint stops picking up new users after
-  4 minutes, and anyone left over is first in line on the next hourly run. Cron jobs can only run daily on Hobby,
-  which is why the hourly run comes from GitHub Actions (free; GitHub may start it a few minutes late).
-- **GitHub Actions:** an hourly job uses about 720 short runs a month, well inside the free minutes for a private repo.
-  GitHub pauses scheduled workflows in public repos after 60 days without activity; push a commit to wake it up.
+  4 minutes, and anyone left over is first in line on the next run. Cron jobs can only run daily on Hobby, which is
+  why the regular runs come from GitHub Actions (free; GitHub may start them a few minutes late).
+- **GitHub Actions** minutes are free for public repos. GitHub pauses scheduled workflows in public repos after
+  60 days without activity; push a commit to wake it up. A private repo gets 2,000 free minutes a month, enough for
+  hourly runs but not three an hour: change the schedule in `.github/workflows/hourly-sync.yml` to once an hour.
 - **Supabase's free plan** (500 MB database) is plenty for a student project. It pauses a project after a week with no
   activity at all; the hourly sync queries the database every hour, so that doesn't happen while the sync is running.
   Every table has row-level security on with no policies, so Supabase's public web API can't read them.

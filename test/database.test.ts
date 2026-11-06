@@ -1,6 +1,6 @@
 import { vi, afterEach, describe, expect, it } from 'vitest';
 import { numberPlaceholders, type Db } from '../src/lib/database';
-import { cachedModuleFetcher, deleteUserData, dueUsers, eventCounts, getUser, recordSync, upcomingEvents, upsertUserOnLogin } from '../src/lib/db';
+import { cachedModuleFetcher, claimDueUsers, deleteUserData, eventCounts, getUser, recordSync, upcomingEvents, upsertUserOnLogin } from '../src/lib/db';
 import { migrate } from '../src/lib/migrate';
 import { testDb } from './pg';
 
@@ -73,12 +73,12 @@ describe('Postgres database adapter', () => {
 
   it('applies each migration once and turns on row-level security for every table', async () => {
     const db = await freshDb();
-    expect(await migrate(db)).toEqual(['0001_init.sql', '0002_course_settings.sql']);
+    expect(await migrate(db)).toEqual(['0001_init.sql', '0002_course_settings.sql', '0003_feeds_and_rollover.sql']);
     expect(await migrate(db)).toEqual([]);
     const { results } = await db
       .prepare("SELECT relname, relrowsecurity FROM pg_class WHERE relkind = 'r' AND relnamespace = 'public'::regnamespace ORDER BY relname")
       .all<{ relname: string; relrowsecurity: boolean }>();
-    expect(results.map((r) => r.relname)).toEqual(['_migrations', 'fake_calendars', 'fake_events', 'kv', 'module_cache', 'synced_events', 'users']);
+    expect(results.map((r) => r.relname)).toEqual(['_migrations', 'fake_calendars', 'fake_events', 'feeds', 'kv', 'module_cache', 'synced_events', 'users']);
     expect(results.every((r) => r.relrowsecurity)).toBe(true);
   });
 
@@ -94,10 +94,13 @@ describe('Postgres database adapter', () => {
     await db.prepare("UPDATE users SET calendar_id = 'primary', canvas_feed_enc = 'x' WHERE id = 'google:1'").run();
     await upsertUserOnLogin(db, { id: 'google:2', email: 'b@example.com', name: 'B' });
     await db.prepare("UPDATE users SET calendar_id = 'primary', nusmods_link = 'x', last_sync_at = 1 WHERE id = 'google:2'").run();
-    // Never-synced users come first, then the longest-waiting.
-    expect((await dueUsers(db, 55 * 60_000, 10)).map((u) => u.id)).toEqual(['google:1', 'google:2']);
+    // Never-synced users come first, then the longest-waiting; a run starting meanwhile gets nobody.
+    expect((await claimDueUsers(db, 55 * 60_000, 10)).map((u) => u.id)).toEqual(['google:1', 'google:2']);
+    expect(await claimDueUsers(db, 55 * 60_000, 10)).toEqual([]);
     await recordSync(db, 'google:1', true, '');
-    expect((await dueUsers(db, 55 * 60_000, 10)).map((u) => u.id)).toEqual(['google:2']);
+    // Once a claim lapses, whoever is still due is picked up again.
+    await db.prepare('UPDATE users SET sync_claimed_at = 1').run();
+    expect((await claimDueUsers(db, 55 * 60_000, 10)).map((u) => u.id)).toEqual(['google:2']);
 
     const soon = Date.now() + 86_400_000;
     await db.batch([

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TERMS, teachingWeekDate } from '../src/config';
+import { termsOf, teachingWeekDate } from '../src/config';
 import {
   chosenLessons,
   examEvent,
@@ -11,8 +11,7 @@ import {
 import CS2040 from './fixtures/CS2040.json';
 import ES2660 from './fixtures/ES2660.json';
 
-const SEM1 = TERMS[0];
-const SEM2 = TERMS[1];
+const [SEM1, SEM2] = termsOf(2026);
 const modules: Record<string, ModuleData> = { CS2040: CS2040 as ModuleData, ES2660: ES2660 as ModuleData };
 const fetcher = async (_ay: string, code: string) => modules[code] ?? null;
 const cs2040Sem1 = modules.CS2040.semesterData.find((s) => s.semester === 1)!.timetable!;

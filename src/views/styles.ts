@@ -169,8 +169,6 @@ ${Object.keys(SPACING).filter((k) => Number(k) >= 25).map((k) => `.mt-${k} { mar
 .hero { padding-top: var(--space-800); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: var(--space-500);
   align-items: center; }
 .hero-copy { min-width: 0; max-width: 560px; }
-.eyebrow { display: inline-flex; align-items: center; gap: var(--space-75); margin-bottom: var(--space-300); padding: var(--space-50) var(--space-100);
-  border-radius: var(--radius-full); border: 1px solid var(--border-primary); background: var(--surface-primary-subtle); color: var(--text-secondary); }
 .hero-title { margin: 0; font-size: clamp(44px, 4.4vw, 60px); line-height: 1.04; color: transparent; -webkit-background-clip: text;
   background-clip: text; background-image: linear-gradient(90deg, var(--text-hero-from), var(--text-hero-to)); }
 .hero-sub { max-width: 34em; margin: var(--space-300) 0 0; color: var(--text-secondary); }
@@ -682,7 +680,7 @@ footer { margin-top: var(--space-600); }
 .mod { padding: var(--space-25) var(--space-75); border-radius: var(--radius-full); background: var(--surface-secondary); color: var(--text-primary); }
 .danger-link { color: var(--text-error); }
 @media (max-width: 640px) {
-  .dest-actions .btn, .sources-actions .btn, .courses-actions .btn, .setup-actions .btn, .confirm-actions .btn { width: 100%; }
+  .dest-actions .btn, .sources-actions .btn, .courses-actions .btn, .setup-actions .btn, .confirm-actions .btn, .feed-actions .btn { width: 100%; }
   .sync-pill { width: 100%; }
   .sync-pill .btn { margin-left: auto; }
 }
@@ -705,6 +703,17 @@ legend.step-head { align-items: center; padding: 0; margin-bottom: var(--space-2
 /* What happens after Continue, so Google's screen isn't a surprise. */
 .setup-next { display: flex; gap: var(--space-75); align-items: flex-start; margin: 0; }
 .setup-next svg { flex: none; margin-top: 1px; }
+/* The way to Outlook or Apple Calendar instead of Google, quietly under Continue. */
+.setup-alt { margin: 0; }
+/* The subscribe link: the address to copy, then Copy and Open side by side (stacked on phones). */
+.feed-link { margin-top: var(--space-200); display: flex; flex-direction: column; gap: var(--space-100); }
+.feed-link .input { width: 100%; min-width: 0; text-overflow: ellipsis; }
+.feed-actions { display: flex; flex-wrap: wrap; gap: var(--space-75); }
+.app-steps { margin-top: var(--space-200); }
+.app-list { margin: var(--space-100) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-100); }
+.app-list li { display: flex; flex-direction: column; gap: var(--space-25); color: var(--text-secondary); }
+.app-list .title-4 { color: var(--text-primary); }
+.dest-actions form { display: flex; margin: 0; }
 .setup-actions { display: flex; flex-wrap: wrap; gap: var(--space-100); margin-top: var(--space-100); }
 .link-button { min-height: 44px; padding: 0; border: 0; background: none; color: var(--text-info); font-family: inherit; text-decoration: underline;
   text-underline-offset: 3px; cursor: pointer; }
@@ -1035,13 +1044,28 @@ export const SCRIPT = `
     dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); }); // a click on the dimmed page
   });
 
-  const busy = (form, label) => {
-    const button = form.querySelector('button[type=submit]');
+  const busy = (form, label, submitter) => {
+    const button = submitter && submitter.classList.contains('btn') ? submitter : form.querySelector('button.btn[type=submit]');
     if (!button) return;
     button.setAttribute('aria-busy', 'true');
     button.textContent = label;
   };
-  document.querySelectorAll('form[data-busy-label]:not([data-setup])').forEach((f) => f.addEventListener('submit', () => busy(f, f.dataset.busyLabel)));
+  document.querySelectorAll('form[data-busy-label]:not([data-setup])').forEach((f) => f.addEventListener('submit', (e) => busy(f, f.dataset.busyLabel, e.submitter)));
+
+  // The subscribe link: Copy puts it on the clipboard (or selects it, where that's not allowed), and a click selects it.
+  document.querySelectorAll('[data-select]').forEach((input) => input.addEventListener('focus', () => input.select()));
+  document.querySelectorAll('[data-copy]').forEach((button) => button.addEventListener('click', async () => {
+    const input = document.getElementById(button.dataset.copy);
+    const label = button.querySelector('span');
+    try {
+      await navigator.clipboard.writeText(input.value);
+      label.textContent = 'Copied';
+      setTimeout(() => { label.textContent = 'Copy link'; }, 1800);
+    } catch {
+      input.focus();
+      input.select();
+    }
+  }));
 
   const setup = document.querySelector('form[data-setup]');
   if (!setup) return;
@@ -1074,7 +1098,7 @@ export const SCRIPT = `
       errors[0][0].focus();
       return;
     }
-    busy(setup, setup.dataset.busyLabel);
+    busy(setup, setup.dataset.busyLabel, event.submitter);
     const panel = document.querySelector('[data-loading]');
     if (panel) panel.hidden = false;
   });

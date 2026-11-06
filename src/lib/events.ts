@@ -4,8 +4,11 @@ export type CalTime = { date: string } | { dateTime: string };
 
 export type EventKind = 'deadline' | 'event' | 'class' | 'exam' | 'week';
 
-/** 'main': the user's own calendar. 'shared': a calendar in the app's account, shared read-only. */
-export type CalendarMode = 'main' | 'shared';
+/**
+ * 'main': a calendar in the user's own Google account. 'feed': no Google Calendar, only a subscribe link for Outlook,
+ * Apple Calendar and others. 'shared': the old option, a calendar in the app's account shared read-only.
+ */
+export type CalendarMode = 'main' | 'shared' | 'feed';
 
 /** One event we want in a user's calendar, before it becomes a Google Calendar event. */
 export type CalEvent = {
@@ -52,7 +55,7 @@ export function moduleColors(courseKeys: string[]): Map<string, string> {
 }
 
 // Minutes before. Only possible in the user's own calendar: on a shared calendar, reminders are the reader's choice.
-const REMINDERS: Partial<Record<EventKind, number[]>> = {
+export const REMINDERS: Partial<Record<EventKind, number[]>> = {
   deadline: [24 * 60, 3 * 60],
   exam: [7 * 24 * 60, 24 * 60],
 };
@@ -69,8 +72,8 @@ export function toGoogleEvent(ev: CalEvent, mode: CalendarMode = 'shared'): Goog
     start: withTimeZone(ev.start),
     end: withTimeZone(ev.end),
     status: 'confirmed',
-    // Deadlines and week labels shouldn't make you look busy.
-    transparency: ev.kind === 'deadline' || ev.kind === 'week' ? 'transparent' : 'opaque',
+    // Deadlines, week labels and all day events shouldn't make you look busy.
+    transparency: ev.kind === 'deadline' || ev.kind === 'week' || 'date' in ev.start ? 'transparent' : 'opaque',
     // Tags every event as ours, so Semsync never touches anything else in the calendar.
     extendedProperties: { private: { semsync: '1', key: ev.key } },
     reminders: reminders

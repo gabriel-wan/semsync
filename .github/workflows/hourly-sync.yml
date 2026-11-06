@@ -7,7 +7,9 @@ name: Hourly sync
 
 on:
   schedule:
-    - cron: "7 * * * *" # every hour at :07; GitHub may start it a few minutes late
+    # Three times an hour; each run syncs whoever was last synced over 55 minutes ago, so everyone is synced about
+    # hourly and no single run has everyone. GitHub may start a run a few minutes late, or skip one when it's busy.
+    - cron: "7,27,47 * * * *"
   workflow_dispatch:
 
 jobs:

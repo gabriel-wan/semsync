@@ -22,6 +22,15 @@ export type UserRow = {
   courses: string;
   /** JSON: the course keys the user switched off. */
   hidden_courses: string;
+  /** The academic year the NUSMods link is for, as "2026-2027". */
+  nusmods_ay: string | null;
+  /** Fingerprint of what the last complete sync was built from, and when that was. */
+  input_hash: string | null;
+  full_sync_at: number | null;
+  sync_claimed_at: number | null;
+  /** The subscribe link's secret: hashed to look it up, encrypted to show it again. */
+  feed_token_hash: string | null;
+  feed_token_enc: string | null;
 };
 
 export type Course = { key: string; label: string };
@@ -63,10 +72,10 @@ export async function upsertUserOnLogin(db: Db, u: { id: string; email: string; 
     .run();
 }
 
-export async function saveSources(db: Db, id: string, canvasFeedEnc: string | null, nusmodsLink: string | null) {
+export async function saveSources(db: Db, id: string, canvasFeedEnc: string | null, nusmodsLink: string | null, nusmodsAy: string | null) {
   await db
-    .prepare('UPDATE users SET canvas_feed_enc = ?, nusmods_link = ? WHERE id = ?')
-    .bind(canvasFeedEnc, nusmodsLink, id)
+    .prepare('UPDATE users SET canvas_feed_enc = ?, nusmods_link = ?, nusmods_ay = ? WHERE id = ?')
+    .bind(canvasFeedEnc, nusmodsLink, nusmodsLink ? nusmodsAy : null, id)
     .run();
 }
 
@@ -91,10 +100,10 @@ export async function setNeedsReconnect(db: Db, id: string) {
   await db.prepare('UPDATE users SET needs_reconnect = 1 WHERE id = ?').bind(id).run();
 }
 
-/** Forgets which calendar the user's events are in and what was written there. */
+/** Forgets which calendar the user's events are in and what was written there, so the next sync starts over. */
 export async function clearCalendar(db: Db, id: string) {
   await db.batch([
-    db.prepare('UPDATE users SET calendar_id = NULL WHERE id = ?').bind(id),
+    db.prepare('UPDATE users SET calendar_id = NULL, input_hash = NULL WHERE id = ?').bind(id),
     db.prepare('DELETE FROM synced_events WHERE user_id = ?').bind(id),
   ]);
 }
@@ -104,12 +113,89 @@ export async function trackedEventIds(db: Db, userId: string): Promise<string[]>
   return results.map((r) => r.event_id);
 }
 
-export async function recordSync(db: Db, id: string, ok: boolean, message: string) {
+/**
+ * Records a sync. `inputHash` is what a complete sync was built from (stored with the time, so the next run can tell
+ * nothing changed), or null after one that didn't finish, so the next run does everything again.
+ */
+export async function recordSync(db: Db, id: string, ok: boolean, message: string, inputHash?: string | null) {
+  const now = Date.now();
+  if (inputHash === undefined) {
+    await db
+      .prepare('UPDATE users SET last_sync_at = ?, last_sync_ok = ?, last_sync_message = ? WHERE id = ?')
+      .bind(now, ok ? 1 : 0, message, id)
+      .run();
+  } else if (inputHash === null) {
+    await db
+      .prepare('UPDATE users SET last_sync_at = ?, last_sync_ok = ?, last_sync_message = ?, input_hash = NULL WHERE id = ?')
+      .bind(now, ok ? 1 : 0, message, id)
+      .run();
+  } else {
+    await db
+      .prepare('UPDATE users SET last_sync_at = ?, last_sync_ok = ?, last_sync_message = ?, input_hash = ?, full_sync_at = ? WHERE id = ?')
+      .bind(now, ok ? 1 : 0, message, inputHash, now, id)
+      .run();
+  }
+}
+
+/** A sync that found nothing new: only the time moves on, and the last message stays. */
+export async function touchSync(db: Db, id: string) {
+  await db.prepare('UPDATE users SET last_sync_at = ? WHERE id = ?').bind(Date.now(), id).run();
+}
+
+const CLAIM_MS = 10 * 60_000;
+
+/**
+ * Takes on up to `limit` users who are due, oldest first, marking them so another run that starts meanwhile skips
+ * them. A claim lapses after 10 minutes, so anyone a run didn't get to is picked up by the next one.
+ */
+export async function claimDueUsers(db: Db, olderThanMs: number, limit: number): Promise<UserRow[]> {
+  const now = Date.now();
+  const due = `calendar_id IS NOT NULL AND needs_reconnect = 0
+         AND (canvas_feed_enc IS NOT NULL OR nusmods_link IS NOT NULL)
+         AND (last_sync_at IS NULL OR last_sync_at < ?)
+         AND (sync_claimed_at IS NULL OR sync_claimed_at < ?)`;
+  // The outer check runs again on each row as it's updated, so a row another run claimed in the meantime drops out.
+  const { results } = await db
+    .prepare(
+      `UPDATE users SET sync_claimed_at = ?
+       WHERE id IN (SELECT id FROM users WHERE ${due} ORDER BY last_sync_at NULLS FIRST LIMIT ?)
+         AND ${due}
+       RETURNING *`,
+    )
+    .bind(now, now - olderThanMs, now - CLAIM_MS, limit, now - olderThanMs, now - CLAIM_MS)
+    .all<UserRow>();
+  return results.sort((a, b) => (a.last_sync_at ?? 0) - (b.last_sync_at ?? 0));
+}
+
+/** Turns on (or replaces) the user's subscribe link. The next sync builds its .ics. */
+export async function setFeedToken(db: Db, id: string, hash: string, enc: string) {
+  await db.prepare('UPDATE users SET feed_token_hash = ?, feed_token_enc = ?, input_hash = NULL WHERE id = ?').bind(hash, enc, id).run();
+}
+
+/** Turns the subscribe link off: the old link stops working at once. */
+export async function clearFeed(db: Db, id: string) {
+  await db.batch([
+    db.prepare('UPDATE users SET feed_token_hash = NULL, feed_token_enc = NULL WHERE id = ?').bind(id),
+    db.prepare('DELETE FROM feeds WHERE user_id = ?').bind(id),
+  ]);
+}
+
+export async function saveFeed(db: Db, userId: string, body: string) {
   await db
-    .prepare('UPDATE users SET last_sync_at = ?, last_sync_ok = ?, last_sync_message = ? WHERE id = ?')
-    .bind(Date.now(), ok ? 1 : 0, message, id)
+    .prepare('INSERT INTO feeds (user_id, body, updated_at) VALUES (?, ?, ?) ON CONFLICT (user_id) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at')
+    .bind(userId, body, Date.now())
     .run();
 }
+
+/** Who a subscribe link belongs to and when their .ics last changed, without reading the .ics itself. */
+export const feedByHash = (db: Db, hash: string) =>
+  db
+    .prepare('SELECT u.id AS user_id, f.updated_at FROM users u LEFT JOIN feeds f ON f.user_id = u.id WHERE u.feed_token_hash = ?')
+    .bind(hash)
+    .first<{ user_id: string; updated_at: number | null }>();
+
+export const feedBody = async (db: Db, userId: string) =>
+  (await db.prepare('SELECT body FROM feeds WHERE user_id = ?').bind(userId).first<{ body: string }>())?.body ?? null;
 
 /** Set-up users whose last sync is older than `olderThanMs`, oldest first. */
 export async function dueUsers(db: Db, olderThanMs: number, limit: number): Promise<UserRow[]> {
@@ -158,6 +244,7 @@ export async function eventCounts(db: Db, userId: string): Promise<Record<string
 export async function deleteUserData(db: Db, id: string) {
   await db.batch([
     db.prepare('DELETE FROM synced_events WHERE user_id = ?').bind(id),
+    db.prepare('DELETE FROM feeds WHERE user_id = ?').bind(id),
     db.prepare('DELETE FROM kv WHERE key = ?').bind(`token:user:${id}`),
     db.prepare('DELETE FROM users WHERE id = ?').bind(id),
   ]);
@@ -166,6 +253,26 @@ export async function deleteUserData(db: Db, id: string) {
 const MODULE_TTL_MS = 24 * 3600_000;
 
 /** NUSMods module data, cached for a day; falls back to stale data if NUSMods is down. */
+const moduleMemo = new Map<string, { at: number; data: Promise<ModuleData | null> }>();
+
+/**
+ * Remembers module data inside this process for 15 minutes, so a sync run reads each module from the database once
+ * rather than once per student taking it (popular modules are taken by hundreds).
+ */
+export function memoModuleFetcher(fetch: (ay: string, code: string) => Promise<ModuleData | null>) {
+  return (acadYear: string, code: string): Promise<ModuleData | null> => {
+    const key = `${acadYear}:${code}`;
+    const hit = moduleMemo.get(key);
+    if (hit && Date.now() - hit.at < 15 * 60_000) return hit.data;
+    const data = fetch(acadYear, code).catch((err) => {
+      moduleMemo.delete(key);
+      throw err;
+    });
+    moduleMemo.set(key, { at: Date.now(), data });
+    return data;
+  };
+}
+
 export function cachedModuleFetcher(db: Db, fetchFresh: (ay: string, code: string) => Promise<ModuleData | null>) {
   // The cache only saves NUSMods some requests: if the database can't be read or written, the sync carries on with a
   // fresh copy from NUSMods instead of failing.

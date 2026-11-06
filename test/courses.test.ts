@@ -59,7 +59,7 @@ describe('courses', () => {
 
 describe('week labels', () => {
   it('labels every Monday of every term, counting recess and reading week', () => {
-    const sem1 = weekLabelEvents().filter((e) => e.key.startsWith('week:2026-2027:1:'));
+    const sem1 = weekLabelEvents(new Date('2026-11-04T04:00:00Z')).filter((e) => e.key.startsWith('week:2026-2027:1:'));
     expect(sem1.map((e) => e.title)).toEqual([
       'Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Recess week', 'Week 7', 'Week 8', 'Week 9', 'Week 10',
       'Week 11', 'Week 12', 'Week 13', 'Reading week', 'Exams', 'Exams',
@@ -69,7 +69,7 @@ describe('week labels', () => {
   });
 
   it('are all day, free, grey, and never remind anyone', () => {
-    const body = toGoogleEvent(weekLabelEvents()[0], 'main');
+    const body = toGoogleEvent(weekLabelEvents(new Date('2026-11-04T04:00:00Z'))[0], 'main');
     expect(body).toMatchObject({ transparency: 'transparent', colorId: '8', reminders: { useDefault: false, overrides: [] } });
   });
 });
@@ -78,7 +78,7 @@ describe('the course tiles on the Settings page', () => {
   const user: UserRow = {
     id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', nusmods_link: null, mode: 'main', calendar_id: 'primary',
     google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null,
-    week_labels: 0, hidden_courses: '["MA1521"]',
+    week_labels: 0, hidden_courses: '["MA1521"]', nusmods_ay: null, input_hash: null, full_sync_at: null, sync_claimed_at: null, feed_token_hash: null, feed_token_enc: null,
     courses: JSON.stringify([{ key: 'CS2040', label: 'CS2040 Data Structures and Algorithms' }, { key: 'MA1521', label: 'MA1521 Calculus for Computing' }]),
   };
   const page = async (u: UserRow) =>

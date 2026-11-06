@@ -190,7 +190,7 @@ describe('navigation', () => {
   const newUser: UserRow = {
     id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: null, nusmods_link: null, mode: 'main',
     calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null,
-    last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]',
+    last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]', nusmods_ay: null, input_hash: null, full_sync_at: null, sync_claimed_at: null, feed_token_hash: null, feed_token_enc: null,
   };
   const setup = (user: UserRow) => Setup({ user, csrf: 't', values: { canvas: '', nusmods: '' }, errors: {}, editing: false, dev: false });
 
@@ -267,7 +267,7 @@ describe('link guides', () => {
 
   it('puts the matching guide under each "Where do I find this?" on setup', async () => {
     const html = await page(Setup({ user: { id: 'x', email: 'a@example.com', name: null, canvas_feed_enc: null, nusmods_link: null, mode: 'main',
-      calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]' },
+      calendar_id: null, google_refresh_enc: null, needs_reconnect: 0, created_at: 0, last_sync_at: null, last_sync_ok: null, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]', nusmods_ay: null, input_hash: null, full_sync_at: null, sync_claimed_at: null, feed_token_hash: null, feed_token_enc: null },
       csrf: 't', values: { canvas: '', nusmods: '' }, errors: {}, editing: false, dev: false }));
     expect(html).toContain('canvas.nus.edu.sg/calendar');
     expect(html).toContain('nusmods.com/timetable/sem-1');
@@ -295,7 +295,7 @@ describe('your Semsync page', () => {
   const user: UserRow = {
     id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', mode: 'shared', calendar_id: 'c',
     nusmods_link: 'https://nusmods.com/timetable/sem-1/share?CS2103T=LEC:G26&ST2334=LEC:1', google_refresh_enc: null,
-    needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]',
+    needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]', nusmods_ay: null, input_hash: null, full_sync_at: null, sync_claimed_at: null, feed_token_hash: null, feed_token_enc: null,
   };
   const props = { user, csrf: 't', addUrl: 'https://calendar.google.com/x', needsConnect: false, counts: { deadline: 2, class: 5, exam: 1 }, dev: false,
     upcoming: [{ title: '[CS2103T] Quiz', kind: 'deadline' as const, start_ms: Date.now(), all_day: 0 }] };
@@ -361,7 +361,7 @@ describe('account menu', () => {
   it('puts sign out and delete in a menu in the nav, not on the page', async () => {
     const user: UserRow = {
       id: 'dev:a@example.com', email: 'a@example.com', name: 'Ann', canvas_feed_enc: 'x', mode: 'main', calendar_id: 'primary',
-      nusmods_link: null, google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]',
+      nusmods_link: null, google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]', nusmods_ay: null, input_hash: null, full_sync_at: null, sync_claimed_at: null, feed_token_hash: null, feed_token_enc: null,
     };
     const html = await page(Home({ user, csrf: 't', addUrl: null, needsConnect: false, counts: {}, upcoming: [], dev: false }));
     const nav = /<nav[\s\S]*?<\/nav>/.exec(html)![0];
@@ -406,5 +406,55 @@ describe('hero demo', () => {
     expect(hero.match(/data-paste="https:\/\/(canvas\.nus\.edu\.sg|nusmods\.com)\//g)).toHaveLength(2);
     expect(hero.match(/class="ev chip-/g)!.length).toBeGreaterThan(5);
     expect(hero).toContain('due tonight');
+  });
+});
+
+describe('Outlook and Apple Calendar', () => {
+  const page = async (node: unknown) => String(await (node as { toString(): string | Promise<string> }).toString());
+  const user: UserRow = {
+    id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', mode: 'main', calendar_id: 'c',
+    nusmods_link: null, google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1,
+    last_sync_message: null, week_labels: 1, courses: '[]', hidden_courses: '[]', nusmods_ay: null, input_hash: null,
+    full_sync_at: null, sync_claimed_at: null, feed_token_hash: null, feed_token_enc: null,
+  };
+  const link = 'https://getsemsync.vercel.app/feed/abcdefghijklmnopqrstuvwxyz012345.ics';
+  const home = { csrf: 't', addUrl: null, needsConnect: false, counts: {}, upcoming: [], dev: false };
+
+  it('offers a subscribe link at setup, as a second way to finish', async () => {
+    const html = await page(Setup({ user: { ...user, google_refresh_enc: null, calendar_id: null }, csrf: 't', values: { canvas: '', nusmods: '' }, errors: {}, editing: false, dev: false, asksAccess: true }));
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*name="dest"[^>]*value="feed"[^>]*>Get a subscribe link instead/);
+  });
+
+  it('shows someone on the link alone where to paste it, with copy and open buttons', async () => {
+    const html = await page(Home({ ...home, user: { ...user, mode: 'feed', calendar_id: 'feed', google_refresh_enc: null }, feedLink: link }));
+    expect(html).toContain('In your calendar app');
+    expect(html).toContain(`value="${link}"`);
+    expect(html).toContain('href="webcal://getsemsync.vercel.app/feed/');
+    expect(html).toContain('data-copy="feed-url"');
+    expect(html).toContain('Add Subscribed Calendar');
+    expect(html).not.toContain('Open Google Calendar');
+  });
+
+  it('lets a Google user add the link in Settings, then replace or turn it off', async () => {
+    const off = await page(Settings({ user, csrf: 't', counts: {}, dev: false }));
+    expect(off).toMatch(/action="\/feed\/on"[\s\S]*Get a subscribe link/);
+    const on = await page(Settings({ user: { ...user, feed_token_hash: 'h' }, csrf: 't', counts: {}, dev: false, feedLink: link }));
+    expect(on).toContain('action="/feed/reset"');
+    expect(on).toContain('action="/feed/off"');
+    // Someone on the link alone can't turn it off, but can move to Google Calendar.
+    const feedOnly = await page(Settings({ user: { ...user, mode: 'feed', feed_token_hash: 'h' }, csrf: 't', counts: {}, dev: false, feedLink: link }));
+    expect(feedOnly).not.toContain('action="/feed/off"');
+    expect(feedOnly).toContain('href="/connect"');
+  });
+
+  it('lets someone who skipped Google use the link from the connect card', async () => {
+    const html = await page(Home({ ...home, user: { ...user, google_refresh_enc: null }, needsConnect: true }));
+    expect(html).toMatch(/action="\/feed\/use"[\s\S]*Use Outlook or Apple Calendar/);
+  });
+
+  it('asks for the next NUSMods link when a new term is near', async () => {
+    const html = await page(Home({ ...home, user, timetable: { saved: 'AY2026/27 Semester 1', wanted: 'AY2026/27 Semester 2' } }));
+    expect(html).toContain('Your NUSMods link is for AY2026/27 Semester 1. Paste your AY2026/27 Semester 2 link');
+    expect(html).toContain('href="/setup?edit=1"');
   });
 });
