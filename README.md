@@ -47,6 +47,7 @@ affiliated with NUS, NUSMods or Instructure. Always check Canvas for anything th
 
 Most answers are on the **[help page](https://semsync.live/help)**. Found a bug or want something added?
 **[Open an issue](https://github.com/gabriel-wan/semsync/issues)**, and never paste your Canvas link into it.
+Found a security problem? Please report it privately: see **[SECURITY.md](SECURITY.md)**.
 
 ## For developers
 

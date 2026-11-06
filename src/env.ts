@@ -7,6 +7,8 @@ export type Env = {
   SYNC_CONCURRENCY: string;
   /** The site's address, for links Semsync puts in calendars. */
   APP_URL: string;
+  /** The live site on Vercel (not a preview deployment or local development). */
+  PRODUCTION: boolean;
   ALLOWED_CANVAS_HOSTS: string;
   // Secrets
   SESSION_SECRET: string;
@@ -52,6 +54,7 @@ export function getEnv(): Env {
     },
     APP_NAME: e.APP_NAME ?? 'Semsync',
     SYNC_CONCURRENCY: e.SYNC_CONCURRENCY ?? '8',
+    PRODUCTION: e.VERCEL_ENV === 'production',
     // On Vercel, its production domain (or this deployment's address) unless APP_URL says otherwise.
     APP_URL: (e.APP_URL ?? (e.VERCEL_PROJECT_PRODUCTION_URL || e.VERCEL_URL ? `https://${e.VERCEL_PROJECT_PRODUCTION_URL || e.VERCEL_URL}` : 'http://localhost:8787')).replace(/\/$/, ''),
     ALLOWED_CANVAS_HOSTS: e.ALLOWED_CANVAS_HOSTS ?? 'canvas.nus.edu.sg',

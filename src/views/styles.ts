@@ -1057,13 +1057,19 @@ export const SCRIPT = `
   document.querySelectorAll('[data-copy]').forEach((button) => button.addEventListener('click', async () => {
     const input = document.getElementById(button.dataset.copy);
     const label = button.querySelector('span');
+    let copied = false;
     try {
       await navigator.clipboard.writeText(input.value);
-      label.textContent = 'Copied';
-      setTimeout(() => { label.textContent = 'Copy link'; }, 1800);
+      copied = true;
     } catch {
+      // Some browsers refuse the clipboard API: fall back to the older copy command on the selected link.
       input.focus();
       input.select();
+      try { copied = document.execCommand('copy'); } catch { copied = false; }
+    }
+    if (copied) {
+      label.textContent = 'Copied';
+      setTimeout(() => { label.textContent = 'Copy link'; }, 1800);
     }
   }));
 

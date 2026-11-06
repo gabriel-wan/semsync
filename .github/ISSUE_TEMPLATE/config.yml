@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/gabriel-wan/semsync/security/advisories/new
+    about: Report it privately, not in a public issue. See SECURITY.md.
+  - name: Help with using Semsync
+    url: https://semsync.live/help
+    about: Where to find your links, and answers to common questions.

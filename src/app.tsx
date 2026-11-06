@@ -40,9 +40,26 @@ const FLASH: Record<string, string> = {
 
 const app = new Hono<AppEnv>();
 
+/**
+ * On the live site, the old getsemsync.vercel.app address (and Vercel's per-deployment ones) send people on to the
+ * site's own domain, so nobody sees the old address. Two things stay put: the scheduled sync, which the GitHub Action
+ * calls at whatever address it's set to, and subscribe links, which calendar apps keep exactly as they were given.
+ * Nothing moves until the site has a domain of its own.
+ */
+export function movedTo(requestUrl: string, env: Pick<Env, 'APP_URL' | 'PRODUCTION'>): string | null {
+  if (!env.PRODUCTION) return null;
+  const url = new URL(requestUrl);
+  const home = new URL(env.APP_URL);
+  if (url.host === home.host || home.host.endsWith('.vercel.app') || !url.host.endsWith('.vercel.app')) return null;
+  if (/^\/(api|feed)\//.test(url.pathname)) return null;
+  return `${home.origin}${url.pathname}${url.search}`;
+}
+
 app.use('*', async (c, next) => {
   // Settings come from environment variables on Vercel (and .env.local in development), not platform bindings.
   c.env = getEnv();
+  const moved = movedTo(c.req.url, c.env);
+  if (moved) return c.redirect(moved, 308);
   const cookie = getCookie(c, SESSION_COOKIE);
   const uid = cookie ? await readSession(c.env.SESSION_SECRET, cookie) : null;
   c.set('user', uid ? await getUser(c.env.DB, uid) : null);

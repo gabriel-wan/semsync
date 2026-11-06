@@ -47,3 +47,33 @@ describe('a deployment that is not set up yet', () => {
     expect(() => env.ENCRYPTION_KEY).toThrow('ENCRYPTION_KEY is not set');
   });
 });
+
+describe('the old address', () => {
+  async function live(env: Record<string, string>) {
+    vi.resetModules();
+    for (const [k, v] of Object.entries({ VERCEL: '1', VERCEL_ENV: 'production', APP_URL: 'https://semsync.live', CRON_SECRET: '', ...env })) vi.stubEnv(k, v);
+    const { default: app } = await import('../src/app');
+    return (url: string) => app.fetch(new Request(url));
+  }
+
+  it('sends visitors on the live site to semsync.live, keeping the page and query', async () => {
+    const fetch = await live({});
+    const res = await fetch('https://getsemsync.vercel.app/help?from=old');
+    expect(res.status).toBe(308);
+    expect(res.headers.get('location')).toBe('https://semsync.live/help?from=old');
+    expect((await fetch('https://semsync.live/privacy')).status).toBe(200);
+  });
+
+  it('leaves the scheduled sync and subscribe links where they are', async () => {
+    const fetch = await live({});
+    expect((await fetch('https://getsemsync.vercel.app/api/cron')).status).toBe(401);
+    const { movedTo } = await import('../src/app');
+    expect(movedTo('https://getsemsync.vercel.app/feed/abc.ics', { APP_URL: 'https://semsync.live', PRODUCTION: true })).toBeNull();
+  });
+
+  it('never moves anyone on a preview deployment, or before the site has its own domain', async () => {
+    const { movedTo } = await import('../src/app');
+    expect(movedTo('https://semsync-git-x.vercel.app/', { APP_URL: 'https://semsync.live', PRODUCTION: false })).toBeNull();
+    expect(movedTo('https://getsemsync.vercel.app/', { APP_URL: 'https://getsemsync.vercel.app', PRODUCTION: true })).toBeNull();
+  });
+});
