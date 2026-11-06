@@ -5,7 +5,7 @@ themselves.
 
 **Free at [semsync.live](https://semsync.live)**
 
-[![Watch the 20 second demo](docs/media/semsync-launch.jpg)](docs/media/semsync-launch.mp4)
+https://github.com/user-attachments/assets/d0856cd4-fb84-4e2a-82f1-9a34a3a5f048
 
 ## What you get
 
