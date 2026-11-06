@@ -51,6 +51,10 @@ const DAY_OFFSET: Record<string, number> = {
 
 const MODULE_CODE = /^[A-Z]{2,4}\d{4}[A-Z]{0,3}$/;
 
+// Every course in a link is looked up on NUSMods at once, so a link listing hundreds would have Semsync flood NUSMods.
+// 20 is more than any real timetable holds.
+const MAX_MODULES = 20;
+
 /**
  * Reads a NUSMods share link. Handles all three formats NUSMods has used:
  *   v1  CS2040=LEC:1,TUT:05
@@ -76,14 +80,17 @@ export function parseNusmodsLink(raw: string): NusmodsLink {
   }
 
   const hidden = new Set((url.searchParams.get('hidden') ?? '').split(',').filter(Boolean));
-  const modules: ModuleChoice[] = [];
+  const modules = new Map<string, ModuleChoice>();
   for (const [key, value] of url.searchParams) {
     const code = key.toUpperCase();
-    if (!MODULE_CODE.test(code) || hidden.has(code)) continue;
-    modules.push({ code, lessons: parseLessonConfig(value) });
+    if (!MODULE_CODE.test(code) || hidden.has(code) || modules.has(code)) continue;
+    modules.set(code, { code, lessons: parseLessonConfig(value) });
   }
-  if (modules.length === 0) throw new UserError("That NUSMods link doesn't have any courses in it.");
-  return { semester: Number(sem[1]) as 1 | 2, modules };
+  if (modules.size === 0) throw new UserError("That NUSMods link doesn't have any courses in it.");
+  if (modules.size > MAX_MODULES) {
+    throw new UserError(`That NUSMods link has more than ${MAX_MODULES} courses. Copy the Share/Sync link from your own timetable.`);
+  }
+  return { semester: Number(sem[1]) as 1 | 2, modules: [...modules.values()] };
 }
 
 function parseLessonConfig(value: string): LessonChoice[] {

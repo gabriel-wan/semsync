@@ -64,6 +64,14 @@ describe('parseNusmodsLink', () => {
     expect(() => parseNusmodsLink('https://nusmods.com/timetable/st-i/share?CS2040=LEC:1')).toThrow();
     expect(() => parseNusmodsLink('https://nusmods.com/timetable/sem-1/share')).toThrow();
   });
+
+  it('counts a course listed twice once, and turns away links with more than 20 courses', () => {
+    const twice = parseNusmodsLink('https://nusmods.com/timetable/sem-1/share?CS2040=LEC:1&cs2040=LEC:2&ES2660=SEC:G01');
+    expect(twice.modules.map((m) => m.code)).toEqual(['CS2040', 'ES2660']);
+    const codes = (n: number) => Array.from({ length: n }, (_, i) => `CS${String(1000 + i)}=LEC:1`).join('&');
+    expect(parseNusmodsLink(`https://nusmods.com/timetable/sem-1/share?${codes(20)}`).modules).toHaveLength(20);
+    expect(() => parseNusmodsLink(`https://nusmods.com/timetable/sem-1/share?${codes(21)}`)).toThrow(/more than 20 courses/);
+  });
 });
 
 describe('chosenLessons', () => {

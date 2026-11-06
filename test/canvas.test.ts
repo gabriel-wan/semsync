@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { canvasEvents, formatTitle, validateCanvasFeedUrl } from '../src/lib/canvas';
+import { describe, expect, it, vi } from 'vitest';
+import { canvasEvents, fetchCanvasFeed, formatTitle, validateCanvasFeedUrl } from '../src/lib/canvas';
 import { parseIcs, unescapeText } from '../src/lib/ics';
 import { SAMPLE_CANVAS_FEED } from '../src/fixtures/sampleCanvas';
 
@@ -19,7 +19,9 @@ describe('validateCanvasFeedUrl', () => {
     expect(validateCanvasFeedUrl(' webcal://canvas.nus.edu.sg/feeds/calendars/user_abc123.ics ', HOSTS)).toBe(
       'https://canvas.nus.edu.sg/feeds/calendars/user_abc123.ics',
     );
-    expect(validateCanvasFeedUrl('https://school.instructure.com/feeds/calendars/user_x.ics', HOSTS)).toContain('instructure.com');
+    expect(validateCanvasFeedUrl('https://canvas.nus.edu.sg:443/feeds/calendars/user_x.ics', HOSTS)).toBe(
+      'https://canvas.nus.edu.sg/feeds/calendars/user_x.ics',
+    );
   });
 
   it('rejects other hosts, plain http and non-feed Canvas pages', () => {
@@ -27,6 +29,65 @@ describe('validateCanvasFeedUrl', () => {
     expect(() => validateCanvasFeedUrl('http://canvas.nus.edu.sg/feeds/calendars/user_x.ics', HOSTS)).toThrow();
     expect(() => validateCanvasFeedUrl('https://canvas.nus.edu.sg/calendar', HOSTS)).toThrow(/calendar feed/);
     expect(() => validateCanvasFeedUrl('not a link', HOSTS)).toThrow();
+  });
+
+  it('accepts only the listed hosts, on the usual port, with no name or password in the link', () => {
+    expect(() => validateCanvasFeedUrl('https://school.instructure.com/feeds/calendars/user_x.ics', HOSTS)).toThrow();
+    expect(() => validateCanvasFeedUrl('https://canvas.nus.edu.sg:8443/feeds/calendars/user_x.ics', HOSTS)).toThrow();
+    expect(() => validateCanvasFeedUrl('https://a@canvas.nus.edu.sg/feeds/calendars/user_x.ics', HOSTS)).toThrow();
+    expect(() => validateCanvasFeedUrl('https://a:b@canvas.nus.edu.sg/feeds/calendars/user_x.ics', HOSTS)).toThrow();
+  });
+});
+
+describe('fetchCanvasFeed', () => {
+  const FEED = 'https://canvas.nus.edu.sg/feeds/calendars/user_x.ics';
+  const redirect = (location: string) => new Response(null, { status: 302, headers: { location } });
+
+  // Answers each request with the next response in the list, and records which links were fetched.
+  async function withCanvas(responses: Response[], run: (fetched: string[]) => Promise<void>) {
+    const original = globalThis.fetch;
+    const fetched: string[] = [];
+    globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
+      fetched.push(String(url));
+      return responses.shift()!;
+    }) as typeof fetch;
+    try {
+      await run(fetched);
+    } finally {
+      globalThis.fetch = original;
+    }
+  }
+
+  it('follows a redirect within the same Canvas site', async () => {
+    await withCanvas([redirect('/feeds/calendars/user_y.ics'), new Response(SAMPLE_CANVAS_FEED)], async (fetched) => {
+      expect(await fetchCanvasFeed(FEED)).toContain('BEGIN:VCALENDAR');
+      expect(fetched).toEqual([FEED, 'https://canvas.nus.edu.sg/feeds/calendars/user_y.ics']);
+    });
+  });
+
+  it('never follows a redirect to another host, plain http or another port', async () => {
+    for (const elsewhere of ['https://evil.example.com/x.ics', 'http://canvas.nus.edu.sg/x.ics', 'https://canvas.nus.edu.sg:8443/x.ics']) {
+      await withCanvas([redirect(elsewhere)], async (fetched) => {
+        await expect(fetchCanvasFeed(FEED)).rejects.toThrow(/somewhere else/);
+        expect(fetched).toEqual([FEED]);
+      });
+    }
+  });
+
+  it("asks for a new link when Canvas doesn't recognise the feed", async () => {
+    for (const status of [400, 401, 404]) {
+      await withCanvas([new Response('<title>Invalid Feed</title>', { status })], async () => {
+        await expect(fetchCanvasFeed(FEED)).rejects.toThrow(/rejected your feed link/);
+      });
+    }
+  });
+
+  it('stops after a few redirects', async () => {
+    const loop = Array.from({ length: 10 }, () => redirect(FEED));
+    await withCanvas(loop, async (fetched) => {
+      await expect(fetchCanvasFeed(FEED)).rejects.toThrow(/somewhere else/);
+      expect(fetched).toHaveLength(4);
+    });
   });
 });
 

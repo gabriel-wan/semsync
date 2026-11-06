@@ -4,6 +4,7 @@ import type { CalEvent } from './events.js';
 import { parseIcs, parseIcsTime, unescapeText } from './ics.js';
 
 const MAX_FEED_BYTES = 2_000_000;
+const MAX_REDIRECTS = 3;
 
 /** Checks a pasted Canvas calendar feed link and returns it normalised to https. */
 export function validateCanvasFeedUrl(raw: string, allowedHosts: string[]): string {
@@ -14,8 +15,10 @@ export function validateCanvasFeedUrl(raw: string, allowedHosts: string[]): stri
   } catch {
     throw new UserError("That doesn't look like a link. Copy the Calendar Feed link from Canvas.");
   }
-  const hostOk = allowedHosts.includes(url.hostname) || url.hostname.endsWith('.instructure.com');
-  if (url.protocol !== 'https:' || !hostOk) {
+  // Only the listed Canvas hosts, on the usual port, with no name or password in the link. Anything looser lets a
+  // pasted link send the server somewhere else, and Node puts a link with a password into its error message, which
+  // would write the feed's secret to the logs.
+  if (url.protocol !== 'https:' || !allowedHosts.includes(url.hostname) || url.port || url.username || url.password) {
     throw new UserError('Use the Calendar Feed link from your Canvas site, starting with https://canvas.nus.edu.sg.');
   }
   if (!url.pathname.startsWith('/feeds/calendars/') || !url.pathname.endsWith('.ics')) {
@@ -25,18 +28,41 @@ export function validateCanvasFeedUrl(raw: string, allowedHosts: string[]): stri
   return url.toString();
 }
 
+/**
+ * Fetches the feed, following redirects only within the same Canvas site. The link was checked when it was saved; a
+ * redirect to another host would reach somewhere that check never allowed.
+ */
+async function fetchOnSameSite(link: string): Promise<Response> {
+  const host = new URL(link).hostname;
+  let url = link;
+  for (let hops = 0; ; hops++) {
+    const res = await fetchWithin(15_000, 'Canvas', url, {
+      redirect: 'manual',
+      headers: { accept: 'text/calendar', 'user-agent': USER_AGENT },
+    });
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    if (!location) return res;
+    const next = new URL(location, url);
+    if (hops === MAX_REDIRECTS || next.protocol !== 'https:' || next.hostname !== host || next.port || next.username || next.password) {
+      throw new UserError('Canvas sent that link somewhere else. In Canvas, open Calendar and copy the Calendar Feed link again.');
+    }
+    url = next.toString();
+  }
+}
+
 export async function fetchCanvasFeed(url: string): Promise<string> {
   let res: Response | undefined;
   for (let attempt = 1; !res; attempt++) {
     try {
-      res = await fetchWithin(15_000, 'Canvas', url, { headers: { accept: 'text/calendar', 'user-agent': USER_AGENT } });
+      res = await fetchOnSameSite(url);
     } catch (err) {
       if (!(err instanceof TimeoutError)) throw err;
       console.warn('Canvas timed out, attempt', attempt);
       if (attempt === 2) throw new UserError("Canvas didn't answer in time. Semsync will try again shortly.");
     }
   }
-  if (res.status === 401 || res.status === 404) {
+  // Canvas answers a feed link that matches no account (mistyped, or an old link) with 400 and its "Invalid Feed" page.
+  if (res.status === 400 || res.status === 401 || res.status === 404) {
     throw new UserError('Canvas rejected your feed link. It may have been reset; paste the new one.');
   }
   if (!res.ok) throw new Error(`Canvas feed returned ${res.status}`);
