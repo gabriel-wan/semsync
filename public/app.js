@@ -35,10 +35,6 @@
     const a = e.target.closest && e.target.closest('a[href*="#"]');
     if (a && a.pathname === location.pathname) showTarget(a.hash);
   }, true);
-  const words = io && new IntersectionObserver((entries) => entries.forEach((e) => {
-    e.target.classList.toggle('lit', e.isIntersecting || e.boundingClientRect.top < 0);
-  }), { rootMargin: '0px 0px -40% 0px' });
-  document.querySelectorAll('.tagline .w').forEach((el) => (words ? words.observe(el) : el.classList.add('lit')));
 
   // Link guides: each one clicks through its steps by itself while it's on screen, until someone picks a step.
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;

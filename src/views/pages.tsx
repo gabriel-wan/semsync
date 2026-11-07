@@ -6,7 +6,7 @@ import { GOOGLE_EVENT_COLORS, moduleColors } from '../lib/events.js';
 import { isAddingMessage } from '../lib/messages.js';
 import { parseNusmodsLink } from '../lib/nusmods.js';
 import { verifiedBrand, type ConnectedApp } from '../lib/oauth.js';
-import { BrandMark, CanvasMark, ChatgptMark, ClaudeMark, FAVICON, GithubMark, GoogleMark, Icon, NusmodsMark, type IconName } from './icons.js';
+import { BrandMark, CanvasMark, ChatgptMark, ClaudeMark, FAVICON, GithubMark, GoogleMark, Icon, NusmodsMark } from './icons.js';
 import { CSS, THEME_INIT } from './styles.js';
 import { CORE, RADIUS, SPACING, SYSTEM, SYSTEM_SPEC, TEXT_STYLES } from './tokens.js';
 
@@ -184,7 +184,6 @@ const GUIDE: Record<GuideKind, { steps: [string, string][]; open: [string, strin
 
 const ScreenBar: FC<{ url: string }> = ({ url }) => (
   <div class="gs-bar">
-    <span class="gs-dots" aria-hidden="true"><i /><i /><i /></span>
     <span class="gs-url caption-5 mono">{url}</span>
   </div>
 );
@@ -214,7 +213,6 @@ const CanvasScreen: FC = () => (
         </div>
       </div>
       <div class="gs-side">
-        <div class="gs-mini">{Array.from({ length: 21 }, () => <i />)}</div>
         <p class="caption-5 text-secondary">Calendars</p>
         <span class="gs-line"><i class="gs-mark-a" /></span>
         <span class="gs-line"><i class="gs-mark-b" /></span>
@@ -305,10 +303,10 @@ const LinkGuides: FC = () => (
   <div class="guides" data-tabs>
     <div class="tabs" role="tablist" aria-label="Which link">
       <button class="tab title-4" type="button" role="tab" id="tab-canvas" aria-controls="panel-canvas" aria-selected="true">
-        <Icon name="graduationCap" size={16} />Canvas feed
+        <CanvasMark size={16} />Canvas feed
       </button>
       <button class="tab title-4" type="button" role="tab" id="tab-nusmods" aria-controls="panel-nusmods" aria-selected="false" tabindex={-1}>
-        <Icon name="calendarDots" size={16} />NUSMods link
+        <NusmodsMark size={16} />NUSMods link
       </button>
     </div>
     <div class="tab-panel" role="tabpanel" id="panel-canvas" aria-labelledby="tab-canvas"><Guide kind="canvas" /></div>
@@ -464,14 +462,6 @@ const Chip: FC<{ kind: 'class' | 'deadline' | 'exam'; title: string; time: strin
   </div>
 );
 
-function words(text: string) {
-  return text.split(' ').map((w) => (
-    <>
-      <span class="w">{w}</span>{' '}
-    </>
-  ));
-}
-
 const FAQ: [string, string][] = [
   ['Is this an official NUS app?', "No. It's made by a student and isn't affiliated with NUS or Instructure. It only reads the calendar feed Canvas already gives you."],
   ['What does it do in my calendar?', 'It makes one calendar, "NUS semester", with your deadlines, classes and exams, and keeps it up to date. You can show or hide it with one tick. Your other calendars and events are never touched.'],
@@ -495,7 +485,7 @@ const FaqList: FC<{ faq?: [string, string][] }> = ({ faq = FAQ }) => (
     {faq.map(([q, a]) => (
       <>
         <details class="faq">
-          <summary class="title-2">{q}<span class="faq-icon" aria-hidden="true"><Icon name="plus" size={16} /></span></summary>
+          <summary class="title-2">{q}<span class="faq-icon" aria-hidden="true"><Icon name="plus" size={20} /></span></summary>
           <p class="body-3">{a}</p>
         </details>
         <div class="divider" />
@@ -526,7 +516,7 @@ export const Landing: FC<{ origin?: string; pendingSetup?: boolean }> = ({ origi
 
       <section class="reveal" aria-labelledby="what">
         <div class="section-head">
-          <h2 id="what" class="heading-2 section-title">Your whole semester, sorted</h2>
+          <h2 id="what" class="heading-2 section-title">What goes into your calendar</h2>
           <p class="body-7">Deadlines from Canvas, classes and exams from NUSMods, all in the calendar you already check.</p>
         </div>
         <div class="features">
@@ -611,14 +601,6 @@ export const Landing: FC<{ origin?: string; pendingSetup?: boolean }> = ({ origi
             </div>
             <span class="mock-btn button-md">Continue</span>
           </div>
-        </div>
-      </section>
-
-      <section aria-label="Why Semsync">
-        <div class="band">
-          <p class="tagline heading-2">
-            {words('Stop copying deadlines into your calendar.')}<br />{words('Spend that time actually doing them.')}
-          </p>
         </div>
       </section>
 
@@ -780,17 +762,9 @@ function timeAgo(ms: number) {
 const UpcomingList: FC<{ upcoming: UpcomingRow[]; failed?: boolean; now?: number }> = ({ upcoming, failed, now = Date.now() }) => {
   if (upcoming.length === 0) {
     return failed ? (
-      <div class="empty failed">
-        <Icon name="warningCircle" size={24} />
-        <p class="title-3">Couldn't load your events</p>
-        <p class="body-6">The last sync didn't finish. Try Sync now, or check your links.</p>
-      </div>
+      <p class="empty failed body-6"><Icon name="warningCircle" size={18} />Couldn't load your events. The last sync didn't finish: try Sync now, or check your links.</p>
     ) : (
-      <div class="empty">
-        <Icon name="checkCircle" size={24} />
-        <p class="title-3">Nothing due soon</p>
-        <p class="body-6">New Canvas deadlines and exams show up here within the hour.</p>
-      </div>
+      <p class="empty body-6">Nothing due soon. New Canvas deadlines and exams show up here within the hour.</p>
     );
   }
   const today = dayKey(now);
@@ -877,8 +851,7 @@ const Destination: FC<{ user: UserRow; csrf: string; addUrl: string | null; need
 }) => {
   if (user.mode === 'feed') {
     return (
-      <section class="panel panel-glow dest" aria-labelledby="dest">
-        <span class="dest-icon"><Icon name="calendarPlus" /></span>
+      <section class="panel dest" aria-labelledby="dest">
         <h2 id="dest" class="title-1">In your calendar app</h2>
         <p class="caption-2 text-secondary">Subscribe to this private link in Outlook, Apple Calendar or any calendar app, and it keeps itself up to date.</p>
         {feedLink && <FeedLink url={feedLink} />}
@@ -888,7 +861,7 @@ const Destination: FC<{ user: UserRow; csrf: string; addUrl: string | null; need
   }
   if (user.mode === 'main' && needsConnect) {
     return (
-      <section class="panel panel-glow dest" aria-labelledby="dest">
+      <section class="panel dest" aria-labelledby="dest">
         <span class="dest-icon warn"><Icon name="warningCircle" /></span>
         <h2 id="dest" class="title-1">Connect Google Calendar</h2>
         <p class="caption-2 text-secondary">Semsync needs your OK to make its "NUS semester" calendar. It can't see your other calendars.</p>
@@ -904,8 +877,7 @@ const Destination: FC<{ user: UserRow; csrf: string; addUrl: string | null; need
   }
   if (user.mode === 'main') {
     return (
-      <section class="panel panel-glow dest" aria-labelledby="dest">
-        <span class="dest-icon"><Icon name="calendarCheck" /></span>
+      <section class="panel dest" aria-labelledby="dest">
         <h2 id="dest" class="title-1">In your Google Calendar</h2>
         <p class="caption-2 text-secondary">Look for "NUS semester" under My calendars. Every deadline and exam already has reminders.</p>
         <MyCalendars owner={user.name || user.email.split('@')[0]} />
@@ -919,8 +891,7 @@ const Destination: FC<{ user: UserRow; csrf: string; addUrl: string | null; need
   }
   // Set up before the shared-calendar option went away: still syncing there, with a one-step way into their own calendar.
   return (
-    <section class="panel panel-glow dest" aria-labelledby="dest">
-      <span class="dest-icon"><Icon name="calendarPlus" /></span>
+    <section class="panel dest" aria-labelledby="dest">
       <h2 id="dest" class="title-1">Move to your own calendar</h2>
       <p class="caption-2 text-secondary">Your events are in a shared calendar, which can't have reminders or module colours. Moving takes one step.</p>
       <div class="dest-actions">
@@ -943,7 +914,7 @@ const Sources: FC<{ user: UserRow; dev?: boolean }> = ({ user, dev }) => {
       <h2 id="sources" class="title-2">Your links</h2>
       <div class="sources">
         <div class="source">
-          <span class="source-icon"><Icon name="graduationCap" size={18} /></span>
+          <span class="source-icon source-logo"><CanvasMark size={20} /></span>
           <div>
             <p class="title-4">Canvas</p>
             <p class="caption-2 text-secondary">{user.canvas_feed_enc ? 'Calendar feed connected' : 'Not added'}</p>
@@ -951,7 +922,7 @@ const Sources: FC<{ user: UserRow; dev?: boolean }> = ({ user, dev }) => {
           {user.canvas_feed_enc && <Icon name="checkCircle" size={18} cls="ok" />}
         </div>
         <div class="source">
-          <span class="source-icon"><Icon name="calendarDots" size={18} /></span>
+          <span class="source-icon source-logo"><NusmodsMark size={20} /></span>
           <div>
             <p class="title-4">NUSMods</p>
             {modules.length ? (
@@ -1068,17 +1039,17 @@ const SetupSummary: FC<{ user: UserRow }> = ({ user }) => {
   const courses = jsonList<Course>(user.courses);
   const hidden = new Set(jsonList<string>(user.hidden_courses));
   const shown = courses.filter((c) => !hidden.has(c.key)).length;
-  const rows: [IconName, string, string][] = [
-    ['graduationCap', 'Canvas', user.canvas_feed_enc ? 'Connected' : 'Not added'],
-    ['calendarDots', 'NUSMods', user.nusmods_link ? 'Connected' : 'Not added'],
-    ['check', 'Courses', courses.length ? `${shown} of ${courses.length} included` : 'After the next sync'],
+  const rows: [Child, string, string][] = [
+    [<CanvasMark size={18} />, 'Canvas', user.canvas_feed_enc ? 'Connected' : 'Not added'],
+    [<NusmodsMark size={18} />, 'NUSMods', user.nusmods_link ? 'Connected' : 'Not added'],
+    [<Icon name="check" size={18} />, 'Courses', courses.length ? `${shown} of ${courses.length} included` : 'After the next sync'],
   ];
   return (
     <section class="panel dash-summary" aria-labelledby="setup-title">
       <h2 id="setup-title" class="title-2">Your setup</h2>
       <ul class="summary">
         {rows.map(([icon, label, value]) => (
-          <li><Icon name={icon} size={18} /><span class="body-5">{label}</span><span class="caption-2 text-secondary">{value}</span></li>
+          <li>{icon}<span class="body-5">{label}</span><span class="caption-2 text-secondary">{value}</span></li>
         ))}
       </ul>
       <div class="sources-actions"><a class="btn btn-secondary button-md" href="/settings"><Icon name="gear" size={18} />Settings</a></div>
@@ -1135,7 +1106,7 @@ export const Home: FC<{
         ))}
 
         <div class="dash">
-          <section class="panel dash-agenda" aria-labelledby="coming-up">
+          <section class={`panel dash-agenda${upcoming.length ? '' : ' is-empty'}`} aria-labelledby="coming-up">
             <div class="panel-head">
               <h2 id="coming-up" class="title-1">Coming up</h2>
               <span class="caption-2 text-secondary">{countsLine(counts)} this semester</span>

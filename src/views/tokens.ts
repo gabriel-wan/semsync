@@ -118,21 +118,16 @@ export const SYSTEM_SPEC: Record<string, Spec> = {
   'surface-warning-hover': { ref: Y('700') },
   'surface-success': { ref: Gr('500') },
   'surface-success-subtle': { ref: Gr('100'), dark: Gr('850'), darkWhy: SUBTLE_DARK },
-  'surface-brand': { ref: P('500'), added: 'The brand electric blue in both modes: the logo mark and the tagline band.' },
-  // The glow behind the hero calendar, the tagline band and the closing panel is the site's one deliberate break from
-  // the skills' "no background gradients" rule, at the user's request: flat panels read as artificial next to the light
-  // the inspiration sites use. Text, buttons and cards stay flat, and no text sits on the glow itself.
+  'surface-brand': { ref: P('500'), added: 'The brand electric blue in both modes: the logo mark, checked tiles and switches, the Google Calendar tile in the hero, and the progress line in the link guides.' },
+  // Pages are flat: the background glows (behind the hero calendar, in a slogan band and the closing panel) came out
+  // after a design review found they read as generic. What's left of these two is small and does a job.
   'surface-glow-brand': {
-    ref: P('500'), light: P('300'), lightWhy: 'A paler blue keeps the glow soft on a light page.',
-    added: 'The cool half of the soft glow behind the hero calendar.',
-  },
-  'surface-glow-deep': {
-    ref: ['secondary', '500'],
-    added: 'Deep blue shading in one corner of the electric blue tagline band, so it has depth instead of reading as one flat colour.',
+    ref: P('500'), light: P('300'), lightWhy: 'A paler blue keeps the light soft on a light page.',
+    added: 'The faint spotlight that follows the pointer over the hero calendar, a highlight in the link guides, and the account button\'s focus ring.',
   },
   'surface-glow-accent': {
-    ref: A('500'), light: A('300'), lightWhy: 'A peach keeps the glow soft on a light page.',
-    added: 'The warm half of the glow, and the glow around a primary button on hover.',
+    ref: A('500'), light: A('300'), lightWhy: 'A peach keeps the light soft on a light page.',
+    added: 'The warm light in the link preview image (the og card), which is a picture rather than a page.',
   },
   'surface-white': {
     ref: G('00'), light: G('00'), lightWhy: 'White in both modes.',
@@ -187,8 +182,6 @@ export const SYSTEM_SPEC: Record<string, Spec> = {
     ref: G('950'), light: G('950'), lightWhy: 'Near black on the orange in both modes.',
     added: 'Labels on surface-accent (exam chips, today). White on the orange is under 3:1; near black passes 4.5:1.',
   },
-  'text-hero-from': { ref: G('00'), added: 'Hero gradient start. The skill requires both gradient stops to be variables but does not name them.' },
-  'text-hero-to': { ref: G('400'), added: 'Hero gradient end (#9B9B9B dark, #666666 light, as the skill specifies).' },
 
   // Icon
   'icon-default': { ref: G('50') },

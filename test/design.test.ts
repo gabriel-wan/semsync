@@ -68,7 +68,6 @@ const PAIRS: [string, string, number][] = [
   ['icon-error', 'surface-error-subtle', 3],
   ['icon-info', 'surface-info-subtle', 3],
   ['icon-subtle', 'surface-primary-subtle', 3],
-  ['text-hero-to', 'surface-primary', 3],
   ['text-on-accent', 'surface-accent', 4.5],
   ['icon-secondary', 'surface-primary-subtle', 3],
   ['text-on-brand', 'surface-brand', 3],

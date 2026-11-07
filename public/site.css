@@ -129,7 +129,7 @@ code,
   align-items: center;
   gap: var(--space-200);
   padding: var(--space-50) var(--space-50) var(--space-50) var(--space-200);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-12);
   border: 1px solid var(--border-primary);
   box-shadow: 0 8px 24px var(--overlay-xs);
   background: color-mix(in srgb, var(--surface-primary-subtle) 80%, transparent);
@@ -167,7 +167,7 @@ code,
   align-items: center;
   min-height: 44px;
   padding: 0 var(--space-200);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-8);
   text-decoration: none;
   color: var(--text-secondary);
   transition:
@@ -186,7 +186,7 @@ code,
 }
 
 .nav-bar .btn {
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-8);
 }
 
 @media (max-width: 640px) {
@@ -214,7 +214,7 @@ code,
   height: 44px;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-8);
   background: transparent;
   color: var(--icon-secondary);
   cursor: pointer;
@@ -251,6 +251,17 @@ code,
     opacity: 0;
     transform: rotate(90deg) scale(0.5);
   }
+}
+
+/* On the black page a shadow reads as a grey haze, so the hero's reminder keeps only its border in dark mode. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .showcase .toast {
+    box-shadow: none;
+  }
+}
+
+:root[data-theme='dark'] .showcase .toast {
+  box-shadow: none;
 }
 
 :root[data-theme='dark'] .theme-toggle .icon-sun {
@@ -372,7 +383,7 @@ code,
   flex: none;
   width: 22px;
   height: 22px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
   display: grid;
   place-items: center;
   border: 1.5px solid var(--border-action-secondary);
@@ -464,7 +475,7 @@ code,
   gap: var(--space-75);
   min-height: 44px;
   padding: var(--space-75) var(--space-200);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-8);
   border: 1px solid transparent;
   white-space: nowrap;
   font-family: inherit;
@@ -498,30 +509,13 @@ code,
   outline-offset: 2px;
 }
 
-/* Primary buttons are white on dark pages and near black on light ones. On hover and focus an orange glow fades in:
-   it's a pseudo element whose opacity animates, so only opacity and transform ever animate. */
+/* Primary buttons are white on dark pages and near black on light ones. */
 .btn-primary {
   position: relative;
   background: var(--action-primary);
   color: var(--text-inverted);
 }
 
-.btn-primary::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0;
-  box-shadow: 0 8px 28px color-mix(in srgb, var(--surface-glow-accent) 55%, transparent);
-  transition: opacity 300ms var(--ease);
-}
-
-.btn-primary:hover::after,
-.btn-primary:focus-visible::after,
-.btn-primary.is-hover::after {
-  opacity: 1;
-}
 
 .btn-primary:hover,
 .btn-primary.is-hover {
@@ -623,7 +617,7 @@ code,
    black (light mode) pill the G sits on a white disc; on the white pill the disc simply blends in. */
 .btn-signin {
   padding: var(--space-75) var(--space-300) var(--space-75) var(--space-75);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-8);
 }
 
 .btn-signin:hover {
@@ -633,7 +627,7 @@ code,
 .g-badge {
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-4);
   display: grid;
   place-items: center;
   background: var(--surface-white);
@@ -706,10 +700,7 @@ code,
   margin: 0;
   font-size: clamp(44px, 4.4vw, 60px);
   line-height: 1.04;
-  color: transparent;
-  -webkit-background-clip: text;
-  background-clip: text;
-  background-image: linear-gradient(90deg, var(--text-hero-from), var(--text-hero-to));
+  color: var(--text-primary);
 }
 
 .hero-sub {
@@ -798,9 +789,6 @@ code,
   place-items: center;
   background: var(--surface-primary-subtle);
   color: var(--icon-secondary);
-  box-shadow:
-    0 1px 2px var(--overlay-xs),
-    0 6px 16px var(--overlay-xs);
 }
 
 .flow-dest .flow-icon {
@@ -849,23 +837,8 @@ code,
   padding: var(--space-600);
 }
 
-/* The centres sit where the calendar card ends, so the light shows around it rather than hiding behind it. Each glow
-   fades out fully inside the layer, so there are no hard edges, and the layer stops before the next section's heading. */
-.showcase::before {
-  content: '';
-  position: absolute;
-  inset: 6% 0 -6%;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(15% 44% at 86% 55%, color-mix(in srgb, var(--surface-glow-accent) 85%, transparent), transparent),
-    radial-gradient(15% 46% at 14% 52%, color-mix(in srgb, var(--surface-glow-brand) 95%, transparent), transparent),
-    radial-gradient(34% 12% at 36% 88%, color-mix(in srgb, var(--surface-glow-brand) 60%, transparent), transparent),
-    radial-gradient(22% 11% at 70% 89%, color-mix(in srgb, var(--surface-glow-accent) 55%, transparent), transparent);
-}
-
-/* With a mouse, the hero follows the pointer a little (script below): the glow drifts after it, the calendar tilts a
-   few degrees toward it with a faint spotlight, and the reminder floats a bit more than the calendar, for depth.
+/* With a mouse, the hero follows the pointer a little (script below): the calendar tilts a few degrees toward it with
+   a faint spotlight, and the reminder floats a bit more than the calendar, for depth.
    --gx and --gy run from -1 to 1; they stay 0 on touch screens and with reduced motion, so nothing moves there. */
 .showcase {
   --gx: 0;
@@ -873,10 +846,6 @@ code,
   --spot: 0;
   --sx: 50%;
   --sy: 50%;
-}
-
-.showcase::before {
-  translate: calc(var(--gx) * 32px) calc(var(--gy) * 20px);
 }
 
 .cal {
@@ -907,12 +876,11 @@ code,
 .cal {
   max-width: 880px;
   margin: 0 auto;
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-12);
   background: var(--surface-primary-subtle);
   border: 1px solid var(--border-primary);
   overflow: hidden;
   text-align: left;
-  box-shadow: 0 24px 48px var(--overlay-md);
 }
 
 .cal-head {
@@ -1018,7 +986,7 @@ code,
   gap: var(--space-100);
   align-items: center;
   padding: var(--space-100) var(--space-200);
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-12);
   text-align: left;
   background: var(--surface-primary-subtle);
   border: 1px solid var(--border-primary);
@@ -1029,7 +997,7 @@ code,
   flex: none;
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-8);
   display: grid;
   place-items: center;
   background: var(--surface-accent-subtle);
@@ -1096,10 +1064,9 @@ code,
   flex-direction: column;
   gap: var(--space-100);
   padding: var(--space-300);
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-12);
   border: 1px solid var(--border-primary);
   background: var(--surface-primary-subtle);
-  box-shadow: 0 16px 32px var(--overlay-md);
   transform: translateY(12px) scale(0.97);
   transition: transform 400ms var(--ease);
 }
@@ -1175,7 +1142,7 @@ code,
   min-height: 40px;
   margin-top: var(--space-50);
   padding: 0 var(--space-200);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-8);
   background: var(--action-primary);
   color: var(--text-inverted);
   transition:
@@ -1338,18 +1305,14 @@ header.hero + section {
 .feature {
   display: flex;
   flex-direction: column;
-  padding: var(--space-100);
-  border-radius: var(--radius-24);
-  background: var(--surface-primary-subtle);
-  border: 1px solid var(--border-primary);
 }
 
 .feature h3 {
-  margin: var(--space-300) var(--space-200) 0;
+  margin: var(--space-200) 0 0;
 }
 
 .feature > p {
-  margin: var(--space-75) var(--space-200) var(--space-200);
+  margin: var(--space-75) 0 0;
   color: var(--text-secondary);
 }
 
@@ -1393,7 +1356,6 @@ header.hero + section {
   gap: var(--space-25);
   text-align: left;
   padding: var(--space-75) var(--space-100);
-  box-shadow: 0 8px 20px var(--overlay-xs);
 }
 
 .was {
@@ -1460,7 +1422,7 @@ header.hero + section {
   align-items: center;
   gap: var(--space-50);
   padding: var(--space-50) var(--space-100);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
   background: var(--surface-primary-subtle);
   color: var(--text-primary);
 }
@@ -1501,28 +1463,19 @@ header.hero + section {
 
 .step-no {
   flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-full);
+  width: 24px;
+  height: 28px;
   display: grid;
-  place-items: center;
-  background: var(--surface-info-subtle);
-  color: var(--text-info);
+  place-items: center start;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-.mock {
-  padding: var(--space-300);
-  border-radius: var(--radius-24);
-  background: var(--surface-info-subtle);
-}
-
-/* Inside the 24px panel with 24px padding the formula gives 24 - 24 = 0, and below 2 the skill leaves the inner shape unchanged, so the card keeps 16. */
 .mock-card {
   padding: var(--space-300);
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-12);
   background: var(--surface-primary-subtle);
   border: 1px solid var(--border-primary);
-  box-shadow: 0 16px 32px var(--overlay-xs);
 }
 
 .mock-field {
@@ -1580,7 +1533,7 @@ header.hero + section {
   display: none;
   gap: var(--space-50);
   padding: var(--space-50);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-12);
   width: fit-content;
   max-width: 100%;
   background: var(--surface-secondary);
@@ -1597,7 +1550,7 @@ header.hero + section {
   min-height: 44px;
   padding: 0 var(--space-200);
   border: 0;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-8);
   background: transparent;
   color: var(--text-secondary);
   font-family: inherit;
@@ -1716,16 +1669,12 @@ header.hero + section {
 }
 
 .guide-step .step-no {
-  width: 32px;
-  height: 32px;
-  transition:
-    background-color 300ms var(--ease),
-    color 300ms var(--ease);
+  height: 24px;
+  transition: color 300ms var(--ease);
 }
 
 .guide-step[aria-current='step'] .step-no {
-  background: var(--surface-brand);
-  color: var(--text-on-brand);
+  color: var(--text-info);
 }
 
 .guide-title,
@@ -1780,18 +1729,16 @@ header.hero + section {
 .guide-screen {
   position: relative;
   aspect-ratio: 16 / 10;
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-12);
   overflow: hidden;
   background: var(--surface-primary-subtle);
   border: 1px solid var(--border-primary);
-  box-shadow: 0 24px 48px var(--overlay-md);
   display: flex;
   flex-direction: column;
 }
 
 .compact .guide-screen {
   border-radius: var(--radius-12);
-  box-shadow: 0 12px 24px var(--overlay-xs);
 }
 
 .gs-bar {
@@ -1803,23 +1750,13 @@ header.hero + section {
   background: var(--surface-secondary);
 }
 
-.gs-dots {
-  display: flex;
-  gap: var(--space-50);
-}
 
-.gs-dots i {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  background: var(--border-primary-light);
-}
 
 .gs-url {
   flex: 1;
   min-width: 0;
   padding: var(--space-25) var(--space-100);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
   background: var(--surface-primary-subtle);
   color: var(--text-secondary);
   overflow: hidden;
@@ -1845,7 +1782,7 @@ header.hero + section {
   background: color-mix(in srgb, var(--surface-success) 50%, transparent);
 }
 
-/* The thing to click glows while the pointer is on it. */
+/* The thing to click is ringed while the pointer is on it. */
 .is-target {
   transition:
     box-shadow 300ms var(--ease),
@@ -1855,9 +1792,7 @@ header.hero + section {
 .guide[data-at='0'] [data-target='0'],
 .guide[data-at='1'] [data-target='1'],
 .guide[data-at='2'] [data-target='2'] {
-  box-shadow:
-    0 0 0 2px var(--border-action-primary),
-    0 0 16px color-mix(in srgb, var(--surface-glow-brand) 60%, transparent);
+  box-shadow: 0 0 0 2px var(--border-action-primary);
 }
 
 .gs-canvas {
@@ -1933,17 +1868,7 @@ header.hero + section {
   min-width: 0;
 }
 
-.gs-mini {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--space-25);
-}
 
-.gs-mini i {
-  aspect-ratio: 1;
-  border-radius: var(--radius-full);
-  background: var(--surface-secondary);
-}
 
 .gs-line {
   display: flex;
@@ -1989,7 +1914,7 @@ header.hero + section {
 
 .gs-tabs span {
   padding: var(--space-25) var(--space-75);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
 }
 
 .gs-tab-on {
@@ -2116,7 +2041,7 @@ header.hero + section {
   align-items: center;
   gap: var(--space-25);
   padding: var(--space-25) var(--space-75);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
   background: var(--surface-success-subtle);
   color: var(--text-primary);
   opacity: 0;
@@ -2229,58 +2154,16 @@ header.hero + section {
   color: var(--text-secondary);
 }
 
-/* Tagline reveal: its own large type moment on the electric blue, shaded deep blue in one corner and faintly lit in the
-   opposite one, both clear of the text. */
-.band {
-  border-radius: var(--radius-24);
-  color: var(--text-on-brand);
-  padding: var(--space-900) var(--space-600);
-  text-align: center;
-  background:
-    radial-gradient(60% 100% at 100% 100%, color-mix(in srgb, var(--surface-glow-deep) 80%, transparent), transparent),
-    radial-gradient(40% 70% at 0% 0%, color-mix(in srgb, var(--surface-white) 14%, transparent), transparent),
-    var(--surface-brand);
-}
-
-.tagline {
-  max-width: 680px;
-  margin: 0 auto;
-  text-wrap: balance;
-}
-
-.tagline .w {
-  opacity: 0.3;
-  transition: opacity 600ms var(--ease);
-}
-
-.tagline .w.lit {
-  opacity: 1;
-}
-
-@media (max-width: 640px) {
-  .band {
-    padding: var(--space-700) var(--space-300);
-  }
-
-  .tagline {
-    font-size: 30px;
-    line-height: 36px;
-  } /* heading-4 on phones */
-}
-
 /* The closing card: the pitch on the left, the button on the right, both on one left edge when stacked. */
 .final {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-600);
-  border-radius: var(--radius-24);
+  border-radius: var(--radius-12);
   padding: var(--space-700) var(--space-600);
   border: 1px solid var(--border-primary);
-  background:
-    radial-gradient(45% 55% at 32% 125%, color-mix(in srgb, var(--surface-glow-brand) 80%, transparent), transparent),
-    radial-gradient(32% 45% at 72% 125%, color-mix(in srgb, var(--surface-glow-accent) 65%, transparent), transparent),
-    var(--surface-primary-subtle);
+  background: var(--surface-primary-subtle);
 }
 
 .final .section-title {
@@ -2313,11 +2196,6 @@ header.hero + section {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tagline .w {
-    opacity: 1;
-    transition: none;
-  }
-
   .reveal {
     opacity: 1;
     transform: none;
@@ -2353,15 +2231,14 @@ details.faq summary::-webkit-details-marker {
   display: none;
 }
 
+/* The plus on each question: just the mark, turning into a cross when the answer is open. */
 .faq-icon {
   flex: none;
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-full);
   display: grid;
   place-items: center;
-  background: var(--surface-info-subtle);
-  color: var(--icon-info);
+  color: var(--icon-secondary);
   transition: transform 500ms var(--ease);
 }
 
@@ -2743,14 +2620,15 @@ footer {
 /* List states: Loading (skeleton shaped like the rows), Empty (getting started), Error */
 .empty {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
   gap: var(--space-75);
-  padding: var(--space-400) var(--space-200);
+  margin: var(--space-200) 0 0;
+  color: var(--text-secondary);
 }
 
 .empty svg {
+  flex: none;
+  margin-top: var(--space-25);
   color: var(--icon-subtle);
 }
 
@@ -2758,9 +2636,6 @@ footer {
   color: var(--icon-error);
 }
 
-.empty .body-6 {
-  color: var(--text-secondary);
-}
 
 .skeleton {
   background: var(--surface-secondary-subtle);
@@ -2823,23 +2698,19 @@ footer {
   gap: var(--space-100);
   margin: 0;
   padding: var(--space-50) var(--space-50) var(--space-50) var(--space-200);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-12);
   border: 1px solid var(--border-primary);
   background: var(--surface-primary-subtle);
   color: var(--text-secondary);
 }
 
-.sync-pill .btn {
-  border-color: transparent;
-  background: var(--action-secondary);
-}
-
-.sync-pill .btn:hover {
-  background: var(--action-secondary-hover);
-}
-
 /* Both columns end on the same line: the agenda stretches to the side column's height, and the last side card stretches
    to the agenda's, with its button pinned to the bottom. */
+/* With nothing coming up, the agenda is only as tall as its one line. */
+.dash-agenda.is-empty {
+  align-self: start;
+}
+
 .dash {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
@@ -2908,7 +2779,7 @@ footer {
 .panel {
   min-width: 0;
   padding: var(--space-300);
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-12);
   border: 1px solid var(--border-primary);
   background: var(--surface-primary-subtle);
 }
@@ -2928,12 +2799,6 @@ footer {
 }
 
 /* The calendar card gets the same soft blue light as the landing page, so the main action stands out. */
-.panel-glow {
-  background:
-    radial-gradient(80% 90% at 100% 0%, color-mix(in srgb, var(--surface-glow-brand) 30%, transparent), transparent),
-    var(--surface-primary-subtle);
-}
-
 .dest-icon {
   width: 40px;
   height: 40px;
@@ -3035,7 +2900,7 @@ footer {
 .agenda-num {
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-8);
   display: grid;
   place-items: center;
   color: var(--text-primary);
@@ -3062,9 +2927,6 @@ footer {
   overflow-wrap: anywhere;
 }
 
-.panel .empty {
-  padding: var(--space-500) var(--space-200);
-}
 
 .sources {
   display: flex;
@@ -3095,6 +2957,11 @@ footer {
   color: var(--icon-info);
 }
 
+/* The real Canvas and NUSMods marks keep their own colours on white, as on the landing page. */
+.source-logo {
+  background: none;
+}
+
 .source .ok {
   flex: none;
   margin-top: var(--space-75);
@@ -3110,7 +2977,7 @@ footer {
 
 .mod {
   padding: var(--space-25) var(--space-75);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
   background: var(--surface-secondary);
   color: var(--text-primary);
 }
@@ -3181,7 +3048,7 @@ legend.step-head {
   align-items: center;
   margin-left: var(--space-75);
   padding: var(--space-25) var(--space-75);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
   background: var(--surface-secondary);
   color: var(--text-secondary);
   vertical-align: middle;
@@ -3749,7 +3616,7 @@ legend.step-head {
   margin: 0;
   width: 260px;
   padding: var(--space-100);
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-12);
   border: 1px solid var(--border-primary);
   background: var(--surface-primary-subtle);
   color: var(--text-primary);
@@ -3854,7 +3721,7 @@ legend.step-head {
 .confirm {
   width: min(460px, calc(100vw - 32px));
   padding: var(--space-300);
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-12);
   border: 1px solid var(--border-primary);
   background: var(--surface-primary-subtle);
   color: var(--text-primary);
@@ -3892,7 +3759,7 @@ legend.step-head {
 .confirm-icon {
   width: 48px;
   height: 48px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-12);
   display: grid;
   place-items: center;
   background: var(--surface-error-subtle);
@@ -3950,7 +3817,7 @@ legend.step-head {
 .mode-panel {
   background: var(--surface-primary);
   color: var(--text-primary);
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-12);
   padding: var(--space-300);
   border: 1px solid var(--border-primary);
   min-width: 0;
