@@ -28,7 +28,8 @@ With `DEV_LOGIN=1` and `FAKE_GOOGLE=1` in `.env.local` (the example file has the
 - sign in as any email address,
 - type `sample` as the Canvas link to use a built-in sample feed,
 - see what Semsync wrote to the "calendar" at `/dev/calendar`,
-- and see every design token and component state at `/foundations`.
+- see every design token and component state at `/foundations`,
+- and connect an AI assistant to `http://localhost:8787/mcp` (see [docs/mcp.md](docs/mcp.md#trying-it-locally)).
 
 `npm run dev` restarts when files change. If a change doesn't show up, stop it and start it again.
 
@@ -50,13 +51,14 @@ Both must pass before a change goes in. The tests also check the design and the 
 
 | Where | What |
 | --- | --- |
-| `src/app.tsx` | Every route: pages, sign in, setup, sync, the subscribe link, the scheduled run |
+| `src/app.tsx` | Every route: pages, sign in, setup, sync, the subscribe link, AI assistants, the scheduled run |
 | `src/views/` | The pages (`pages.tsx`, server rendered with Hono JSX), design tokens (`tokens.ts`), icons |
 | `public/site.css`, `public/app.js` | The styles and the browser script, served as they are |
 | `src/lib/sync.ts` | The sync: what should be in the calendar, what changed, and sending only that to Google |
 | `src/lib/canvas.ts`, `nusmods.ts` | Reading the Canvas feed and NUSMods timetables |
 | `src/config.ts`, `src/lib/holidays.ts` | NUS term dates (worked out, never typed in) and public holidays |
 | `src/lib/feed.ts` | The `.ics` file behind subscribe links for Outlook and Apple Calendar |
+| `src/lib/mcp.ts`, `oauth.ts` | The read only MCP server for AI assistants, and how apps sign in to it ([docs/mcp.md](docs/mcp.md)) |
 | `src/lib/db.ts`, `migrations/` | Database queries and the schema |
 
 How a sync works:

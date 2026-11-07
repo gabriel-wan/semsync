@@ -7,7 +7,8 @@ Guidance for AI agents working on this codebase.
 Semsync puts NUS students' Canvas deadlines, NUSMods classes and exams into their calendar and keeps them up to date
 every hour. It's a server rendered TypeScript web app on Vercel, live at [semsync.live](https://semsync.live). People
 sign in with Google, paste two links, and Semsync syncs an "NUS semester" calendar in their Google account, or serves
-it as a subscribe link for Outlook and Apple Calendar.
+it as a subscribe link for Outlook and Apple Calendar. They can also let an AI assistant such as Claude or ChatGPT read
+their semester, through a read only MCP server (`docs/mcp.md`).
 
 The people using it are students, not developers. Everything on screen should make sense to them.
 
@@ -15,7 +16,7 @@ The people using it are students, not developers. Everything on screen should ma
 
 | Path | Purpose |
 | --- | --- |
-| `src/app.tsx` | Every route: pages, Google sign in, setup, settings, sync, subscribe links (`/feed/…`), the scheduled run (`/api/cron`) |
+| `src/app.tsx` | Every route: pages, Google sign in, setup, settings, sync, subscribe links (`/feed/…`), AI assistants (`/mcp`, `/oauth/…`), the scheduled run (`/api/cron`) |
 | `src/views/pages.tsx` | All pages, as Hono JSX rendered on the server |
 | `src/views/styles.ts` | What each page carries inline: the tokens as CSS variables, spacing helpers, and the theme script that runs before the page draws |
 | `public/site.css` | Every style rule, using only the token variables |
@@ -33,6 +34,7 @@ The people using it are students, not developers. Everything on screen should ma
 | `migrations/` | Numbered SQL migrations, applied once each |
 | `test/` | Vitest tests, including a real in-memory Postgres |
 | `docs/deploying.md` | Running your own copy: Google Cloud, Vercel, Supabase, the hourly sync, a custom domain |
+| `docs/mcp.md` | The MCP server for developers: tools, sign in, trying it locally |
 
 ## Commands
 
@@ -89,10 +91,10 @@ Copy `.env.example` to `.env.local` first. With `DEV_LOGIN=1` and `FAKE_GOOGLE=1
 
 - Canvas links, Google tokens and subscribe secrets are like passwords: store them encrypted, never log them, never
   put them in a URL other than the subscribe link itself.
-- AI assistants only read, through `/mcp`. Keep every tool read only, and never return links, emails or Canvas descriptions:
-  event titles come from other people, and an assistant may follow instructions hidden in them. Codes and passes are kept
-  as hashes, bound to `/mcp`, and only for the return addresses in `HOSTED_REDIRECTS` or loopback. An assistant's logo
-  comes from its return address (`verifiedBrand`), never its name, which any app can fake.
+- AI assistants only read, through `/mcp`. Keep every tool read only, and never return links, emails or Canvas
+  descriptions: event titles come from other people, and an assistant may follow instructions hidden in them. Codes and
+  passes are kept as hashes, bound to `/mcp`, and only for the return addresses in `HOSTED_REDIRECTS` or loopback. An
+  assistant's logo comes from its return address (`verifiedBrand`), never its name, which any app can fake.
 - Every POST checks the CSRF token. Canvas links must stay on `ALLOWED_CANVAS_HOSTS`.
 - Semsync only changes events it made, in calendars it made. Keep it that way.
 - See [SECURITY.md](SECURITY.md).

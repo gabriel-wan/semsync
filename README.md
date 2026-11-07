@@ -58,20 +58,7 @@ Then ask things like "what's due this week?". It works whichever calendar you us
 deadlines, classes, exams and modules, never your links or email. What it reads goes to the company that makes it,
 under their privacy policy. Remove it any time in Settings.
 
-For developers, it has three tools. Each one only reads, and every input is optional:
-
-- **`upcoming`**: what's coming up from today (deadlines, Canvas events, classes and exams), for questions like
-  "what do I have tomorrow?". `days` sets how many days, counting today (1 to 120, default 7), and `types` keeps only
-  some of `deadline`, `exam`, `class` and `event`.
-- **`week`**: everything in one week, Monday to Sunday, with its NUS name such as "Week 10" or "Recess week". Ask by
-  `week` ("Week 1" to "Week 13", "Recess week", "Reading week", "Exams", "this week", "next week" or "last week") or by
-  `date` (any day in that week, as `YYYY-MM-DD`). With neither, it's this week.
-- **`courses`**: each module, whether it's in the calendar, how many deadlines are still ahead, the next one, and the
-  final exam. It takes no inputs.
-
-Each event comes back as its title, type, module code, date, weekday, start time (none for all day events) and NUS
-week, in Singapore time. Links, rooms and Canvas descriptions never leave Semsync. Apps get in with OAuth 2.1, using
-dynamic client registration and PKCE.
+For developers: the tools, what they return and how apps sign in are in **[docs/mcp.md](docs/mcp.md)**.
 
 ## Questions or problems
 

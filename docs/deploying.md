@@ -99,6 +99,7 @@ before it made its own calendar), or uploading an app logo in **Branding**, whic
 
 Keep the old `.vercel.app` address working (Vercel does by default): subscribe links people already added and existing
 sign ins use it. Links Semsync puts in calendars use the production domain on their own, or whatever `APP_URL` says.
+AI assistants connect to that address too (`/mcp`), so ones connected before you change it have to connect again.
 
 A brand new domain can take a while to show up on some networks: a school's own DNS may remember "this domain doesn't
 exist" for an hour, and some block domains for their first few weeks. Once yours loads on the networks your users are

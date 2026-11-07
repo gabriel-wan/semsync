@@ -23,7 +23,7 @@ What you thought would happen instead.
 
 **Where**
 
-- Part of Semsync (setup, your calendar page, Settings, a subscribe link):
+- Part of Semsync (setup, your calendar page, Settings, a subscribe link, an AI assistant):
 - Calendar app (Google Calendar, Outlook, Apple Calendar, Notion Calendar):
 - Browser and device:
 

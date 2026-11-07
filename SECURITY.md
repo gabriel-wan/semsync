@@ -6,7 +6,8 @@ you for reporting responsibly.
 ## Security Model
 
 Semsync is a web app at [semsync.live](https://semsync.live). People sign in with Google, give it their Canvas
-calendar feed link and NUSMods share link, and Semsync keeps an "NUS semester" calendar up to date for them.
+calendar feed link and NUSMods share link, and Semsync keeps an "NUS semester" calendar up to date for them. They can
+also let an AI assistant read that semester through Semsync's MCP server ([docs/mcp.md](docs/mcp.md)).
 
 ### What Semsync holds
 
@@ -18,8 +19,10 @@ calendar feed link and NUSMods share link, and Semsync keeps an "NUS semester" c
 | NUSMods share link | Plain. It only lists the classes someone picked |
 | Subscribe link secret (Outlook, Apple Calendar) | Encrypted to show it again, and as a SHA-256 hash to look it up |
 | Events Semsync added, and a copy of the calendar for subscribe links | Plain, so each sync sends only changes |
+| AI assistants someone allowed | The app's name, return address and when it was last used, plain. Codes and passes only as SHA-256 hashes |
 
-Deleting your data in Settings removes all of it, deletes the calendar Semsync made and revokes its Google access.
+Deleting your data in Settings removes all of it, deletes the calendar Semsync made, revokes its Google access and
+cuts off every AI assistant.
 
 ### Trust boundaries
 
@@ -80,7 +83,8 @@ Never include other people's data, Canvas links or subscribe links. If you came 
 - **In scope:** reading or changing someone else's data or calendar; signing in as someone else; getting past the
   CSRF or cron checks; getting Semsync to touch calendars or events it didn't make; recovering Canvas links, tokens or
   subscribe secrets from responses, logs or the database's public API; making the server request hosts other than
-  the ones above; script injection on semsync.live; guessing subscribe links.
+  the ones above; script injection on semsync.live; guessing subscribe links; getting an AI assistant's pass without
+  the person choosing Allow, or using one to read anything beyond that person's semester.
 - **Out of scope:** someone who already has a person's Canvas link or subscribe link reading that calendar (they're
   bearer secrets by design); attacks that need a compromised device, browser or Google account; volume based denial of
   service; missing headers or best practices with no demonstrated impact; social engineering; problems in Google,
