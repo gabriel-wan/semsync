@@ -51,6 +51,15 @@ export async function hmac(secret: string, data: string): Promise<string> {
   return b64url(await crypto.subtle.sign('HMAC', await key(secret, 'hmac'), encoder.encode(data)));
 }
 
+/** SHA-256 as hex: how secrets that only need checking (subscribe links, AI app passes) are kept. */
+export async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** 32 random bytes as 43 URL-safe characters, for codes and passes. */
+export const newSecret = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
+
 export function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;

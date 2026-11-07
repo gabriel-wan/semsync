@@ -2,7 +2,7 @@
 // Calendar and any other calendar app can subscribe to. Each sync that changes something writes it again, gzipped,
 // and the link serves it straight from the database.
 import { TIME_ZONE } from '../config.js';
-import { b64url } from './crypto.js';
+import { b64url, sha256Hex } from './crypto.js';
 import { eventId, REMINDERS, type CalEvent, type CalTime } from './events.js';
 
 const KIND_NAME = { deadline: 'Deadline', event: 'Event', class: 'Class', exam: 'Exam', week: 'Week' } as const;
@@ -107,9 +107,6 @@ export async function gunzipBase64(b64: string): Promise<string> {
 export const newFeedToken = () => b64url(crypto.getRandomValues(new Uint8Array(24)));
 
 /** What the database keeps to find a link by: its SHA-256, so the link itself never sits there in the clear. */
-export async function feedTokenHash(token: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+export const feedTokenHash = (token: string): Promise<string> => sha256Hex(token);
 
 export const feedUrl = (appUrl: string, token: string) => `${appUrl}/feed/${token}.ics`;
