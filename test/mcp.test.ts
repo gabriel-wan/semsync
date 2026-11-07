@@ -473,11 +473,35 @@ describe('connected apps', () => {
       expect(res.headers.get('location')).toBe('/settings?done=app-removed#ai');
     }
     expect((await rpc(tokens.access_token, { jsonrpc: '2.0', id: 1, method: 'ping' })).res.status).toBe(401);
-    // Where Remove lands: the confirmation, and the list's empty row.
+    // Where Remove lands: the confirmation as a toast (seen wherever the page scrolls to), and the list's empty row.
     const after = await (await send('/settings?done=app-removed', { headers: { cookie } })).text();
-    expect(after).toMatch(/Removed\. That assistant can(?:'|&#39;)t see your semester any more\./);
+    const toast = /<div class="done-toast has-body" role="status">.*?<\/button><\/div>/.exec(after)?.[0] ?? '';
+    expect(toast).toContain('<p class="title-4">Removed</p>');
+    expect(toast).toMatch(/That assistant can(?:'|&#39;)t see your semester any more\./);
+    expect(toast).toContain('aria-label="Dismiss"');
     expect(after).toContain('Nothing connected yet');
     expect(after).not.toContain('<li class="connected-app">');
+  });
+
+  it("shows no confirmation for a ?done= that isn't one of Semsync's", async () => {
+    for (const done of ['nonsense', 'toString', 'constructor', '__proto__', '']) {
+      const html = await (await send(`/settings?done=${done}`, { headers: { cookie } })).text();
+      expect(html, done).not.toContain('done-toast');
+    }
+  });
+
+  it('says what Sync now changed, reading only a whole number from the address', async () => {
+    const toast = async (query: string) =>
+      /<div class="done-toast[^"]*" role="status">.*?<\/button><\/div>/.exec(await (await send(`/home?${query}`, { headers: { cookie } })).text())?.[0] ?? '';
+    expect(await toast('done=synced&changes=3')).toContain('3 changes made to your calendar.');
+    expect(await toast('done=synced&changes=1')).toContain('1 change made to your calendar.');
+    expect(await toast('done=synced&changes=0')).toContain('Nothing had changed since the last sync.');
+    for (const odd of ['abc', '-1', '1e3', '<b>zq7x</b>', '1234567', '']) {
+      const t = await toast(`done=synced&changes=${encodeURIComponent(odd)}`);
+      expect(t, odd).toContain('<p class="title-4">Synced</p>');
+      expect(t, odd).not.toContain('caption-2');
+      expect(t, odd).not.toContain('zq7x');
+    }
   });
 
   it('shows where the app was allowed to go back to, and only gives Claude its logo when that address is really Claude', async () => {

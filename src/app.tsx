@@ -23,7 +23,7 @@ import { csrfToken, readSession, sessionValue, SESSION_MAX_AGE } from './lib/ses
 import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser, timetableNotice } from './lib/sync.js';
 import {
   Approve, DeleteData, DevCalendar, DevLogin, Foundations, Help, Settings, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms,
-  type SetupErrors, type Viewer,
+  type Flash, type SetupErrors, type Viewer,
 } from './views/pages.js';
 
 type AppEnv = { Bindings: Env; Variables: { user: UserRow | null } };
@@ -34,18 +34,32 @@ const STATE_COOKIE = 'ss_oauth_state';
 /** Where to go after signing in, when it wasn't Semsync's own sign in button: an AI app's approval page. */
 const NEXT_COOKIE = 'ss_next';
 
-const FLASH: Record<string, string> = {
-  created: 'Your calendar is ready.',
-  connected: 'Calendar connected. Look for "NUS semester" in your Google Calendar.',
-  updated: 'Saved and synced.',
-  synced: 'Synced.',
-  recent: 'Synced less than a minute ago, so this one was skipped.',
-  saved: "Saved. The sync didn't finish this time, so your calendar catches up on the next one.",
-  feed: 'Your subscribe link is ready. Add it to your calendar app.',
-  'feed-on': 'Subscribe link on. Add it to your calendar app.',
-  'feed-reset': 'New link made. The old one has stopped working, so add this one to your calendar app.',
-  'feed-off': 'Subscribe link turned off.',
-  'app-removed': "Removed. That assistant can't see your semester any more.",
+/** What a page confirms after a change, from ?done=: a short title and, where there's more to say, one sentence. */
+const FLASH: Record<string, Flash> = {
+  created: { title: 'Your calendar is ready' },
+  connected: { title: 'Calendar connected', body: 'Look for "NUS semester" in your Google Calendar.' },
+  updated: { title: 'Saved and synced' },
+  synced: { title: 'Synced' },
+  recent: { title: 'Already up to date', body: 'It synced less than a minute ago, so this one was skipped.' },
+  saved: { title: 'Saved', body: "The sync didn't finish this time, so your calendar catches up on the next one." },
+  feed: { title: 'Your subscribe link is ready', body: 'Add it to your calendar app.' },
+  'feed-on': { title: 'Subscribe link on', body: 'Add it to your calendar app.' },
+  'feed-reset': { title: 'New link made', body: 'The old one has stopped working, so add this one to your calendar app.' },
+  'feed-off': { title: 'Subscribe link turned off' },
+  'app-removed': { title: 'Removed', body: "That assistant can't see your semester any more." },
+};
+
+/** The confirmation ?done= names, if it's one of ours (own keys only, so ?done=toString finds nothing). */
+const flashOf = (c: Ctx): Flash | undefined => {
+  const done = c.req.query('done');
+  if (done === undefined || !Object.hasOwn(FLASH, done)) return undefined;
+  // Sync now says what changed. Only a whole number is read, so nothing else from the address reaches the page.
+  const changes = c.req.query('changes');
+  if (done === 'synced' && changes !== undefined && /^\d{1,6}$/.test(changes)) {
+    const n = Number(changes);
+    return { title: 'Synced', body: n === 0 ? 'Nothing had changed since the last sync.' : `${n} ${n === 1 ? 'change' : 'changes'} made to your calendar.` };
+  }
+  return FLASH[done];
 };
 
 const app = new Hono<AppEnv>();
@@ -177,7 +191,7 @@ app.get('/settings', async (c) => {
   return c.html(
     <Settings user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} counts={await eventCounts(c.env.DB, user.id)}
       feedLink={await feedLinkOf(c, user)} apps={await connectedApps(c.env.DB, user.id)} mcpUrl={mcpResource(c.env.APP_URL)}
-      flash={FLASH[c.req.query('done') ?? '']} dev={isDev(c.env)} />,
+      flash={flashOf(c)} dev={isDev(c.env)} />,
   );
 });
 app.get('/terms', async (c) => c.html(<Terms {...await viewer(c)} />));
@@ -372,7 +386,7 @@ app.get('/home', async (c) => {
   return c.html(
     <Home user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} addUrl={addSharedCalendarUrl(c.env, user)}
       needsConnect={user.mode === 'main' && !hasCalendarAccess(user)} feedLink={await feedLinkOf(c, user)} timetable={timetableNotice(user)}
-      counts={counts} upcoming={upcoming} flash={FLASH[c.req.query('done') ?? '']} dev={isDev(c.env)} />,
+      counts={counts} upcoming={upcoming} flash={flashOf(c)} dev={isDev(c.env)} />,
   );
 });
 
@@ -381,8 +395,8 @@ app.post('/sync', async (c) => {
   if (!user || !(await validCsrf(c, user, await c.req.parseBody()))) return c.redirect('/');
   if (user.last_sync_at && Date.now() - user.last_sync_at < 60_000) return c.redirect('/home?done=recent');
   // Only say it worked when it did; a failed sync shows its own message on the page.
-  const ok = await syncUser(c.env, user, { force: true });
-  return c.redirect(ok ? '/home?done=synced' : '/home');
+  const result = await syncUser(c.env, user, { force: true });
+  return c.redirect(result ? `/home?done=synced&changes=${result.upserts.length + result.deletes.length}` : '/home');
 });
 
 // The course tiles in Settings: save them, then sync so switched off courses leave the calendar now.

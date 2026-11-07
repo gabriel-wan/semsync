@@ -2595,6 +2595,125 @@ footer {
   background: var(--surface-error-subtle);
 }
 
+/* A confirmation after something you did, pinned to the bottom of the screen so it's seen wherever the page lands: a
+   plain card with a thin border and a soft shadow, bottom right on wider screens and across the bottom on phones. It
+   goes after four seconds (six when there's a sentence to read), held while the pointer or focus is on it. It needs no
+   script to appear or to go; with the script, its close button takes it away at once. */
+.done-toast {
+  position: fixed;
+  right: var(--space-300);
+  bottom: var(--space-300);
+  z-index: 30;
+  width: 360px;
+  max-width: calc(100% - 2 * var(--space-200));
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-100);
+  padding: var(--space-200);
+  border-radius: var(--radius-8);
+  border: 1px solid var(--border-primary);
+  background: var(--surface-primary-subtle);
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px var(--overlay-xs);
+  animation:
+    done-toast-in 200ms var(--ease),
+    done-toast-out 200ms var(--ease) 4s forwards;
+}
+
+.done-toast.has-body {
+  animation:
+    done-toast-in 200ms var(--ease),
+    done-toast-out 200ms var(--ease) 6s forwards;
+}
+
+/* Hold only the countdown to fading out (the second animation), never the fade in. */
+.done-toast:hover,
+.done-toast:focus-within {
+  animation-play-state: running, paused;
+}
+
+.done-toast-icon {
+  flex: none;
+  margin-top: var(--space-25);
+  color: var(--icon-success);
+}
+
+.done-toast-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-25);
+}
+
+/* Shown only when the script runs, since only the script can act on it. */
+.done-toast-close {
+  display: none;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: calc(-1 * var(--space-25)) calc(-1 * var(--space-50)) 0 0;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: var(--icon-secondary);
+  cursor: pointer;
+  transition: background-color 150ms var(--ease);
+}
+
+.js .done-toast-close {
+  display: grid;
+}
+
+.done-toast-close:hover {
+  background: var(--surface-primary-hover);
+  color: var(--icon-default);
+}
+
+.done-toast-close:focus-visible {
+  outline: 2px solid var(--border-action-primary);
+  outline-offset: 1px;
+}
+
+.done-toast.is-closing {
+  animation: done-toast-out 150ms var(--ease) forwards;
+}
+
+@keyframes done-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-100));
+  }
+}
+
+@keyframes done-toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(var(--space-50));
+    visibility: hidden;
+  }
+}
+
+@media (max-width: 480px) {
+  .done-toast {
+    left: var(--space-200);
+    right: var(--space-200);
+    bottom: var(--space-200);
+    width: auto;
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .done-toast,
+  .done-toast.has-body,
+  .done-toast.is-closing {
+    animation-duration: 1ms;
+  }
+}
+
 .notice-error svg {
   color: var(--icon-error);
 }

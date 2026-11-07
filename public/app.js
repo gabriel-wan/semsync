@@ -1,6 +1,7 @@
 // Semsync's browser script, loaded with defer on every page. Everything works without it; it adds the light and dark
-// toggle, reveal on scroll, the link guides and hero demo, the account menu, confirmation dialogs, copy buttons, and
-// checks and a loading state for the setup form. The theme key matches THEME_KEY in src/views/styles.ts.
+// toggle, reveal on scroll, the link guides and hero demo, the account menu, confirmation dialogs, copy buttons, checks
+// and a loading state for the setup form, and taking a shown confirmation off the address. The theme key matches
+// THEME_KEY in src/views/styles.ts.
 (() => {
   const toggle = document.querySelector('[data-theme-toggle]');
   if (toggle) {
@@ -217,6 +218,20 @@
     button.textContent = label;
   };
   document.querySelectorAll('form[data-busy-label]:not([data-setup])').forEach((f) => f.addEventListener('submit', (e) => busy(f, f.dataset.busyLabel, e.submitter)));
+
+  // A confirmation shows once: take ?done= off the address (keeping the rest), so a reload doesn't show it again.
+  const here = new URL(window.location.href);
+  if (here.searchParams.has('done')) {
+    here.searchParams.delete('done');
+    here.searchParams.delete('changes');
+    history.replaceState(history.state, '', here.pathname + here.search + here.hash);
+  }
+  // Its close button: a quick fade, then it's gone.
+  document.querySelectorAll('.done-toast [data-dismiss]').forEach((button) => button.addEventListener('click', () => {
+    const toast = button.closest('.done-toast');
+    toast.classList.add('is-closing');
+    setTimeout(() => toast.remove(), 150);
+  }));
 
   // Links and addresses to copy: Copy puts one on the clipboard (or selects it, where that's not allowed), and a click
   // selects it. The button says Copied for a moment, then goes back to its own label.

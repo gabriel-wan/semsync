@@ -1091,7 +1091,7 @@ const countsLine = (counts: Record<string, number>) =>
 
 export const Home: FC<{
   user: UserRow; csrf: string; addUrl: string | null; needsConnect: boolean; counts: Record<string, number>;
-  upcoming: UpcomingRow[]; flash?: string; dev: boolean; feedLink?: string | null;
+  upcoming: UpcomingRow[]; flash?: Flash; dev: boolean; feedLink?: string | null;
   /** Near a new term: which term the NUSMods link is for, and which one to paste now. */
   timetable?: { saved: string; wanted: string } | null;
 }> = ({ user, csrf, addUrl, needsConnect, counts, upcoming, flash, dev, feedLink, timetable }) => {
@@ -1114,7 +1114,7 @@ export const Home: FC<{
           </form>
         </header>
 
-        {flash && <div class="notice notice-success body-6" role="status"><Icon name="checkCircle" />{flash}</div>}
+        {flash && <Toast flash={flash} />}
         {timetable && (
           <div class="notice notice-warning body-6" role="status">
             <Icon name="calendarDots" />
@@ -1155,6 +1155,25 @@ export const Home: FC<{
     </Layout>
   );
 };
+
+/** A confirmation after a change: a short title and, where there's more to say, one sentence. */
+export type Flash = { title: string; body?: string };
+
+/**
+ * A confirmation after something you did, pinned to the bottom of the screen so it's seen wherever the page lands (often
+ * a section further down). It goes on its own after a few seconds, or at once with its close button (which app.js
+ * shows and runs). app.js also takes ?done= off the address, so a reload doesn't show it again.
+ */
+const Toast: FC<{ flash: Flash }> = ({ flash }) => (
+  <div class={`done-toast${flash.body ? ' has-body' : ''}`} role="status">
+    <Icon name="checkCircle" size={18} cls="done-toast-icon" />
+    <div class="done-toast-text">
+      <p class="title-4">{flash.title}</p>
+      {flash.body && <p class="caption-2 text-secondary">{flash.body}</p>}
+    </div>
+    <button class="done-toast-close" type="button" aria-label="Dismiss" data-dismiss><Icon name="x" size={14} /></button>
+  </div>
+);
 
 /** Everything you can change, in one place: courses, links and your account. */
 /** A button that posts a form with the CSRF token: for the small actions in Settings. */
@@ -1314,7 +1333,7 @@ const AiAssistants: FC<{ csrf: string; apps: ConnectedApp[]; mcpUrl: string }> =
 );
 
 export const Settings: FC<{
-  user: UserRow; csrf: string; counts: Record<string, number>; flash?: string; dev: boolean; feedLink?: string | null;
+  user: UserRow; csrf: string; counts: Record<string, number>; flash?: Flash; dev: boolean; feedLink?: string | null;
   apps?: ConnectedApp[]; mcpUrl?: string;
 }> = ({
   user, csrf, counts, flash, dev, feedLink, apps = [], mcpUrl = 'https://semsync.live/mcp',
@@ -1323,7 +1342,7 @@ export const Settings: FC<{
     <div class="wrap narrow page">
       <BackLink signedIn />
       <h1 class="heading-3">Settings</h1>
-      {flash && <div class="notice notice-success body-6" role="status"><Icon name="checkCircle" />{flash}</div>}
+      {flash && <Toast flash={flash} />}
       <div class="settings-sections">
         <CoursesPanel user={user} csrf={csrf} />
         <Sources user={user} dev={dev} />
