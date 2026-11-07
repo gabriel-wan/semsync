@@ -34,6 +34,10 @@ Deleting your data in Settings removes all of it, deletes the calendar Semsync m
 - **The scheduled sync** (`/api/cron`) needs a bearer secret.
 - **Subscribe links are bearer links by design:** anyone with one can read that calendar. They're long random
   secrets, and people can replace theirs in Settings at any time.
+- **AI assistants** (`/mcp`) get read only access through OAuth 2.1: they register, the person allows them on Semsync's
+  approval page, and PKCE, single use codes and passes bound to `/mcp` follow. Apps may only return people to known
+  addresses (Claude, ChatGPT) or their own computer. Passes last an hour, refresh passes are replaced on each use (a
+  reused one cuts the connection off), only hashes are stored, and people can remove an app in Settings at any time.
 
 ### Contributor and automation tooling
 

@@ -94,12 +94,16 @@ describe('Postgres database adapter', () => {
       '0002_course_settings.sql',
       '0003_feeds_and_rollover.sql',
       '0004_clear_rows_left_after_deletion.sql',
+      '0005_ai_app_access.sql',
     ]);
     expect(await migrate(db)).toEqual([]);
     const { results } = await db
       .prepare("SELECT relname, relrowsecurity FROM pg_class WHERE relkind = 'r' AND relnamespace = 'public'::regnamespace ORDER BY relname")
       .all<{ relname: string; relrowsecurity: boolean }>();
-    expect(results.map((r) => r.relname)).toEqual(['_migrations', 'fake_calendars', 'fake_events', 'feeds', 'kv', 'module_cache', 'synced_events', 'users']);
+    expect(results.map((r) => r.relname)).toEqual([
+      '_migrations', 'fake_calendars', 'fake_events', 'feeds', 'kv', 'module_cache',
+      'oauth_clients', 'oauth_codes', 'oauth_grants', 'oauth_tokens', 'synced_events', 'users',
+    ]);
     expect(results.every((r) => r.relrowsecurity)).toBe(true);
   });
 

@@ -249,6 +249,10 @@ export async function deleteUserData(db: Db, id: string) {
     db.prepare('DELETE FROM synced_events WHERE user_id = ?').bind(id),
     db.prepare('DELETE FROM feeds WHERE user_id = ?').bind(id),
     db.prepare('DELETE FROM kv WHERE key = ?').bind(`token:user:${id}`),
+    // AI apps they allowed, and every code and pass those apps hold.
+    db.prepare('DELETE FROM oauth_tokens WHERE grant_id IN (SELECT id FROM oauth_grants WHERE user_id = ?)').bind(id),
+    db.prepare('DELETE FROM oauth_grants WHERE user_id = ?').bind(id),
+    db.prepare('DELETE FROM oauth_codes WHERE user_id = ?').bind(id),
   ]);
 }
 

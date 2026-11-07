@@ -21,10 +21,11 @@ The people using it are students, not developers. Everything on screen should ma
 | `public/site.css` | Every style rule, using only the token variables |
 | `public/app.js` | The browser script, loaded with `defer` on every page |
 | `src/views/tokens.ts` | Design tokens: spacing, radii, colours for light and dark mode, text styles |
-| `src/views/icons.tsx` | Icons (Phosphor), the Semsync mark, and the Canvas, NUSMods, GitHub and Google marks |
+| `src/views/icons.tsx` | Icons (Phosphor), the Semsync mark, and the Canvas, NUSMods, GitHub, Google, Claude and ChatGPT marks |
 | `src/lib/sync.ts` | The sync: build the events someone should have, compare with what was written, send only the changes |
 | `src/lib/canvas.ts`, `nusmods.ts` | Reading a Canvas feed and NUSMods timetables |
 | `src/lib/feed.ts` | Writing the `.ics` behind subscribe links |
+| `src/lib/mcp.ts`, `oauth.ts` | AI assistants: the read only MCP server at `/mcp`, and the OAuth that lets an app in (registration, the approval page, passes) |
 | `src/lib/holidays.ts` | Public holidays from MOM's calendar files, with built-in fallbacks |
 | `src/config.ts` | NUS term dates (worked out with NUSMods' rule, never typed in), week names |
 | `src/lib/db.ts`, `database.ts` | Queries, and the Postgres adapter (postgres.js on Supabase, PGlite locally) |
@@ -88,6 +89,10 @@ Copy `.env.example` to `.env.local` first. With `DEV_LOGIN=1` and `FAKE_GOOGLE=1
 
 - Canvas links, Google tokens and subscribe secrets are like passwords: store them encrypted, never log them, never
   put them in a URL other than the subscribe link itself.
+- AI assistants only read, through `/mcp`. Keep every tool read only, and never return links, emails or Canvas descriptions:
+  event titles come from other people, and an assistant may follow instructions hidden in them. Codes and passes are kept
+  as hashes, bound to `/mcp`, and only for the return addresses in `HOSTED_REDIRECTS` or loopback. An assistant's logo
+  comes from its return address (`verifiedBrand`), never its name, which any app can fake.
 - Every POST checks the CSRF token. Canvas links must stay on `ALLOWED_CANVAS_HOSTS`.
 - Semsync only changes events it made, in calendars it made. Keep it that way.
 - See [SECURITY.md](SECURITY.md).

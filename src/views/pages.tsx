@@ -5,7 +5,8 @@ import { jsonList, type Course, type UpcomingRow, type UserRow } from '../lib/db
 import { GOOGLE_EVENT_COLORS, moduleColors } from '../lib/events.js';
 import { isAddingMessage } from '../lib/messages.js';
 import { parseNusmodsLink } from '../lib/nusmods.js';
-import { BrandMark, CanvasMark, FAVICON, GithubMark, GoogleMark, Icon, NusmodsMark, type IconName } from './icons.js';
+import { verifiedBrand, type ConnectedApp } from '../lib/oauth.js';
+import { BrandMark, CanvasMark, ChatgptMark, ClaudeMark, FAVICON, GithubMark, GoogleMark, Icon, NusmodsMark, type IconName } from './icons.js';
 import { CSS, THEME_INIT } from './styles.js';
 import { CORE, RADIUS, SPACING, SYSTEM, SYSTEM_SPEC, TEXT_STYLES } from './tokens.js';
 
@@ -1195,8 +1196,128 @@ const CalendarApps: FC<{ user: UserRow; csrf: string; feedLink?: string | null }
   </section>
 );
 
-export const Settings: FC<{ user: UserRow; csrf: string; counts: Record<string, number>; flash?: string; dev: boolean; feedLink?: string | null }> = ({
-  user, csrf, counts, flash, dev, feedLink,
+const shortDay = (ms: number) => new Date(ms).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', timeZone: SGT });
+
+/**
+ * An AI assistant's tile. Claude's or ChatGPT's own logo only when its return address proves it's them (verifiedBrand);
+ * an app on someone's computer gets a computer, whatever it calls itself.
+ */
+const AppMark: FC<{ host: string; local: boolean; large?: boolean }> = ({ host, local, large }) => {
+  const brand = verifiedBrand({ host, local });
+  const size = large ? 30 : 20;
+  return (
+    <span class={`app-mark${large ? ' app-mark-lg' : ''} ${brand ? `app-mark-logo app-mark-${brand}` : 'app-mark-plain'}`} aria-hidden="true">
+      {brand === 'claude' ? <ClaudeMark size={size} /> : brand === 'chatgpt' ? <ChatgptMark size={size} /> : <Icon name={local ? 'desktop' : 'plugsConnected'} size={size} />}
+    </span>
+  );
+};
+
+/** An address to copy: the field, with Copy beside it. */
+const CopyField: FC<{ id: string; value: string; label: string }> = ({ id, value, label }) => (
+  <div class="copy-field">
+    <input class="input mono caption-5" id={id} value={value} readonly aria-label={label} data-select />
+    <button class="btn btn-secondary button-md" type="button" data-copy={id}><Icon name="copy" size={16} /><span>Copy</span></button>
+  </div>
+);
+
+/** What an AI assistant will and won't see, on the approval page. */
+const AccessCards: FC = () => {
+  return (
+    <div class="access">
+      <div class="access-card">
+        <h2 class="title-3">It will see</h2>
+        <ul class="access-list body-6">
+          <li><Icon name="checkCircle" size={18} cls="access-yes" />Your deadlines, classes and exams: titles, days and times</li>
+          <li><Icon name="checkCircle" size={18} cls="access-yes" />Your module codes and names</li>
+        </ul>
+      </div>
+      <div class="access-card">
+        <h2 class="title-3">It won't see or do</h2>
+        <ul class="access-list body-6">
+          <li><Icon name="xCircle" size={18} cls="access-no" />Your Canvas or NUSMods links</li>
+          <li><Icon name="xCircle" size={18} cls="access-no" />Your email or your subscribe link</li>
+          <li><Icon name="xCircle" size={18} cls="access-no" />Change anything in Semsync or your calendar</li>
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * A made up exchange, to show what asking looks like: Friday of Week 12, as in the hero picture. It's drawn as the same
+ * kind of window as the Canvas and NUSMods pictures above it, so the Help page reads as one set.
+ */
+const ChatDemo: FC = () => (
+  <figure class="chat-demo" role="img" aria-label="An AI assistant, asked what's due this week, answers with two deadlines from Semsync">
+    <div class="gs-bar">
+      <span class="chat-title caption-4">Your AI assistant</span>
+    </div>
+    <div class="chat-body">
+      <p class="chat-ask body-6">What's due this week?</p>
+      <div class="chat-answer">
+        <span class="chat-tool caption-4"><BrandMark size={16} />Checked Semsync</span>
+        <p class="body-6">Two things are due this week:</p>
+        <ul class="chat-items">
+          <li class="chip chip-deadline caption-4">CS2040 Problem Set 5 · Fri, 23:59</li>
+          <li class="chip chip-deadline caption-4">ES2660 Essay draft · Sun</li>
+        </ul>
+      </div>
+    </div>
+    <div class="chat-input caption-2">
+      Ask about your semester<span class="chat-send"><Icon name="arrowRight" size={14} /></span>
+    </div>
+  </figure>
+);
+
+/** AI assistants allowed to read the semester through the MCP server, and the address to add one with. */
+const AiAssistants: FC<{ csrf: string; apps: ConnectedApp[]; mcpUrl: string }> = ({ csrf, apps, mcpUrl }) => (
+  <section class="panel" id="ai" aria-labelledby="ai-title">
+    <h2 id="ai-title" class="title-2">AI assistants</h2>
+    <p class="caption-2 text-secondary mt-75">
+      Let Claude, ChatGPT or another AI assistant answer questions about your semester. Add this address as a connector, then allow
+      it. <a href="/help#ai">How to add it</a>
+    </p>
+    <CopyField id="mcp-url" value={mcpUrl} label="Semsync's address for AI assistants" />
+    {apps.length ? (
+      <ul class="connected-list">
+        {apps.map((app) => (
+          <li class="connected-app">
+            <AppMark host={app.host} local={app.local} />
+            <div class="connected-app-text">
+              <p class="title-4">{app.name}</p>
+              <p class="caption-2 text-secondary">{app.local ? 'On your computer' : app.host}</p>
+              <p class="caption-2 text-secondary connected-app-dates">
+                <span>Allowed {shortDay(app.created_at)}</span> ·{' '}
+                <span>{app.last_used_at ? `Last used ${shortDay(app.last_used_at)}` : 'Not used yet'}</span>
+              </p>
+            </div>
+            <form method="post" action="/apps/remove">
+              <input type="hidden" name="csrf" value={csrf} />
+              <input type="hidden" name="id" value={app.id} />
+              <button class="btn btn-tertiary button-md" type="submit" aria-label={`Remove ${app.name}`}>Remove</button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <div class="connected-list">
+        <div class="connected-app">
+          <span class="app-mark" aria-hidden="true"><Icon name="plugsConnected" size={20} /></span>
+          <div class="connected-app-text">
+            <p class="title-4">Nothing connected yet</p>
+            <p class="caption-2 text-secondary">Assistants you allow show up here.</p>
+          </div>
+        </div>
+      </div>
+    )}
+  </section>
+);
+
+export const Settings: FC<{
+  user: UserRow; csrf: string; counts: Record<string, number>; flash?: string; dev: boolean; feedLink?: string | null;
+  apps?: ConnectedApp[]; mcpUrl?: string;
+}> = ({
+  user, csrf, counts, flash, dev, feedLink, apps = [], mcpUrl = 'https://semsync.live/mcp',
 }) => (
   <Layout title="Settings · Semsync" signedIn current="settings" noindex account={{ email: user.email, name: user.name, csrf }}>
     <div class="wrap narrow page">
@@ -1216,6 +1337,7 @@ export const Settings: FC<{ user: UserRow; csrf: string; counts: Record<string, 
             </div>
           </section>
         )}
+        <AiAssistants csrf={csrf} apps={apps} mcpUrl={mcpUrl} />
         <section class="panel" aria-labelledby="account-title">
           <h2 id="account-title" class="title-2">Account</h2>
           <p class="caption-2 text-secondary mt-75 account-email">Signed in as {user.email}.</p>
@@ -1249,6 +1371,39 @@ export const Help: FC<Viewer> = ({ signedIn, setupPending, account, origin }) =>
         </div>
         <LinkGuides />
       </section>
+      <section class="help-section" aria-labelledby="ai">
+        <div class="section-head">
+          <h2 id="ai" class="heading-4">Ask Claude, ChatGPT or another AI assistant</h2>
+          <p class="body-6 text-secondary mt-75">Connect Semsync once, then ask about your semester in your own words.</p>
+        </div>
+        <div class="ai-help">
+          <ol class="ai-steps">
+            <li class="ai-step">
+              <span class="step-no title-4">1</span>
+              <div class="step-body">
+                <p class="title-3">Add Semsync as a connector</p>
+                <p class="caption-2 text-secondary">In Claude: Settings, Connectors, Add custom connector.</p>
+                <CopyField id="help-mcp-url" value={`${origin ?? 'https://semsync.live'}/mcp`} label="Semsync's address for AI assistants" />
+              </div>
+            </li>
+            <li class="ai-step">
+              <span class="step-no title-4">2</span>
+              <div class="step-body">
+                <p class="title-3">Allow it</p>
+                <p class="caption-2 text-secondary">Choose Allow on Semsync's page. It can only read your deadlines, classes and exams.</p>
+              </div>
+            </li>
+            <li class="ai-step">
+              <span class="step-no title-4">3</span>
+              <div class="step-body">
+                <p class="title-3">Ask away</p>
+                <p class="caption-2 text-secondary">Remove it any time in Settings.</p>
+              </div>
+            </li>
+          </ol>
+          <ChatDemo />
+        </div>
+      </section>
       <section class="help-section faq-grid" aria-labelledby="faq">
         <div class="section-head">
           <h2 id="faq" class="heading-4">Questions</h2>
@@ -1265,6 +1420,52 @@ export const DeleteData: FC<{ user: UserRow; csrf: string; counts: Record<string
   <Layout title="Delete your data · Semsync" signedIn noindex account={{ email: user.email, name: user.name, csrf }}>
     <div class="wrap narrow page">
       <div class="panel confirm-page"><DeleteConfirm user={user} csrf={csrf} total={total(counts)} /></div>
+    </div>
+  </Layout>
+);
+
+/**
+ * Where an AI assistant sends someone to approve it: the app's name (its own claim) next to where they'll be sent back
+ * (checked), exactly what it will and won't see, then Allow or Cancel. The request's fields ride along in the form and are
+ * checked again when it's sent.
+ */
+export const Approve: FC<{
+  user: UserRow; csrf: string; appName: string; host: string; local: boolean; setUp: boolean; fields: Record<string, string>;
+}> = ({ user, csrf, appName, host, local, setUp, fields }) => (
+  <Layout title="Allow an AI assistant · Semsync" signedIn noindex account={{ email: user.email, name: user.name, csrf }}>
+    <div class="wrap narrow page approve">
+      <div class="approve-head">
+        <div class="approve-marks" aria-hidden="true">
+          <AppMark host={host} local={local} large />
+          <span class="approve-link" />
+          <BrandMark size={56} />
+        </div>
+        <h1 class="heading-4">Let {appName} see your semester?</h1>
+        <p class="lead body-3">
+          {local ? 'This request comes from an app running on your own computer.' : <>After this, you'll go back to <strong>{host}</strong>.</>}
+        </p>
+      </div>
+      {local && (
+        <div class="notice notice-warning body-6" role="note">
+          <Icon name="warningCircle" />Only allow this if you just added Semsync to an app on this computer yourself.
+        </div>
+      )}
+      <AccessCards />
+      <p class="caption-2 text-secondary mt-200">What the app reads goes to the company that makes it. You can remove it any time in Settings.</p>
+      {!setUp && (
+        <div class="notice notice-info body-6" role="note">
+          <Icon name="warningCircle" />Set up Semsync first, so you can see and remove the app in Settings. Then connect it again from the app.
+        </div>
+      )}
+      <form method="post" action="/oauth/authorize" class="approve-actions">
+        <input type="hidden" name="csrf" value={csrf} />
+        {Object.entries(fields).map(([name, value]) => <input type="hidden" name={name} value={value} />)}
+        {setUp
+          ? <button class="btn btn-primary button-md" type="submit" name="decision" value="allow">Allow</button>
+          : <a class="btn btn-primary button-md" href="/setup">Set up Semsync</a>}
+        <button class="btn btn-secondary button-md" type="submit" name="decision" value="deny">Cancel</button>
+      </form>
+      <p class="caption-2 text-secondary approve-who">Signed in as {user.email}.</p>
     </div>
   </Layout>
 );
@@ -1302,7 +1503,18 @@ export const Privacy: FC<Viewer> = ({ signedIn, setupPending, account, origin })
         <li>Your Canvas calendar feed link, encrypted.</li>
         <li>Your NUSMods share link, if you add one.</li>
         <li>A list of the events it has added for you (title, type and start time), so each sync only sends changes.</li>
+        <li>
+          If you connect an AI assistant: which one, when you allowed it and last used it, and fingerprints of the passes it holds (never the
+          passes themselves).
+        </li>
       </ul>
+      <h2 class="heading-6">AI assistants</h2>
+      <p class="body-3">
+        You can let an AI assistant such as Claude or ChatGPT read your semester. Once you allow it, it can see your deadlines, classes and exams
+        (titles, days and times) and your module names. It can't see your Canvas or NUSMods links, your email or your subscribe link, and
+        it can't change anything. What it reads is sent to the company that makes it and handled under that company's privacy policy,
+        not Semsync's. Remove an assistant any time in Settings; deleting your data removes every one too.
+      </p>
       <h2 class="heading-6">What Semsync does with calendar access</h2>
       <p class="body-3">
         Google's permission is called "Make secondary Google calendars, and see, create, change and delete events on them". Semsync uses it

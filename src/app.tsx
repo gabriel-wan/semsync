@@ -12,11 +12,18 @@ import {
 import { UserError } from './lib/errors.js';
 import { authorizationUrl, CALENDAR_SCOPE, exchangeCode, type AuthPurpose } from './lib/googleSignIn.js';
 import { feedTokenHash, feedUrl, gunzipBase64, newFeedToken } from './lib/feed.js';
+import { handleMcp, MAX_BATCH, PROTOCOL_VERSIONS, rpcError } from './lib/mcp.js';
 import { parseNusmodsLink } from './lib/nusmods.js';
+import {
+  accessFor, ApprovalPageError, authenticateClient, authorizationServerMetadata, backToApp, bearerChallenge, checkApprovalRequest,
+  connectedApps, countRequests, createCode, isLoopbackHost, mcpResource, OAuthError, protectedResourceMetadata, redeemCode, refreshTokens,
+  registerClient, removeApp, type ApprovalRequest,
+} from './lib/oauth.js';
 import { csrfToken, readSession, sessionValue, SESSION_MAX_AGE } from './lib/session.js';
 import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser, timetableNotice } from './lib/sync.js';
 import {
-  DeleteData, DevCalendar, DevLogin, Foundations, Help, Settings, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms, type SetupErrors, type Viewer,
+  Approve, DeleteData, DevCalendar, DevLogin, Foundations, Help, Settings, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms,
+  type SetupErrors, type Viewer,
 } from './views/pages.js';
 
 type AppEnv = { Bindings: Env; Variables: { user: UserRow | null } };
@@ -24,6 +31,8 @@ type Ctx = Context<AppEnv>;
 
 const SESSION_COOKIE = 'ss_session';
 const STATE_COOKIE = 'ss_oauth_state';
+/** Where to go after signing in, when it wasn't Semsync's own sign in button: an AI app's approval page. */
+const NEXT_COOKIE = 'ss_next';
 
 const FLASH: Record<string, string> = {
   created: 'Your calendar is ready.',
@@ -36,6 +45,7 @@ const FLASH: Record<string, string> = {
   'feed-on': 'Subscribe link on. Add it to your calendar app.',
   'feed-reset': 'New link made. The old one has stopped working, so add this one to your calendar app.',
   'feed-off': 'Subscribe link turned off.',
+  'app-removed': "Removed. That assistant can't see your semester any more.",
 };
 
 const app = new Hono<AppEnv>();
@@ -78,6 +88,17 @@ async function startSession(c: Ctx, userId: string) {
   setCookie(c, SESSION_COOKIE, await sessionValue(c.env.SESSION_SECRET, userId), {
     httpOnly: true, secure: isHttps(c), sameSite: 'Lax', path: '/', maxAge: SESSION_MAX_AGE,
   });
+}
+
+/**
+ * Where to go once signed in: back to an AI app's approval page if that's what sent them to sign in, else home. It's
+ * used up by the first sign in that comes back (or cancelled), and only an address on this site's approval page is
+ * followed, so the cookie can't send anyone elsewhere.
+ */
+function takeNext(c: Ctx): string {
+  const next = getCookie(c, NEXT_COOKIE);
+  deleteCookie(c, NEXT_COOKIE, { path: '/auth' });
+  return next && next.length <= 4000 && /^\/oauth\/authorize\?[^\s\\]*$/.test(next) ? next : '/home';
 }
 
 async function validCsrf(c: Ctx, user: UserRow, form: Record<string, unknown>) {
@@ -136,7 +157,8 @@ app.get('/privacy', async (c) => c.html(<Privacy {...await viewer(c)} />));
 const PUBLIC_PAGES = ['/', '/help', '/privacy', '/terms'];
 app.get('/robots.txt', (c) =>
   c.text(
-    ['User-agent: *', ...['/home', '/settings', '/setup', '/auth/', '/account/', '/connect', '/api/', '/feed/', '/dev/'].map((p) => `Disallow: ${p}`),
+    ['User-agent: *', ...['/home', '/settings', '/setup', '/auth/', '/account/', '/connect', '/api/', '/feed/', '/dev/', '/oauth/', '/mcp', '/apps/']
+      .map((p) => `Disallow: ${p}`),
       '', `Sitemap: ${origin(c)}/sitemap.xml`, ''].join('\n'),
   ),
 );
@@ -154,7 +176,7 @@ app.get('/settings', async (c) => {
   if (!user.calendar_id && !user.canvas_feed_enc && !user.nusmods_link) return c.redirect('/setup');
   return c.html(
     <Settings user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} counts={await eventCounts(c.env.DB, user.id)}
-      feedLink={await feedLinkOf(c, user)}
+      feedLink={await feedLinkOf(c, user)} apps={await connectedApps(c.env.DB, user.id)} mcpUrl={mcpResource(c.env.APP_URL)}
       flash={FLASH[c.req.query('done') ?? '']} dev={isDev(c.env)} />,
   );
 });
@@ -167,6 +189,8 @@ app.get('/og', (c) => (isDev(c.env) ? c.html(<OgCard />) : c.notFound()));
 // --- Google sign-in and calendar access ---
 
 app.get('/auth/google', (c) => {
+  // Only the approval page's own sign in keeps its return address; any other sign in drops one left over from before.
+  if (c.req.query('next') !== 'approval') deleteCookie(c, NEXT_COOKIE, { path: '/auth' });
   if (!c.env.GOOGLE_OAUTH_CLIENT_ID) {
     if (isDev(c.env)) return c.redirect('/auth/dev');
     return c.html(<Message title="Google sign in isn't set up yet" body="This copy of Semsync has no Google client configured." />, 503);
@@ -189,6 +213,7 @@ app.get('/auth/callback', async (c) => {
   const { code, state, error } = c.req.query();
   const [purpose, expected] = (getCookie(c, STATE_COOKIE) ?? '').split(':');
   deleteCookie(c, STATE_COOKIE, { path: '/auth' });
+  const next = takeNext(c);
   const user = c.get('user');
 
   if (error) {
@@ -229,7 +254,7 @@ app.get('/auth/callback', async (c) => {
 
   await upsertUserOnLogin(c.env.DB, { id, email: result.identity.email, name: result.identity.name });
   await startSession(c, id);
-  return c.redirect('/home'); // which sends anyone not set up yet on to /setup
+  return c.redirect(next); // home sends anyone not set up yet on to /setup
 });
 
 app.post('/auth/logout', async (c) => {
@@ -247,7 +272,7 @@ app.post('/auth/dev', async (c) => {
   const id = `dev:${email}`;
   await upsertUserOnLogin(c.env.DB, { id, email, name: email.split('@')[0] });
   await startSession(c, id);
-  return c.redirect('/home');
+  return c.redirect(takeNext(c));
 });
 
 // --- Setup and home ---
@@ -470,6 +495,189 @@ app.post('/feed/:action', async (c) => {
     return c.redirect('/settings?done=feed-off#apps');
   }
   return c.redirect('/settings');
+});
+
+// --- AI apps: the MCP server, and the OAuth that lets an app in (src/lib/oauth.ts, src/lib/mcp.ts) ---
+
+/** Browser based MCP clients (the MCP Inspector, for one) need CORS. Only passes in the Authorization header count, never cookies. */
+const OPEN_CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, MCP-Protocol-Version, Mcp-Session-Id, Last-Event-ID',
+  'Access-Control-Expose-Headers': 'WWW-Authenticate, Mcp-Session-Id',
+  'Access-Control-Max-Age': '86400',
+};
+const NO_STORE = { 'Cache-Control': 'no-store', Pragma: 'no-cache' };
+
+for (const path of ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-authorization-server', '/oauth/register', '/oauth/token']) {
+  app.options(path, (c) => c.body(null, 204, OPEN_CORS));
+}
+app.get('/.well-known/oauth-protected-resource', (c) => c.json(protectedResourceMetadata(c.env.APP_URL), 200, OPEN_CORS));
+app.get('/.well-known/oauth-protected-resource/mcp', (c) => c.json(protectedResourceMetadata(c.env.APP_URL), 200, OPEN_CORS));
+app.get('/.well-known/oauth-authorization-server', (c) => c.json(authorizationServerMetadata(c.env.APP_URL), 200, OPEN_CORS));
+
+const oauthError = (c: Ctx, err: OAuthError) =>
+  c.json({ error: err.code, error_description: err.message }, err.status === 401 ? 401 : 400, { ...OPEN_CORS, ...NO_STORE });
+
+/** Only the text fields of a form; files are ignored. */
+const textFields = (form: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(form).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+
+app.post('/oauth/register', async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return oauthError(c, new OAuthError('invalid_client_metadata', 'Send the client metadata as JSON.'));
+  }
+  try {
+    return c.json(await registerClient(c.env.DB, body), 201, { ...OPEN_CORS, ...NO_STORE });
+  } catch (err) {
+    if (err instanceof OAuthError) return oauthError(c, err);
+    throw err;
+  }
+});
+
+/** The request fields the approval page carries in its form, to check again when it's sent. */
+const APPROVAL_FIELDS = ['client_id', 'redirect_uri', 'response_type', 'code_challenge', 'code_challenge_method', 'state', 'scope', 'resource'];
+
+/** An approval request Semsync can't go on with: back to the app when its address is known, else explained here. */
+function approvalProblem(c: Ctx, err: unknown, state: string | undefined) {
+  if (err instanceof ApprovalPageError) {
+    return c.html(<Message title="Couldn't connect that app" body={err.message} action={{ href: '/', label: 'Back to Semsync' }} />, 400);
+  }
+  if (err instanceof OAuthError && err.redirectUri) {
+    return c.redirect(backToApp(err.redirectUri, { error: err.code, error_description: err.message, state }, c.env.APP_URL));
+  }
+  throw err;
+}
+
+app.get('/oauth/authorize', async (c) => {
+  const q = c.req.query();
+  let req: ApprovalRequest;
+  try {
+    req = await checkApprovalRequest(c.env.DB, q, c.env.APP_URL);
+  } catch (err) {
+    return approvalProblem(c, err, q.state);
+  }
+  const user = c.get('user');
+  if (!user) {
+    setCookie(c, NEXT_COOKIE, `/oauth/authorize${new URL(c.req.url).search}`, {
+      httpOnly: true, secure: isHttps(c), sameSite: 'Lax', path: '/auth', maxAge: 600,
+    });
+    return c.redirect('/auth/google?next=approval');
+  }
+  const fields = Object.fromEntries(APPROVAL_FIELDS.filter((k) => q[k] !== undefined).map((k) => [k, q[k]]));
+  return c.html(
+    <Approve user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} appName={req.client.name} host={req.target.host}
+      local={req.target.local} setUp={!!(user.calendar_id || user.canvas_feed_enc || user.nusmods_link)} fields={fields} />,
+  );
+});
+
+app.post('/oauth/authorize', async (c) => {
+  const user = c.get('user');
+  const form = textFields(await c.req.parseBody());
+  if (!user || !(await validCsrf(c, user, form))) {
+    return c.html(<Message title="That page expired" body="Go back to the app and connect Semsync again." action={{ href: '/', label: 'Back to Semsync' }} />, 400);
+  }
+  let req: ApprovalRequest;
+  try {
+    req = await checkApprovalRequest(c.env.DB, form, c.env.APP_URL);
+  } catch (err) {
+    return approvalProblem(c, err, form.state);
+  }
+  if (form.decision !== 'allow') {
+    return c.redirect(backToApp(req.redirectUri, { error: 'access_denied', error_description: 'Not allowed on the approval page.', state: req.state }, c.env.APP_URL));
+  }
+  // Set up first, so an app is only ever allowed by someone who can then see and remove it in Settings.
+  if (!(user.calendar_id || user.canvas_feed_enc || user.nusmods_link)) {
+    return c.html(<Message title="Set up Semsync first" signedIn body="Then connect the app again." action={{ href: '/setup', label: 'Set up Semsync' }} />, 400);
+  }
+  const code = await createCode(c.env.DB, user.id, req);
+  return c.redirect(backToApp(req.redirectUri, { code, state: req.state }, c.env.APP_URL));
+});
+
+app.post('/oauth/token', async (c) => {
+  const form = textFields(await c.req.parseBody());
+  try {
+    if (form.grant_type !== 'authorization_code' && form.grant_type !== 'refresh_token') {
+      throw new OAuthError('unsupported_grant_type', 'grant_type must be authorization_code or refresh_token.');
+    }
+    const client = await authenticateClient(c.env.DB, form, c.req.header('authorization'));
+    const tokens = form.grant_type === 'authorization_code'
+      ? await redeemCode(c.env.DB, client, form, c.env.APP_URL)
+      : await refreshTokens(c.env.DB, client, form, c.env.APP_URL);
+    return c.json(tokens, 200, { ...OPEN_CORS, ...NO_STORE });
+  } catch (err) {
+    if (err instanceof OAuthError) return oauthError(c, err);
+    throw err;
+  }
+});
+
+/** AI apps whose web pages may call the MCP endpoint from a browser. Apps calling from their own servers send no Origin. */
+const MCP_WEB_ORIGINS = ['https://claude.ai', 'https://claude.com', 'https://chatgpt.com'];
+
+/** The MCP spec asks for a check on Origin, so an unknown web page can't reach the endpoint through someone's browser. */
+function mcpOriginAllowed(origin: string | undefined, appUrl: string): boolean {
+  if (!origin) return true;
+  if (origin === new URL(appUrl).origin || MCP_WEB_ORIGINS.includes(origin)) return true;
+  try {
+    return isLoopbackHost(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
+const mcpCors = (origin: string | undefined): Record<string, string> =>
+  origin ? { ...OPEN_CORS, 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
+
+app.options('/mcp', (c) => {
+  const origin = c.req.header('origin');
+  return mcpOriginAllowed(origin, c.env.APP_URL) ? c.body(null, 204, origin ? mcpCors(origin) : OPEN_CORS) : c.body(null, 403);
+});
+
+// There's no server to client stream or session to end: everything is a POST with one JSON answer.
+app.on(['GET', 'DELETE'], '/mcp', (c) => c.body(null, 405, { Allow: 'POST, OPTIONS' }));
+
+app.post('/mcp', async (c) => {
+  const origin = c.req.header('origin');
+  if (!mcpOriginAllowed(origin, c.env.APP_URL)) return c.json(rpcError(null, -32000, 'Requests from this web page are not allowed.'), 403);
+  const cors = mcpCors(origin);
+  const version = c.req.header('mcp-protocol-version');
+  if (version && !PROTOCOL_VERSIONS.includes(version)) {
+    return c.json(rpcError(null, -32600, `Unsupported MCP-Protocol-Version: ${version}`), 400, cors);
+  }
+  const token = /^Bearer +([A-Za-z0-9_-]+)$/i.exec(c.req.header('authorization') ?? '')?.[1];
+  const access = token ? await accessFor(c.env.DB, token, mcpResource(c.env.APP_URL)) : null;
+  const user = access ? await getUser(c.env.DB, access.user_id) : null;
+  if (!access || !user) {
+    return c.json(
+      { error: 'invalid_token', error_description: token ? 'The access token is invalid or expired.' : 'Connect this app to Semsync first.' },
+      401, { ...cors, 'WWW-Authenticate': bearerChallenge(c.env.APP_URL, !!token) },
+    );
+  }
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json(rpcError(null, -32700, 'Parse error'), 400, cors);
+  }
+  const count = Array.isArray(body) ? body.length : 1;
+  if (count > MAX_BATCH) return c.json(rpcError(null, -32600, `A batch can hold at most ${MAX_BATCH} messages.`), 400, cors);
+  if (!(await countRequests(c.env.DB, access.grant_id, Math.max(count, 1)))) {
+    return c.json(rpcError(null, -32000, 'Too many requests. Wait a minute and try again.'), 429, { ...cors, 'Retry-After': '60' });
+  }
+  const answer = await handleMcp(body, { db: c.env.DB, user, now: Date.now() });
+  return answer === null ? c.body(null, 202, cors) : c.json(answer, 200, cors);
+});
+
+// Connected apps in Settings: remove one, with every pass it holds.
+app.post('/apps/remove', async (c) => {
+  const user = c.get('user');
+  const form = await c.req.parseBody();
+  if (!user || !(await validCsrf(c, user, form))) return c.redirect('/');
+  if (typeof form.id === 'string') await removeApp(c.env.DB, user.id, form.id);
+  return c.redirect('/settings?done=app-removed#ai');
 });
 
 // --- Scheduled sync ---

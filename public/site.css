@@ -3128,6 +3128,327 @@ legend.step-head {
   gap: var(--space-75);
 }
 
+/* An address to copy: the field, with Copy beside it at every width. */
+.copy-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-75);
+  margin-top: var(--space-200);
+}
+
+.copy-field .input {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+  text-overflow: ellipsis;
+}
+
+.copy-field .btn {
+  flex: none;
+}
+
+/* An AI assistant's tile: its own logo on white, the way the Canvas and NUSMods marks sit, or an icon on the info tint. */
+.app-mark {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-8);
+  display: grid;
+  place-items: center;
+  background: var(--surface-info-subtle);
+  color: var(--icon-info);
+}
+
+.app-mark-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-12);
+}
+
+.app-mark-logo {
+  background: var(--surface-white);
+  border: 1px solid var(--border-primary);
+}
+
+.app-mark-plain {
+  background: var(--surface-primary-subtle);
+  border: 1px solid var(--border-primary);
+  color: var(--icon-secondary);
+}
+
+/* AI assistants in Settings: one list, with a row for each assistant someone allowed. */
+.connected-list {
+  margin: var(--space-200) 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-12);
+}
+
+.connected-app {
+  display: flex;
+  align-items: center;
+  gap: var(--space-100);
+  padding: var(--space-100) var(--space-75) var(--space-100) var(--space-200);
+}
+
+.connected-app + .connected-app {
+  border-top: 1px solid var(--border-primary);
+}
+
+.connected-app-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.connected-app-dates span {
+  white-space: nowrap;
+}
+
+.connected-app form {
+  flex: none;
+  display: flex;
+  margin: 0;
+}
+
+.connected-app .btn {
+  padding-left: var(--space-100);
+  padding-right: var(--space-100);
+}
+
+/* What an assistant will and won't see: two cards side by side, stacked on phones. */
+.access {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-200);
+  margin-top: var(--space-300);
+}
+
+.access-card {
+  padding: var(--space-200);
+  border-radius: var(--radius-12);
+  border: 1px solid var(--border-primary);
+  background: var(--surface-primary-subtle);
+}
+
+.access-list {
+  list-style: none;
+  margin: var(--space-100) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-75);
+  color: var(--text-secondary);
+}
+
+.access-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-75);
+}
+
+.access-list svg {
+  flex: none;
+  margin-top: var(--space-25);
+}
+
+.access-yes {
+  color: var(--icon-success);
+}
+
+.access-no {
+  color: var(--icon-subtle);
+}
+
+@media (max-width: 560px) {
+  .access {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The approval page: the assistant's mark joined to Semsync's, the question under them, then the choice as two equal buttons. */
+.approve-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.approve-marks {
+  display: flex;
+  align-items: center;
+  gap: var(--space-100);
+  margin-bottom: var(--space-300);
+}
+
+.approve-marks > * {
+}
+
+.approve-link {
+  width: 40px;
+  border-top: 2px dashed var(--border-tertiary);
+}
+
+.approve .notice {
+  margin-top: var(--space-300);
+}
+
+/* Allow and Cancel: regular buttons, centred under the question, both as wide as the longer label. */
+.approve-actions {
+  display: grid;
+  grid-auto-columns: minmax(120px, 1fr);
+  grid-auto-flow: column;
+  justify-content: center;
+  gap: var(--space-100);
+  width: max-content;
+  max-width: 100%;
+  margin: var(--space-400) auto 0;
+}
+
+.approve-who {
+  margin-top: var(--space-200);
+  text-align: center;
+}
+
+/* Help's AI section, in the link guide's own grid and measurements (2:3 columns, 32px numbers in 16px of padding, a
+   window with a dotted bar), so the two sections line up. Stacked on phones, with the window first. */
+.ai-help {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--space-500);
+  align-items: center;
+  margin-top: var(--space-400);
+}
+
+.ai-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-50);
+}
+
+.ai-step {
+  display: flex;
+  gap: var(--space-200);
+  align-items: flex-start;
+  padding: var(--space-100) var(--space-200);
+  border: 1px solid transparent;
+}
+
+.ai-step .step-no {
+  height: 24px;
+}
+
+.step-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-25);
+}
+
+.step-body .copy-field {
+  margin-top: var(--space-100);
+}
+
+.chat-demo {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-12);
+  border: 1px solid var(--border-primary);
+  background: var(--surface-primary-subtle);
+}
+
+/* The window has no overflow clipping (so it can grow to fit on narrow screens), so its bar rounds its own corners. */
+.chat-demo .gs-bar {
+  border-radius: calc(var(--radius-12) - 1px) calc(var(--radius-12) - 1px) 0 0;
+}
+
+.chat-title {
+  color: var(--text-secondary);
+}
+
+.chat-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-200);
+  padding: var(--space-300);
+}
+
+.chat-ask {
+  align-self: flex-end;
+  max-width: 80%;
+  padding: var(--space-75) var(--space-200);
+  border-radius: var(--radius-12) var(--radius-12) var(--radius-4) var(--radius-12);
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.chat-answer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-100);
+}
+
+.chat-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-50);
+  padding: var(--space-25) var(--space-100) var(--space-25) var(--space-25);
+  border-radius: var(--radius-6);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+}
+
+.chat-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-50);
+}
+
+.chat-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-100);
+  margin: 0 var(--space-300) var(--space-300);
+  padding: var(--space-50) var(--space-50) var(--space-50) var(--space-200);
+  border-radius: var(--radius-12);
+  border: 1px solid var(--border-primary);
+  color: var(--text-tertiary);
+}
+
+.chat-send {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-8);
+  background: var(--surface-secondary);
+  color: var(--icon-secondary);
+}
+
+@media (max-width: 768px) {
+  .ai-help {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-300);
+  }
+
+  .chat-demo {
+    order: -1;
+  }
+}
+
 .app-steps {
   margin-top: var(--space-200);
 }
@@ -3500,7 +3821,8 @@ legend.step-head {
   margin-top: var(--space-75);
 }
 
-.prose ul {
+.prose ul,
+.prose ol {
   margin: var(--space-75) 0 0;
   padding-left: var(--space-300);
 }

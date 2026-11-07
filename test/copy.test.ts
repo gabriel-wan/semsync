@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UserRow } from '../src/lib/db';
-import { Help, Home, Landing, Message, NotFound, Privacy, Settings, Setup, Terms } from '../src/views/pages';
+import { Approve, Help, Home, Landing, Message, NotFound, Privacy, Settings, Setup, Terms } from '../src/views/pages';
 
 const user: UserRow = {
   id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', nusmods_link: null, mode: 'main',
@@ -31,6 +31,15 @@ const PAGES: [string, unknown][] = [
   ['privacy', Privacy({})],
   ['help', Help({})],
   ['settings', Settings({ user, csrf: 't', counts: { deadline: 3 }, dev: false })],
+  ['settings, with AI assistants', Settings({
+    user, csrf: 't', counts: { deadline: 3 }, dev: false, mcpUrl: 'https://semsync.example/mcp',
+    apps: [
+      { id: 'a', name: 'Claude', host: 'claude.ai', local: false, created_at: 0, last_used_at: null },
+      { id: 'b', name: 'Cursor', host: 'localhost', local: true, created_at: 0, last_used_at: 1 },
+    ],
+  })],
+  ['approval, hosted app', Approve({ user, csrf: 't', appName: 'Claude', host: 'claude.ai', local: false, setUp: true, fields: { client_id: 'x' } })],
+  ['approval, app on this computer, not set up', Approve({ user, csrf: 't', appName: 'Cursor', host: 'localhost', local: true, setUp: false, fields: {} })],
   ['terms', Terms({})],
   ['home, sync failed', Home({ user: { ...user, last_sync_ok: 0, last_sync_message: "Couldn't sync just now." }, ...home, upcoming: [], needsConnect: false })],
   ['message', Message({ title: 'Your data is deleted', body: 'Gone.' })],

@@ -218,11 +218,14 @@
   };
   document.querySelectorAll('form[data-busy-label]:not([data-setup])').forEach((f) => f.addEventListener('submit', (e) => busy(f, f.dataset.busyLabel, e.submitter)));
 
-  // The subscribe link: Copy puts it on the clipboard (or selects it, where that's not allowed), and a click selects it.
+  // Links and addresses to copy: Copy puts one on the clipboard (or selects it, where that's not allowed), and a click
+  // selects it. The button says Copied for a moment, then goes back to its own label.
   document.querySelectorAll('[data-select]').forEach((input) => input.addEventListener('focus', () => input.select()));
   document.querySelectorAll('[data-copy]').forEach((button) => button.addEventListener('click', async () => {
     const input = document.getElementById(button.dataset.copy);
     const label = button.querySelector('span');
+    const own = button.dataset.label || label.textContent;
+    button.dataset.label = own;
     let copied = false;
     try {
       await navigator.clipboard.writeText(input.value);
@@ -235,7 +238,7 @@
     }
     if (copied) {
       label.textContent = 'Copied';
-      setTimeout(() => { label.textContent = 'Copy link'; }, 1800);
+      setTimeout(() => { label.textContent = own; }, 1800);
     }
   }));
 

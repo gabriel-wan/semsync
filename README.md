@@ -45,6 +45,12 @@ term, Semsync adds a reminder to your calendar to paste that term's link.
 The details are on the **[privacy page](https://semsync.live/privacy)**. Semsync is made by an NUS student and isn't
 affiliated with NUS, NUSMods or Instructure. Always check Canvas for anything that matters.
 
+## Ask Claude, ChatGPT or another AI assistant
+
+Add `https://semsync.live/mcp` as a custom connector (in Claude: Settings, Connectors), sign in to Semsync
+and choose Allow. Then ask things like "what's due this week?". The assistant can only read your deadlines, classes, exams
+and modules, never your links or email, and you can remove it in Settings.
+
 ## Questions or problems
 
 Most answers are on the **[help page](https://semsync.live/help)**. Found a bug or want something added?
