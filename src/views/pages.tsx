@@ -174,11 +174,11 @@ const GUIDE: Record<GuideKind, { steps: [string, string][]; open: [string, strin
   nusmods: {
     steps: [
       ['Open your timetable on NUSMods', 'The semester with your classes in it.'],
-      ['Select Share/Sync', "It's just above your timetable."],
+      ['Select Share/Sync', "It's below your timetable, on the right."],
       ['Copy the full link', 'It starts with nusmods.com/timetable. Paste it into Semsync.'],
     ],
     open: ['https://nusmods.com/timetable', 'Open NUSMods'],
-    label: 'A NUSMods timetable, with the Share/Sync button above it, and the share link it shows',
+    label: 'A NUSMods timetable, with the Share/Sync button below it on the right, and the share link it shows',
   },
 };
 
@@ -241,10 +241,6 @@ const NusmodsScreen: FC = () => (
         <span class="caption-4 gs-tab-on is-target" data-target="0">Timetable</span>
         <span class="caption-4 text-secondary">Courses</span>
       </div>
-      <div class="gs-tools">
-        <span class="gs-tool caption-4">Download</span>
-        <span class="gs-tool caption-4 is-target" data-target="1">Share/Sync</span>
-      </div>
       <div class="gs-week">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d, row) => (
           <div class="gs-day">
@@ -256,6 +252,12 @@ const NusmodsScreen: FC = () => (
             </div>
           </div>
         ))}
+      </div>
+      {/* As on NUSMods, the buttons sit in a row under the timetable, on the right. */}
+      <div class="gs-tools">
+        <span class="gs-tool caption-4">Download</span>
+        <span class="gs-tool caption-4 is-target" data-target="1">Share/Sync</span>
+        <span class="gs-tool caption-4">Reset</span>
       </div>
     </div>
     <div class="gs-dialog">

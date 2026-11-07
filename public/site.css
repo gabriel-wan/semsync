@@ -1574,15 +1574,17 @@ header.hero + section {
   color: var(--icon-info);
 }
 
+.tab-panel {
+  margin-top: var(--space-300);
+}
+
+/* Without the script both walkthroughs show, one after the other, with room between them. */
 .tab-panel + .tab-panel {
   margin-top: var(--space-500);
 }
 
+/* With it, one shows at a time, so each sits the same distance below the tabs and switching doesn't move anything. */
 .js .tab-panel + .tab-panel {
-  margin-top: 0;
-}
-
-.tab-panel {
   margin-top: var(--space-300);
 }
 
