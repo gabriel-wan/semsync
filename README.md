@@ -47,9 +47,13 @@ affiliated with NUS, NUSMods or Instructure. Always check Canvas for anything th
 
 ## Ask Claude, ChatGPT or another AI assistant
 
-Add `https://semsync.live/mcp` as a custom connector (in Claude: Settings, Connectors), sign in to Semsync
-and choose Allow. Then ask things like "what's due this week?". The assistant can only read your deadlines, classes, exams
-and modules, never your links or email, and you can remove it in Settings.
+Semsync is also a read only [MCP](https://modelcontextprotocol.io) server. Add `https://semsync.live/mcp` as a
+custom connector (in Claude: Settings, Connectors), sign in to Semsync and choose Allow. Then ask things like "what's
+due this week?". The assistant can only read your deadlines, classes, exams and modules, never your links or email,
+and you can remove it in Settings.
+
+For developers: it has three tools (`upcoming`, `week` and `courses`) and lets apps in with OAuth 2.1, using dynamic
+client registration and PKCE.
 
 ## Questions or problems
 
