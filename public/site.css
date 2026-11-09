@@ -442,6 +442,13 @@ code,
   }
 }
 
+/* On the smallest phones two tiles side by side leave no room for a module code and its tick, so they stack. */
+@media (max-width: 360px) {
+  .course-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tile-body,
   .tile-check {
@@ -1877,6 +1884,19 @@ header.hero + section {
   gap: var(--space-75);
   min-width: 0;
 }
+
+/* On small phones the right column is narrow, so less padding keeps "Calendar Feed" whole. */
+@media (max-width: 400px) {
+  .gs-side {
+    padding: var(--space-100) var(--space-50);
+  }
+
+  .gs-side .gs-link {
+    padding: var(--space-25);
+  }
+}
+
+
 
 .gs-line {
   display: flex;
