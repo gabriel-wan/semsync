@@ -1,8 +1,8 @@
 // Semsync's browser script, loaded with defer on every page. Everything works without it; it adds the light and dark
 // toggle, reveal on scroll, the link guides and hero demo, the account menu, confirmation dialogs, copy buttons, ticking
-// deadlines off in the background with Undo, searching deadlines as you type and by module, checks and a loading state
-// for the setup form, and taking a shown confirmation off the address. The theme key matches THEME_KEY in
-// src/views/styles.ts.
+// deadlines off in the background with Undo, searching deadlines as you type and by module, closing the note about
+// what's new, checks and a loading state for the setup form, and taking a shown confirmation off the address. The
+// theme key matches THEME_KEY in src/views/styles.ts.
 (() => {
   const toggle = document.querySelector('[data-theme-toggle]');
   if (toggle) {
@@ -379,6 +379,15 @@
     filter.addEventListener('input', () => { run(); remember(); });
     filter.form.addEventListener('submit', (event) => { event.preventDefault(); run(); });
   }
+
+  // Closing the note about what's new: it goes at once, and the server remembers it in the background.
+  document.querySelectorAll('form[data-news-dismiss]').forEach((form) => form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const note = form.closest('[data-news]');
+    if (note) note.remove();
+    fetch(form.action, { method: 'POST', body: new URLSearchParams(new FormData(form)), headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .catch(() => {});
+  }));
 
   const setup = document.querySelector('form[data-setup]');
   if (!setup) return;

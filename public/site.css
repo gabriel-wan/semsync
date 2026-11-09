@@ -4240,6 +4240,56 @@ legend.step-head {
   transform: rotate(180deg);
 }
 
+/* The note about what's new on your page, in the info style, with a way to its page and a close button. */
+.news-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-25);
+}
+
+.news-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-50);
+  margin-top: var(--space-50);
+  color: var(--text-info);
+  text-decoration: none;
+}
+
+.news-link:hover {
+  text-decoration: underline;
+}
+
+.notice .news-link svg,
+.notice .news-close svg {
+  margin-top: 0;
+}
+
+.news-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  margin: calc(-1 * var(--space-50)) calc(-1 * var(--space-100)) 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  cursor: pointer;
+}
+
+.news-close:hover {
+  background: var(--surface-primary-hover);
+}
+
+.news-close:focus-visible {
+  outline: 2px solid var(--border-action-primary);
+  outline-offset: 1px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dl-mod,
   .dl-caret {

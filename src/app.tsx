@@ -20,6 +20,7 @@ import {
   connectedApps, countRequests, createCode, isLoopbackHost, mcpResource, OAuthError, protectedResourceMetadata, redeemCode, refreshTokens,
   registerClient, removeApp, type ApprovalRequest,
 } from './lib/oauth.js';
+import { NEWS, NEWS_COOKIE, showNews } from './lib/news.js';
 import { csrfToken, readSession, renewDue, sessionValue, SESSION_MAX_AGE } from './lib/session.js';
 import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser, timetableNotice } from './lib/sync.js';
 import {
@@ -392,10 +393,19 @@ app.get('/home', async (c) => {
   return c.html(
     <Home user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} addUrl={addSharedCalendarUrl(c.env, user)}
       needsConnect={user.mode === 'main' && !hasCalendarAccess(user)} feedLink={await feedLinkOf(c, user)} timetable={timetableNotice(user)}
-      counts={counts} upcoming={upcoming} flash={flashOf(c)} dev={isDev(c.env)} />,
+      counts={counts} upcoming={upcoming} flash={flashOf(c)} dev={isDev(c.env)}
+      news={showNews(user, Date.now(), getCookie(c, NEWS_COOKIE) === NEWS.id)} />,
   );
 });
 
+// Closing the note about what's new: remembered in this browser until long after the note would have gone anyway.
+app.post('/news/dismiss', async (c) => {
+  const user = c.get('user');
+  const wantsJson = (c.req.header('accept') ?? '').includes('application/json');
+  if (!user || !(await validCsrf(c, user, await c.req.parseBody()))) return wantsJson ? c.json({ ok: false }, 403) : c.redirect('/');
+  setCookie(c, NEWS_COOKIE, NEWS.id, { httpOnly: true, secure: isHttps(c), sameSite: 'Lax', path: '/', maxAge: 90 * 86_400 });
+  return wantsJson ? c.json({ ok: true }) : c.redirect('/home');
+});
 
 app.post('/sync', async (c) => {
   const user = c.get('user');

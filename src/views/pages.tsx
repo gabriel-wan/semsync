@@ -1278,7 +1278,9 @@ export const Home: FC<{
   upcoming: UpcomingRow[]; flash?: Flash; dev: boolean; feedLink?: string | null;
   /** Near a new term: which term the NUSMods link is for, and which one to paste now. */
   timetable?: { saved: string; wanted: string } | null;
-}> = ({ user, csrf, addUrl, needsConnect, counts, upcoming, flash, dev, feedLink, timetable }) => {
+  /** Show the note about what's new (see src/lib/news.ts). */
+  news?: boolean;
+}> = ({ user, csrf, addUrl, needsConnect, counts, upcoming, flash, dev, feedLink, timetable, news }) => {
   const failing = user.last_sync_ok === 0 || needsConnect;
   const week = semesterWeek();
   const status = needsConnect ? 'Not syncing' : user.last_sync_at ? `Synced ${timeAgo(user.last_sync_at)}` : 'Not synced yet';
@@ -1299,6 +1301,7 @@ export const Home: FC<{
         </header>
 
         {flash && <Toast flash={flash} />}
+        {news && <NewsNote csrf={csrf} />}
         {timetable && (
           <div class="notice notice-warning body-6" role="status">
             <Icon name="calendarDots" />
@@ -1345,6 +1348,28 @@ export const Home: FC<{
     </Layout>
   );
 };
+
+/**
+ * What's new, for people who were here before it: on their page until they close it or it's two weeks old (both in
+ * src/lib/news.ts). Closing it is a small form, so it works without JavaScript; app.js closes it in place.
+ */
+const NewsNote: FC<{ csrf: string }> = ({ csrf }) => (
+  <div class="notice notice-info news body-6" data-news>
+    <Icon name="sparkle" />
+    <div class="news-text">
+      <p class="title-4">New in Semsync</p>
+      <p>
+        Tick off deadlines you've handed in, and their reminders stop. You can also pick your own reminder times in{' '}
+        <a href="/settings#reminders">Settings</a>.
+      </p>
+      <a class="news-link title-4" href="/deadlines">See your deadlines<Icon name="arrowRight" size={16} /></a>
+    </div>
+    <form method="post" action="/news/dismiss" data-news-dismiss>
+      <input type="hidden" name="csrf" value={csrf} />
+      <button class="news-close" type="submit" aria-label="Close this note"><Icon name="x" size={14} /></button>
+    </form>
+  </div>
+);
 
 /** A confirmation after a change: a short title and, where there's more to say, one sentence. */
 export type Flash = { title: string; body?: string };

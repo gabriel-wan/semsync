@@ -26,6 +26,7 @@ const PAGES: [string, unknown][] = [
   ['setup, new', Setup({ user: { ...user, canvas_feed_enc: null }, csrf: 't', values: { canvas: '', nusmods: '' }, errors: {}, editing: false, dev: false })],
   ['setup, editing with errors', Setup({ user, csrf: 't', values: { canvas: 'x', nusmods: 'y' }, errors: { canvas: 'Bad link.', nusmods: 'Bad link.' }, editing: true, dev: false })],
   ['home, main', Home({ user, ...home, needsConnect: false })],
+  ['home, with the note about what is new', Home({ user, ...home, needsConnect: false, news: true })],
   ['home, needs connect', Home({ user, ...home, needsConnect: true, upcoming: [] })],
   ['home, shared', Home({ user: { ...user, mode: 'shared' }, ...home, addUrl: 'https://calendar.google.com', needsConnect: false })],
   ['privacy', Privacy({})],

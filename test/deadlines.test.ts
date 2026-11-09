@@ -7,6 +7,7 @@ import {
 } from '../src/lib/events';
 import { gunzipBase64, toIcs } from '../src/lib/feed';
 import { migrate } from '../src/lib/migrate';
+import { NEWS, showNews } from '../src/lib/news';
 import { csrfToken, renewDue, sessionValue } from '../src/lib/session';
 import { markDone, SYNC_VERSION, syncInputHash } from '../src/lib/sync';
 import { Deadlines } from '../src/views/pages';
@@ -166,6 +167,17 @@ describe('the Deadlines page', () => {
   });
 });
 
+describe("the note about what's new", () => {
+  it('shows people who were here before it, until they close it or it is two weeks old', () => {
+    const before = { created_at: NEWS.from - 86_400_000 };
+    expect(showNews(before, NEWS.from + 3_600_000, false)).toBe(true);
+    expect(showNews(before, NEWS.from + 3_600_000, true)).toBe(false);
+    expect(showNews(before, NEWS.until + 1, false)).toBe(false);
+    // Everything is new to someone who joined after it went live.
+    expect(showNews({ created_at: NEWS.from + 1 }, NEWS.from + 3_600_000, false)).toBe(false);
+  });
+});
+
 describe('staying signed in', () => {
   it('renews a sign in once it is a day old', async () => {
     const day = 86_400_000;
@@ -264,6 +276,13 @@ describe('ticking deadlines off and picking reminder times, through the app', ()
     const junk = await send('/deadlines/done', post([['csrf', csrf], ['done', 'not an id'], ['done', `ss${'0'.repeat(30)}`]], { accept: 'application/json' }));
     expect(await junk.json()).toEqual({ ok: true, synced: true });
     expect((await db.prepare('SELECT COUNT(*) AS n FROM done_deadlines').first<{ n: number }>())!.n).toBe(0);
+  });
+
+  it("closes the note about what's new for good, in this browser", async () => {
+    const closed = await send('/news/dismiss', post({ csrf }, { accept: 'application/json' }));
+    expect(await closed.json()).toEqual({ ok: true });
+    expect(closed.headers.get('set-cookie')).toMatch(new RegExp(`^ss_news=${NEWS.id.replace('.', '\\.')};`));
+    expect((await send('/news/dismiss', post({}))).headers.get('location')).toBe('/');
   });
 
   it('comes back to the same module after a tick without the page script', async () => {
