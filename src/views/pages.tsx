@@ -1675,6 +1675,7 @@ export const Privacy: FC<Viewer> = ({ signedIn, setupPending, account, origin })
         <li>Your Canvas calendar feed link, encrypted.</li>
         <li>Your NUSMods share link, if you add one.</li>
         <li>A list of the events it has added for you (title, type and start time), so each sync only sends changes.</li>
+        <li>Your reminder times, if you pick your own in Settings, and which deadlines you ticked off as done.</li>
         <li>
           If you connect an AI assistant: which one, when you allowed it and last used it, and fingerprints of the passes it holds (never the
           passes themselves).
