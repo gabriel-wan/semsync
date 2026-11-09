@@ -1,8 +1,8 @@
 // Semsync's browser script, loaded with defer on every page. Everything works without it; it adds the light and dark
 // toggle, reveal on scroll, the link guides and hero demo, the account menu, confirmation dialogs, copy buttons, ticking
-// deadlines off in the background with Undo, searching deadlines as you type, checks and a loading state for the setup
-// form, and taking a shown confirmation off the address. The theme key matches
-// THEME_KEY in src/views/styles.ts.
+// deadlines off in the background with Undo, searching deadlines as you type and by module, checks and a loading state
+// for the setup form, and taking a shown confirmation off the address. The theme key matches THEME_KEY in
+// src/views/styles.ts.
 (() => {
   const toggle = document.querySelector('[data-theme-toggle]');
   if (toggle) {
@@ -267,7 +267,7 @@
     let toast = null;
 
     const recount = () => document.querySelectorAll('[data-group]').forEach((group) => {
-      const left = group.querySelectorAll('[data-deadline]:not(.is-done)').length;
+      const left = group.querySelectorAll('[data-deadline]:not(.is-done):not([hidden])').length;
       const out = group.querySelector('[data-left]');
       if (out) out.textContent = left ? left + ' left' : 'All done';
     });
@@ -331,27 +331,52 @@
     }));
   }
 
-  // The Deadlines search narrows the list as you type. Without this, Enter sends it and the page comes back narrowed.
+  // The Deadlines search narrows the list as you type, and the module buttons show one module's deadlines, both in place.
+  // Without this, Enter sends the search and each button is a link, and the page comes back narrowed. Each week's count
+  // follows what's shown, and the folded "Later" opens while a search or module finds something in it.
   const filter = document.querySelector('[data-filter]');
   const list = filter && document.getElementById(filter.dataset.filter);
   if (filter && list) {
     const none = list.querySelector('[data-nomatch]');
+    const moduleField = filter.form.querySelector('[data-module-field]');
+    const buttons = [...document.querySelectorAll('[data-module-filter]')];
+    let mod = moduleField ? moduleField.value : '';
     const run = () => {
       const q = filter.value.trim().toLowerCase();
       let any = false;
       list.querySelectorAll('[data-group]').forEach((group) => {
         let shown = 0;
+        let left = 0;
         group.querySelectorAll('[data-deadline]').forEach((row) => {
-          const match = !q || row.dataset.search.includes(q);
+          const match = (!q || row.dataset.search.includes(q)) && (!mod || row.dataset.module === mod);
           row.hidden = !match;
-          if (match) shown++;
+          if (match) { shown++; if (!row.classList.contains('is-done')) left++; }
         });
         group.hidden = shown === 0;
+        const out = group.querySelector('[data-left]');
+        if (out) out.textContent = left ? left + ' left' : 'All done';
+        if (group.tagName === 'DETAILS') group.open = !!(q || mod) && shown > 0;
         if (shown) any = true;
       });
       if (none) none.hidden = any;
     };
-    filter.addEventListener('input', run);
+    // The address keeps the search and module, so a reload or the back button shows the same list.
+    const remember = () => {
+      const url = new URL(location.href);
+      const q = filter.value.trim();
+      if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
+      if (mod) url.searchParams.set('m', mod); else url.searchParams.delete('m');
+      history.replaceState(history.state, '', url.pathname + url.search);
+    };
+    buttons.forEach((button) => button.addEventListener('click', (event) => {
+      event.preventDefault();
+      mod = button.dataset.moduleFilter;
+      if (moduleField) moduleField.value = mod;
+      buttons.forEach((b) => (b === button ? b.setAttribute('aria-current', 'true') : b.removeAttribute('aria-current')));
+      run();
+      remember();
+    }));
+    filter.addEventListener('input', () => { run(); remember(); });
     filter.form.addEventListener('submit', (event) => { event.preventDefault(); run(); });
   }
 

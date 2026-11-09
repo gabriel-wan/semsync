@@ -396,6 +396,7 @@ app.get('/home', async (c) => {
   );
 });
 
+
 app.post('/sync', async (c) => {
   const user = c.get('user');
   if (!user || !(await validCsrf(c, user, await c.req.parseBody()))) return c.redirect('/');
@@ -442,9 +443,10 @@ app.get('/deadlines', async (c) => {
   if (!user) return c.redirect('/');
   if (!user.calendar_id && !user.canvas_feed_enc && !user.nusmods_link) return c.redirect('/setup');
   const q = (c.req.query('q') ?? '').trim().slice(0, 100);
+  const m = (c.req.query('m') ?? '').trim().toUpperCase().slice(0, 12);
   return c.html(
     <Deadlines user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} deadlines={await deadlineList(c.env.DB, user.id, startOfToday())}
-      q={q} flash={flashOf(c)} />,
+      q={q} m={m} flash={flashOf(c)} />,
   );
 });
 
@@ -468,8 +470,10 @@ app.post('/deadlines/done', async (c) => {
   const synced = changed ? !!(await syncUser(c.env, user)) : true;
   if (wantsJson) return c.json({ ok: true, synced });
   const back = form.back === 'home' ? '/home' : '/deadlines';
-  const q = back === '/deadlines' && typeof form.q === 'string' && form.q.trim() ? `&q=${encodeURIComponent(form.q.trim().slice(0, 100))}` : '';
-  return c.redirect(`${back}?done=${done.length ? 'ticked' : 'unticked'}${q}`);
+  const kept = new URLSearchParams();
+  if (back === '/deadlines' && typeof form.q === 'string' && form.q.trim()) kept.set('q', form.q.trim().slice(0, 100));
+  if (back === '/deadlines' && typeof form.m === 'string' && /^[A-Z0-9]{2,12}$/.test(form.m)) kept.set('m', form.m);
+  return c.redirect(`${back}?done=${done.length ? 'ticked' : 'unticked'}${kept.size ? `&${kept}` : ''}`);
 });
 
 // The confirmation as a page, for when JavaScript is off and the confirmation dialog can't open.

@@ -9,6 +9,7 @@ import { gunzipBase64, toIcs } from '../src/lib/feed';
 import { migrate } from '../src/lib/migrate';
 import { csrfToken, renewDue, sessionValue } from '../src/lib/session';
 import { markDone, SYNC_VERSION, syncInputHash } from '../src/lib/sync';
+import { Deadlines } from '../src/views/pages';
 import { testDb } from './pg';
 
 // The in-memory Postgres starts slowly when every test file runs at once, so these get longer than the 5 s default.
@@ -115,6 +116,56 @@ describe('reminder times', () => {
   });
 });
 
+describe('the Deadlines page', () => {
+  // Wednesday of Week 2, so there's a this week, a next week and a later.
+  const now = Date.parse('2026-08-19T12:00:00+08:00');
+  const at = (day: string) => Date.parse(`${day}T23:59:00+08:00`);
+  const row = (n: number, title: string, day: string) =>
+    ({ event_id: `ss${String(n).repeat(30)}`, title, kind: 'deadline' as const, start_ms: at(day), all_day: 0, done: 0 });
+  const deadlines = [
+    row(1, '[CS2040S] Problem Set 1', '2026-08-21'),
+    row(2, '[MA1521] Quiz 1', '2026-08-26'),
+    row(3, '[CS2040S] Problem Set 3', '2026-09-04'),
+    row(4, '[ES2660] Essay', '2026-09-10'),
+  ];
+  const user = { mode: 'feed', courses: '[]', email: 'a@u.nus.edu', name: 'A' } as UserRow;
+  const html = async (props: { q?: string; m?: string; rows?: typeof deadlines }) =>
+    String(await (Deadlines({ user, csrf: 't', deadlines: props.rows ?? deadlines, q: props.q, m: props.m, now }) as { toString(): string }).toString());
+  const later = (page: string) => /<details class="dl-group dl-later"[^>]*>/.exec(page)?.[0];
+  const group = (page: string, label: string) => {
+    const i = page.indexOf(`>${label}</h2>`);
+    const from = Math.max(page.lastIndexOf('<div class="dl-group"', i), page.lastIndexOf('<details class="dl-group dl-later"', i));
+    return page.slice(from, page.indexOf('</ul>', i));
+  };
+
+  it('folds Later away while something is due sooner, and shows it open when it is all there is', async () => {
+    expect(later(await html({}))).toBeDefined();
+    expect(later(await html({}))).not.toContain('open');
+    const onlyLater = await html({ rows: deadlines.slice(2) });
+    expect(later(onlyLater)).toBeUndefined();
+    expect(onlyLater).toContain('[ES2660] Essay');
+  });
+
+  it('opens Later when a search or a module finds something there', async () => {
+    expect(later(await html({ q: 'essay' }))).toContain('open');
+    expect(later(await html({ m: 'ES2660' }))).toContain('open');
+    // A module with nothing later leaves it folded, and hidden.
+    expect(later(await html({ m: 'MA1521' }))).toMatch(/hidden/);
+  });
+
+  it('has a button for each module with something due, and shows one module on its own', async () => {
+    const all = await html({});
+    expect([...all.matchAll(/data-module-filter="([^"]*)"/g)].map((x) => x[1])).toEqual(['', 'CS2040S', 'ES2660', 'MA1521']);
+    expect(all).toMatch(/aria-current="true" data-module-filter=""/);
+    const one = await html({ m: 'CS2040S' });
+    expect(one).toMatch(/aria-current="true" data-module-filter="CS2040S"/);
+    expect(group(one, 'Next week')).toMatch(/^<div class="dl-group" data-group="true" hidden/);
+    expect(group(one, 'This week')).toContain('1 left');
+    // An unknown module shows everything rather than nothing.
+    expect(await html({ m: 'XX9999' })).toMatch(/aria-current="true" data-module-filter=""/);
+  });
+});
+
 describe('staying signed in', () => {
   it('renews a sign in once it is a day old', async () => {
     const day = 86_400_000;
@@ -213,6 +264,13 @@ describe('ticking deadlines off and picking reminder times, through the app', ()
     const junk = await send('/deadlines/done', post([['csrf', csrf], ['done', 'not an id'], ['done', `ss${'0'.repeat(30)}`]], { accept: 'application/json' }));
     expect(await junk.json()).toEqual({ ok: true, synced: true });
     expect((await db.prepare('SELECT COUNT(*) AS n FROM done_deadlines').first<{ n: number }>())!.n).toBe(0);
+  });
+
+  it('comes back to the same module after a tick without the page script', async () => {
+    const id = await reflection();
+    const back = await send('/deadlines/done', post([['csrf', csrf], ['done', id], ['back', 'deadlines'], ['m', 'UTC2402'], ['q', 'part 2']]));
+    expect(back.headers.get('location')).toBe('/deadlines?done=ticked&q=part+2&m=UTC2402');
+    await send('/deadlines/done', post([['csrf', csrf], ['undone', id]], { accept: 'application/json' }));
   });
 
   it('shows the Deadlines page with a tick for each, and the search kept', async () => {

@@ -37,6 +37,10 @@ const PAGES: [string, unknown][] = [
     { event_id: `ss${'b'.repeat(30)}`, title: '[MA1521] Quiz 3', kind: 'deadline', start_ms: Date.now() + 9 * 86_400_000, all_day: 0, done: 0 },
     { event_id: `ss${'c'.repeat(30)}`, title: '[ES2660] Essay', kind: 'deadline', start_ms: Date.now() + 30 * 86_400_000, all_day: 1, done: 0 },
   ] })],
+  ['deadlines, one module', Deadlines({ user, csrf: 't', m: 'MA1521', deadlines: [
+    { event_id: `ss${'a'.repeat(30)}`, title: '[CS2040] Problem Set 5', kind: 'deadline', start_ms: Date.now() + 3_600_000, all_day: 0, done: 0 },
+    { event_id: `ss${'b'.repeat(30)}`, title: '[MA1521] Quiz 3', kind: 'deadline', start_ms: Date.now() + 30 * 86_400_000, all_day: 0, done: 0 },
+  ] })],
   ['deadlines, none', Deadlines({ user: { ...user, mode: 'feed' }, csrf: 't', deadlines: [] })],
   ['deadlines, search with no match', Deadlines({ user, csrf: 't', q: 'zzz', deadlines: [
     { event_id: `ss${'a'.repeat(30)}`, title: '[CS2040] Problem Set 5', kind: 'deadline', start_ms: Date.now() + 3_600_000, all_day: 0, done: 0 },

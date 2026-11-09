@@ -1878,8 +1878,6 @@ header.hero + section {
   min-width: 0;
 }
 
-
-
 .gs-line {
   display: flex;
   align-items: center;
@@ -4167,6 +4165,84 @@ legend.step-head {
 @media (prefers-reduced-motion: reduce) {
   .tick-box,
   .remind-choice span {
+    transition: none;
+  }
+}
+
+/* The Deadlines page's module buttons: one per module with something due, plus All. The chosen one is outlined. */
+.dl-mods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-75);
+  margin-top: var(--space-200);
+}
+
+.dl-mod {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-50);
+  min-height: 36px;
+  padding: 0 var(--space-100);
+  border-radius: var(--radius-8);
+  border: 1px solid var(--border-primary);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition:
+    border-color 200ms var(--ease),
+    background-color 200ms var(--ease);
+}
+
+.dl-mod:hover {
+  border-color: var(--border-action-secondary);
+}
+
+.dl-mod[aria-current='true'] {
+  border-color: var(--border-action-primary);
+  background: var(--surface-primary-subtle);
+  color: var(--text-primary);
+}
+
+.dl-mod:focus-visible {
+  outline: 2px solid var(--border-action-primary);
+  outline-offset: 2px;
+}
+
+/* "Later", folded while something is due sooner: its heading opens it, with the count and a turning caret. */
+.dl-later > summary {
+  justify-content: flex-start;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+  border-radius: var(--radius-6);
+}
+
+.dl-later > summary::-webkit-details-marker {
+  display: none;
+}
+
+.dl-later > summary [data-left] {
+  margin-left: auto;
+}
+
+.dl-later > summary:focus-visible {
+  outline: 2px solid var(--border-action-primary);
+  outline-offset: 2px;
+}
+
+.dl-caret {
+  flex: none;
+  color: var(--icon-secondary);
+  transition: transform 200ms var(--ease);
+}
+
+.dl-later[open] .dl-caret {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-mod,
+  .dl-caret {
     transition: none;
   }
 }

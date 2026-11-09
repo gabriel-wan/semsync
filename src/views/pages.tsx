@@ -766,7 +766,7 @@ function timeAgo(ms: number) {
  * The tick beside a deadline. It's a small form, so it works without JavaScript; app.js sends it in the background and
  * offers Undo instead. The hidden field says what pressing it does next: tick it off (done) or back on (undone).
  */
-const DeadlineTick: FC<{ e: UpcomingRow; csrf: string; back: 'home' | 'deadlines'; q?: string }> = ({ e, csrf, back, q }) => {
+const DeadlineTick: FC<{ e: UpcomingRow; csrf: string; back: 'home' | 'deadlines'; q?: string; m?: string }> = ({ e, csrf, back, q, m }) => {
   const done = e.done === 1;
   return (
     <form class="tick-form" method="post" action="/deadlines/done" data-tick>
@@ -774,6 +774,7 @@ const DeadlineTick: FC<{ e: UpcomingRow; csrf: string; back: 'home' | 'deadlines
       <input type="hidden" name={done ? 'undone' : 'done'} value={e.event_id} />
       <input type="hidden" name="back" value={back} />
       {q && <input type="hidden" name="q" value={q} />}
+      {m && <input type="hidden" name="m" value={m} />}
       <button class="tick" type="submit" aria-pressed={done ? 'true' : 'false'} aria-label={`Done: ${e.title}`}>
         <span class="tick-box" aria-hidden="true"><Icon name="check" size={14} /></span>
       </button>
@@ -1093,13 +1094,19 @@ const mondayOf = (day: string) => {
   return new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
 };
 
+/** A deadline's module code, from the "[CS2040S]" its title starts with. Canvas courses without a code have none. */
+const MODULE_IN_TITLE = /^\[([A-Z]{2,4}\d{4}[A-Z]{0,3})\]/;
+const moduleOf = (title: string) => MODULE_IN_TITLE.exec(title)?.[1] ?? null;
+
 /**
  * Every deadline from today on, by week, each with a tick. Ticking one off stops its reminders and greys it out in the
- * calendar. A search narrows the list as you type (app.js), or on Enter without JavaScript.
+ * calendar. A row of modules shows one module's deadlines, and a search narrows the list as you type (app.js does both
+ * in place; without it they're links and a form). "Later" stays folded while something is due sooner, so the page opens
+ * on what matters now; a search or a module that finds something there opens it.
  */
 export const Deadlines: FC<{
-  user: UserRow; csrf: string; deadlines: UpcomingRow[]; q?: string; flash?: Flash; now?: number;
-}> = ({ user, csrf, deadlines, q = '', flash, now = Date.now() }) => {
+  user: UserRow; csrf: string; deadlines: UpcomingRow[]; q?: string; m?: string; flash?: Flash; now?: number;
+}> = ({ user, csrf, deadlines, q = '', m = '', flash, now = Date.now() }) => {
   const needle = q.toLowerCase();
   const thisWeek = mondayOf(dayKey(now));
   const nextWeek = mondayOf(dayKey(now + 7 * 86_400_000));
@@ -1108,10 +1115,23 @@ export const Deadlines: FC<{
     const week = mondayOf(dayKey(e.start_ms));
     groups[week <= thisWeek ? 0 : week === nextWeek ? 1 : 2][1].push(e);
   }
-  const matches = (e: UpcomingRow) => !needle || e.title.toLowerCase().includes(needle);
+  const modules = [...new Set(deadlines.map((e) => moduleOf(e.title)).filter((c): c is string => !!c))].sort();
+  const mod = modules.includes(m) ? m : '';
+  const matches = (e: UpcomingRow) => (!needle || e.title.toLowerCase().includes(needle)) && (!mod || moduleOf(e.title) === mod);
+  const filtering = !!(needle || mod);
   const anyMatch = deadlines.some(matches);
+  const foldLater = groups[0][1].length + groups[1][1].length > 0;
   const colors = user.mode === 'main' ? moduleColors(jsonList<Course>(user.courses).map((c) => c.key)) : new Map<string, string>();
-  const colorOf = (title: string) => colors.get(/^\[([^\]]+)\]/.exec(title)?.[1] ?? '');
+  const dot = (code: string | null) => {
+    const color = code ? colors.get(code) : undefined;
+    return color && <span class="course-dot" style={`background: ${GOOGLE_EVENT_COLORS[color]};`} aria-hidden="true" />;
+  };
+  const link = (code: string) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (code) params.set('m', code);
+    return `/deadlines${params.size ? `?${params}` : ''}`;
+  };
   return (
     <Layout title="Deadlines · Semsync" signedIn current="deadlines" noindex account={{ email: user.email, name: user.name, csrf }}>
       <div class="wrap narrow page">
@@ -1127,7 +1147,18 @@ export const Deadlines: FC<{
             <Icon name="magnifyingGlass" size={18} />
             <input class="input" type="search" name="q" value={q} placeholder="Module code or title" aria-label="Search deadlines"
               autocomplete="off" data-filter="dl-list" />
+            <input type="hidden" name="m" value={mod} data-module-field />
           </form>
+        )}
+        {modules.length > 1 && (
+          <nav class="dl-mods" aria-label="Show one module">
+            <a class="dl-mod body-5" href={link('')} aria-current={mod ? undefined : 'true'} data-module-filter="">All</a>
+            {modules.map((code) => (
+              <a class="dl-mod body-5" href={link(code)} aria-current={mod === code ? 'true' : undefined} data-module-filter={code}>
+                {dot(code)}{code}
+              </a>
+            ))}
+          </nav>
         )}
         <section class="panel dl-panel" id="dl-list" aria-label="Deadlines">
           {deadlines.length === 0 ? (
@@ -1135,33 +1166,40 @@ export const Deadlines: FC<{
           ) : (
             <>
               {groups.filter(([, rows]) => rows.length).map(([label, rows]) => {
-                const left = rows.filter((e) => e.done !== 1).length;
-                return (
-                  <div class="dl-group" data-group hidden={!rows.some(matches)}>
-                    <div class="dl-group-head">
-                      <h2 class="title-4">{label}</h2>
-                      <span class="caption-2 text-secondary" data-left>{left ? `${left} left` : 'All done'}</span>
-                    </div>
-                    <ul class="dl-list">
-                      {rows.map((e) => {
-                        const color = colorOf(e.title);
-                        return (
-                          <li class={`dl-row${e.done === 1 ? ' is-done' : ''}`} data-deadline data-search={e.title.toLowerCase()} hidden={!matches(e)}>
-                            <DeadlineTick e={e} csrf={csrf} back="deadlines" q={q} />
-                            <div class="dl-text">
-                              <span class="body-5 dl-title">
-                                {color && <span class="course-dot" style={`background: ${GOOGLE_EVENT_COLORS[color]};`} aria-hidden="true" />}
-                                {e.title}
-                              </span>
-                              <time class="caption-2 text-secondary" datetime={new Date(e.start_ms).toISOString()}>
-                                {part(e.start_ms, { weekday: 'short', day: 'numeric', month: 'short' })} ·{' '}
-                                {e.all_day === 1 ? 'all day' : part(e.start_ms, { hour: '2-digit', minute: '2-digit', hour12: false })}
-                              </time>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                const shown = rows.filter(matches);
+                const left = shown.filter((e) => e.done !== 1).length;
+                const head = (
+                  <>
+                    <h2 class="title-4">{label}</h2>
+                    <span class="caption-2 text-secondary" data-left>{left ? `${left} left` : 'All done'}</span>
+                  </>
+                );
+                const list = (
+                  <ul class="dl-list">
+                    {rows.map((e) => (
+                      <li class={`dl-row${e.done === 1 ? ' is-done' : ''}`} data-deadline data-search={e.title.toLowerCase()}
+                        data-module={moduleOf(e.title) ?? ''} hidden={!matches(e)}>
+                        <DeadlineTick e={e} csrf={csrf} back="deadlines" q={q} m={mod} />
+                        <div class="dl-text">
+                          <span class="body-5 dl-title">{dot(moduleOf(e.title))}{e.title}</span>
+                          <time class="caption-2 text-secondary" datetime={new Date(e.start_ms).toISOString()}>
+                            {part(e.start_ms, { weekday: 'short', day: 'numeric', month: 'short' })} ·{' '}
+                            {e.all_day === 1 ? 'all day' : part(e.start_ms, { hour: '2-digit', minute: '2-digit', hour12: false })}
+                          </time>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                );
+                return label === 'Later' && foldLater ? (
+                  <details class="dl-group dl-later" data-group hidden={shown.length === 0} open={filtering && shown.length > 0}>
+                    <summary class="dl-group-head">{head}<Icon name="caretDown" size={16} cls="dl-caret" /></summary>
+                    {list}
+                  </details>
+                ) : (
+                  <div class="dl-group" data-group hidden={shown.length === 0}>
+                    <div class="dl-group-head">{head}</div>
+                    {list}
                   </div>
                 );
               })}
