@@ -2,7 +2,7 @@ import type { Child, FC, PropsWithChildren } from 'hono/jsx';
 import { raw } from 'hono/html';
 import { TESTIMONIAL, semesterWeek } from '../config.js';
 import { jsonList, type Course, type UpcomingRow, type UserRow } from '../lib/db.js';
-import { GOOGLE_EVENT_COLORS, moduleColors } from '../lib/events.js';
+import { GOOGLE_EVENT_COLORS, moduleColors, REMINDER_CHOICES, reminderLabel, reminderTimes, type RemindedKind } from '../lib/events.js';
 import { isAddingMessage } from '../lib/messages.js';
 import { parseNusmodsLink } from '../lib/nusmods.js';
 import { verifiedBrand, type ConnectedApp } from '../lib/oauth.js';
@@ -470,7 +470,7 @@ const FAQ: [string, string][] = [
   ['What can Semsync access in my Google account?', 'Only the calendar it makes. Google calls the permission "Make secondary Google calendars, and see, create, change and delete events on them", and it doesn\'t let Semsync see any other calendar.'],
   ['Can I leave a course out?', 'Yes. In Settings, untick the course and save, and its upcoming events come out. You can turn off the "Week 7" labels there too.'],
   ['How quickly do changes show up?', 'Semsync checks Canvas about once an hour. If a deadline moves, your calendar follows within the hour.'],
-  ['Do I get reminders?', 'Yes: 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam.'],
+  ['Do I get reminders?', 'Yes: 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam. You can pick other times in Settings, under Reminders.'],
   ['Does it work with Outlook or Apple Calendar?', 'Yes. Choose "Outlook or Apple Calendar" when you set up, or get a subscribe link in Settings, and add it to any calendar app. It stays up to date, though those apps only check it every few hours, and some ignore its reminders.'],
   ['Does it work with Notion Calendar?', 'Yes. Notion Calendar shows the calendars in your Google account, so "NUS semester" is there once you connect that account to it.'],
   ['What happens next semester?', 'Canvas deadlines keep coming by themselves, and each new term\'s weeks and holidays are worked out for you. NUSMods links are made one semester at a time, so two weeks before the next one starts, Semsync puts a reminder in your calendar to paste its link.'],
@@ -1002,6 +1002,44 @@ const CoursesPanel: FC<{ user: UserRow; csrf: string }> = ({ user, csrf }) => {
   );
 };
 
+/**
+ * When reminders go off before each deadline and exam. Every choice is a box to tick, so several can be on at once, or
+ * none. Classes aren't here: they follow the calendar's own reminders.
+ */
+const RemindersPanel: FC<{ user: UserRow; csrf: string }> = ({ user, csrf }) => {
+  const times = reminderTimes(user.deadline_reminders, user.exam_reminders);
+  const row = (kind: RemindedKind, label: string) => (
+    <fieldset class="remind-row">
+      <legend class="title-4">{label}</legend>
+      <div class="remind-choices">
+        {REMINDER_CHOICES[kind].map((minutes) => (
+          <label class="remind-choice">
+            <input type="checkbox" name={kind} value={String(minutes)} checked={times[kind]!.includes(minutes)} />
+            <span class="body-5"><Icon name="check" size={14} cls="remind-check" />{reminderLabel(minutes)}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+  return (
+    <section class="panel" id="reminders" aria-labelledby="reminders-title">
+      <h2 id="reminders-title" class="title-2">Reminders</h2>
+      <p class="caption-2 text-secondary mt-50">How long before each one your calendar reminds you. Untick them all for none.</p>
+      <form method="post" action="/reminders" data-busy-label="Saving…">
+        <input type="hidden" name="csrf" value={csrf} />
+        {row('deadline', 'Before a deadline')}
+        {row('exam', 'Before an exam')}
+        {user.mode === 'feed' && (
+          <p class="caption-2 text-secondary mt-200">
+            Some calendar apps ignore reminders that come with a subscribe link, and Outlook and Apple Calendar can take a few hours to show new ones.
+          </p>
+        )}
+        <div class="courses-actions"><button class="btn btn-primary button-md" type="submit">Save reminders</button></div>
+      </form>
+    </section>
+  );
+};
+
 /** What deleting does, in the confirmation dialog and on its fallback page for when JavaScript is off. */
 const DeleteConfirm: FC<{ user: UserRow; csrf: string; total: number; dialog?: boolean }> = ({ user, csrf, total, dialog }) => (
   <form method="post" action="/account/delete" data-busy-label="Deleting…">
@@ -1318,6 +1356,7 @@ export const Settings: FC<{
       {flash && <Toast flash={flash} />}
       <div class="settings-sections">
         <CoursesPanel user={user} csrf={csrf} />
+        {user.mode !== 'shared' && <RemindersPanel user={user} csrf={csrf} />}
         <Sources user={user} dev={dev} />
         <CalendarApps user={user} csrf={csrf} feedLink={feedLink} />
         {user.mode === 'shared' && (

@@ -1,10 +1,18 @@
-import { describe, expect, it } from 'vitest';
-import type { UserRow } from '../src/lib/db';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { encrypt } from '../src/lib/crypto';
+import type { Db } from '../src/lib/database';
+import { feedBody, getUser, upsertUserOnLogin, type UserRow } from '../src/lib/db';
 import {
   cleanReminders, eventId, hashBody, reminderLabel, reminderTimes, REMINDERS, toGoogleEvent, type CalEvent,
 } from '../src/lib/events';
-import { toIcs } from '../src/lib/feed';
+import { gunzipBase64, toIcs } from '../src/lib/feed';
+import { migrate } from '../src/lib/migrate';
+import { csrfToken, sessionValue } from '../src/lib/session';
 import { markDone, SYNC_VERSION, syncInputHash } from '../src/lib/sync';
+import { testDb } from './pg';
+
+// The in-memory Postgres starts slowly when every test file runs at once, so these get longer than the 5 s default.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 const deadline: CalEvent = {
   key: 'canvas:event-assignment-1', kind: 'deadline', title: '[CS2040S] Problem Set 5',
@@ -104,5 +112,66 @@ describe('reminder times', () => {
 
   it('read as people say them', () => {
     expect([10080, 4320, 1440, 180, 60, 20160].map(reminderLabel)).toEqual(['1 week', '3 days', '1 day', '3 hours', '1 hour', '2 weeks']);
+  });
+});
+
+describe('picking reminder times, through the app', () => {
+  const APP_URL = 'https://semsync.example';
+  const SECRET = 'test session secret';
+  const KEY = 'test key';
+  const USER = 'google:7';
+  type App = { fetch: (r: Request) => Response | Promise<Response> };
+  let app: App;
+  let db: Db;
+  let cleanUp: () => Promise<void>;
+  let cookie: string;
+  let csrf: string;
+
+  beforeAll(async () => {
+    const t = await testDb();
+    db = t.db;
+    await migrate(db);
+    vi.resetModules();
+    const env = { DATABASE_URL: t.url, SESSION_SECRET: SECRET, ENCRYPTION_KEY: KEY, APP_URL, VERCEL: '', DEV_LOGIN: '1', GOOGLE_OAUTH_CLIENT_ID: '' };
+    for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
+    app = (await import('../src/app')).default;
+    const { getEnv } = await import('../src/env');
+    cleanUp = async () => {
+      await getEnv().DB.close();
+      await t.stop();
+      vi.unstubAllEnvs();
+    };
+    // On the subscribe link with the sample Canvas feed, so a sync needs neither Google nor the network.
+    await upsertUserOnLogin(db, { id: USER, email: 'seven@u.nus.edu', name: 'Seven' });
+    await db.prepare("UPDATE users SET mode = 'feed', calendar_id = 'feed', canvas_feed_enc = ?, feed_token_hash = 'h7' WHERE id = ?")
+      .bind(await encrypt(KEY, 'sample'), USER).run();
+    cookie = `ss_session=${await sessionValue(SECRET, USER)}`;
+    csrf = await csrfToken(SECRET, USER);
+    const synced = await send('/sync', post({ csrf }));
+    expect(synced.headers.get('location')).toContain('done=synced');
+  });
+
+  afterAll(async () => {
+    await cleanUp();
+  });
+
+  const send = (path: string, init: RequestInit = {}) => app.fetch(new Request(`${APP_URL}${path}`, init));
+  const post = (fields: [string, string][] | Record<string, string>, headers: Record<string, string> = {}): RequestInit => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', cookie, ...headers },
+    body: new URLSearchParams(fields).toString(),
+  });
+  const feed = async () => gunzipBase64((await feedBody(db, USER))!);
+  const block = (ics: string, title: string) => ics.split('BEGIN:VEVENT').find((b) => b.includes(title))!;
+
+  it('saves reminder times, and the usual ones as nothing at all', async () => {
+    await send('/reminders', post([['csrf', csrf], ['deadline', '4320'], ['deadline', '60'], ['exam', '1440']]));
+    let user = (await getUser(db, USER))!;
+    expect([user.deadline_reminders, user.exam_reminders]).toEqual(['[4320,60]', '[1440]']);
+    expect(block(await feed(), 'Reflection').match(/TRIGGER:[^\r]+/g)).toEqual(['TRIGGER:-PT4320M', 'TRIGGER:-PT60M']);
+
+    await send('/reminders', post([['csrf', csrf], ['deadline', '1440'], ['deadline', '180'], ['exam', '10080'], ['exam', '1440']]));
+    user = (await getUser(db, USER))!;
+    expect([user.deadline_reminders, user.exam_reminders]).toEqual([null, null]);
   });
 });

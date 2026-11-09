@@ -5,11 +5,12 @@ import { validateCanvasFeedUrl } from './lib/canvas.js';
 import { linkAcadYear } from './config.js';
 import { decrypt, encrypt, safeEqual } from './lib/crypto.js';
 import {
-  clearFeed, deleteUserData, eventCounts, feedBody, feedByHash, getUser, jsonList, saveCourseSettings, saveSources, setFeedToken, setMode,
-  setRefreshToken, upcomingEvents, upsertUserOnLogin,
+  clearFeed, deleteUserData, eventCounts, feedBody, feedByHash, getUser, jsonList, saveCourseSettings, saveReminders, saveSources, setFeedToken,
+  setMode, setRefreshToken, upcomingEvents, upsertUserOnLogin,
   type Course, type UserRow,
 } from './lib/db.js';
 import { UserError } from './lib/errors.js';
+import { cleanReminders, REMINDERS, type RemindedKind } from './lib/events.js';
 import { authorizationUrl, CALENDAR_SCOPE, exchangeCode, type AuthPurpose } from './lib/googleSignIn.js';
 import { feedTokenHash, feedUrl, gunzipBase64, newFeedToken } from './lib/feed.js';
 import { handleMcp, MAX_BATCH, PROTOCOL_VERSIONS, rpcError } from './lib/mcp.js';
@@ -410,6 +411,22 @@ app.post('/courses', async (c) => {
   await saveCourseSettings(c.env.DB, user.id, hidden, form.weeks === '1');
   const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!, { force: true });
   return c.redirect(ok ? '/settings?done=updated' : '/settings?done=saved');
+});
+
+// Reminder times in Settings: save them, then sync so every deadline and exam gets the new times now.
+app.post('/reminders', async (c) => {
+  const user = c.get('user');
+  if (!user) return c.redirect('/');
+  const form = await c.req.parseBody({ all: true });
+  if (!(await validCsrf(c, user, form))) return c.redirect('/settings');
+  const picked = (kind: RemindedKind) => {
+    const minutes = JSON.stringify(cleanReminders(kind, [form[kind] ?? []].flat()));
+    // The usual times are kept as nothing at all, so picking them again puts someone back where everyone starts.
+    return minutes === JSON.stringify(REMINDERS[kind]) ? null : minutes;
+  };
+  await saveReminders(c.env.DB, user.id, picked('deadline'), picked('exam'));
+  const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!, { force: true });
+  return c.redirect(ok ? '/settings?done=updated#reminders' : '/settings?done=saved#reminders');
 });
 
 // The confirmation as a page, for when JavaScript is off and the confirmation dialog can't open.

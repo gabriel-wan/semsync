@@ -31,6 +31,7 @@ const PAGES: [string, unknown][] = [
   ['privacy', Privacy({})],
   ['help', Help({})],
   ['settings', Settings({ user, csrf: 't', counts: { deadline: 3 }, dev: false })],
+  ['settings, subscribe link', Settings({ user: { ...user, mode: 'feed', deadline_reminders: '[4320]' }, csrf: 't', counts: {}, dev: false })],
   ['settings, with AI assistants', Settings({
     user, csrf: 't', counts: { deadline: 3 }, dev: false, mcpUrl: 'https://semsync.example/mcp',
     apps: [

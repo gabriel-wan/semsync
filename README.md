@@ -12,6 +12,7 @@ https://github.com/user-attachments/assets/d0856cd4-fb84-4e2a-82f1-9a34a3a5f048
 - **Every Canvas deadline**, titled with its module code, with reminders a day and 3 hours before it's due.
 - **Your classes from NUSMods**, only in the weeks they run, with recess week and public holidays skipped.
 - **Your final exams**, with reminders a week and a day before.
+- **Your choice of reminder times**: pick other times for deadlines and exams in Settings, like 3 days before.
 - **"Week 7" on each Monday**, so you always know which week it is, and a colour for each module.
 - **No upkeep.** Semsync checks Canvas every hour, so a deadline that moves, moves in your calendar too.
 

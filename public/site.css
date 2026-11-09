@@ -3919,3 +3919,81 @@ legend.step-head {
   align-items: baseline;
   gap: var(--space-100);
 }
+
+/* Reminder times in Settings: a row of boxes to tick for deadlines, and one for exams. */
+.remind-row {
+  min-width: 0;
+  margin: var(--space-200) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.remind-row legend {
+  padding: 0;
+}
+
+.remind-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-75);
+  margin-top: var(--space-75);
+}
+
+.remind-choice {
+  position: relative;
+  cursor: pointer;
+}
+
+.remind-choice input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.remind-choice span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-50);
+  min-height: 40px;
+  padding: 0 var(--space-200);
+  border-radius: var(--radius-8);
+  border: 1px solid var(--border-primary);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  transition:
+    border-color 200ms var(--ease),
+    background-color 200ms var(--ease);
+}
+
+.remind-check {
+  display: none;
+}
+
+.remind-choice:hover span {
+  border-color: var(--border-action-secondary);
+}
+
+.remind-choice input:checked + span {
+  border-color: var(--border-action-primary);
+  background: var(--surface-primary-subtle);
+  color: var(--text-primary);
+}
+
+.remind-choice input:checked + span .remind-check {
+  display: block;
+}
+
+.remind-choice input:focus-visible + span {
+  outline: 2px solid var(--border-action-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .remind-choice span {
+    transition: none;
+  }
+}
