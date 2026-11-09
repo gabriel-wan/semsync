@@ -18,5 +18,14 @@ export async function readSession(secret: string, value: string | undefined): Pr
 
 export const SESSION_MAX_AGE = SESSION_DAYS * 86_400;
 
+/**
+ * Whether a valid session is a day or more old, so it's sent again with a fresh 30 days. Anyone who comes back within a
+ * month stays signed in for good; only a month away signs someone out.
+ */
+export function renewDue(value: string, now = Date.now()): boolean {
+  const exp = Number(value.split('.')[1]);
+  return Number.isFinite(exp) && exp - now < (SESSION_DAYS - 1) * 86_400_000;
+}
+
 /** Per-user token for forms, so other sites can't post to them on the user's behalf. */
 export const csrfToken = (secret: string, userId: string) => hmac(secret, `csrf:${userId}`);

@@ -20,7 +20,7 @@ import {
   connectedApps, countRequests, createCode, isLoopbackHost, mcpResource, OAuthError, protectedResourceMetadata, redeemCode, refreshTokens,
   registerClient, removeApp, type ApprovalRequest,
 } from './lib/oauth.js';
-import { csrfToken, readSession, sessionValue, SESSION_MAX_AGE } from './lib/session.js';
+import { csrfToken, readSession, renewDue, sessionValue, SESSION_MAX_AGE } from './lib/session.js';
 import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser, timetableNotice } from './lib/sync.js';
 import {
   Approve, Deadlines, DeleteData, DevCalendar, DevLogin, Foundations, Help, Settings, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms,
@@ -90,7 +90,10 @@ app.use('*', async (c, next) => {
   if (moved) return c.redirect(moved, 308);
   const cookie = getCookie(c, SESSION_COOKIE);
   const uid = cookie ? await readSession(c.env.SESSION_SECRET, cookie) : null;
-  c.set('user', uid ? await getUser(c.env.DB, uid) : null);
+  const user = uid ? await getUser(c.env.DB, uid) : null;
+  c.set('user', user);
+  // Each visit pushes the sign in another 30 days out, so someone who uses Semsync stays signed in.
+  if (user && cookie && renewDue(cookie)) await startSession(c, user.id);
   await next();
   c.header('X-Content-Type-Options', 'nosniff');
   c.header('X-Frame-Options', 'DENY');

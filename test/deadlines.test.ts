@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { encrypt } from '../src/lib/crypto';
+import { b64url, encrypt, hmac } from '../src/lib/crypto';
 import type { Db } from '../src/lib/database';
 import { feedBody, getUser, upsertUserOnLogin, type UserRow } from '../src/lib/db';
 import {
@@ -7,7 +7,7 @@ import {
 } from '../src/lib/events';
 import { gunzipBase64, toIcs } from '../src/lib/feed';
 import { migrate } from '../src/lib/migrate';
-import { csrfToken, sessionValue } from '../src/lib/session';
+import { csrfToken, renewDue, sessionValue } from '../src/lib/session';
 import { markDone, SYNC_VERSION, syncInputHash } from '../src/lib/sync';
 import { testDb } from './pg';
 
@@ -112,6 +112,16 @@ describe('reminder times', () => {
 
   it('read as people say them', () => {
     expect([10080, 4320, 1440, 180, 60, 20160].map(reminderLabel)).toEqual(['1 week', '3 days', '1 day', '3 hours', '1 hour', '2 weeks']);
+  });
+});
+
+describe('staying signed in', () => {
+  it('renews a sign in once it is a day old', async () => {
+    const day = 86_400_000;
+    const now = Date.now();
+    expect(renewDue(await sessionValue('s', 'google:1'), now)).toBe(false);
+    expect(renewDue(`x.${now + 28 * day}.sig`, now)).toBe(true);
+    expect(renewDue('nonsense', now)).toBe(false);
   });
 });
 
@@ -221,5 +231,15 @@ describe('ticking deadlines off and picking reminder times, through the app', ()
     await send('/reminders', post([['csrf', csrf], ['deadline', '1440'], ['deadline', '180'], ['exam', '10080'], ['exam', '1440']]));
     user = (await getUser(db, USER))!;
     expect([user.deadline_reminders, user.exam_reminders]).toEqual([null, null]);
+  });
+
+  it('keeps someone signed in: a day old sign in comes back renewed', async () => {
+    const fresh = await send('/settings', { headers: { cookie } });
+    expect(fresh.headers.get('set-cookie')).toBeNull();
+    const payload = `${b64url(USER)}.${Date.now() + 20 * 86_400_000}`;
+    const old = `ss_session=${payload}.${await hmac(SECRET, `session:${payload}`)}`;
+    const renewed = await send('/settings', { headers: { cookie: old } });
+    expect(renewed.status).toBe(200);
+    expect(renewed.headers.get('set-cookie')).toMatch(/^ss_session=.+Max-Age=2592000/);
   });
 });
