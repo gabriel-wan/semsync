@@ -3,7 +3,7 @@
 // and the link serves it straight from the database.
 import { TIME_ZONE } from '../config.js';
 import { b64url, sha256Hex } from './crypto.js';
-import { eventId, REMINDERS, type CalEvent, type CalTime } from './events.js';
+import { DONE_MARK, eventId, REMINDERS, type CalEvent, type CalTime, type ReminderTimes } from './events.js';
 
 const KIND_NAME = { deadline: 'Deadline', event: 'Event', class: 'Class', exam: 'Exam', week: 'Week' } as const;
 
@@ -41,7 +41,10 @@ function icsTime(name: 'DTSTART' | 'DTEND', t: CalTime): string {
 }
 
 /** The whole calendar as an .ics file. */
-export async function toIcs(events: CalEvent[], opts: { name: string; now: number; appUrl: string }): Promise<string> {
+export async function toIcs(
+  events: CalEvent[], opts: { name: string; now: number; appUrl: string; reminders?: ReminderTimes },
+): Promise<string> {
+  const times = opts.reminders ?? REMINDERS;
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -68,7 +71,7 @@ export async function toIcs(events: CalEvent[], opts: { name: string; now: numbe
       `DTSTAMP:${stamp}`,
       icsTime('DTSTART', ev.start),
       icsTime('DTEND', ev.end),
-      `SUMMARY:${icsText(ev.title)}`,
+      `SUMMARY:${icsText(ev.done ? `${DONE_MARK}${ev.title}` : ev.title)}`,
     );
     if (ev.location) lines.push(`LOCATION:${icsText(ev.location)}`);
     lines.push(`DESCRIPTION:${icsText(description)}`);
@@ -76,7 +79,8 @@ export async function toIcs(events: CalEvent[], opts: { name: string; now: numbe
     lines.push(`CATEGORIES:${KIND_NAME[ev.kind]}`);
     // Deadlines, week labels and all day events shouldn't make you look busy.
     lines.push(`TRANSP:${ev.kind === 'deadline' || ev.kind === 'week' || 'date' in ev.start ? 'TRANSPARENT' : 'OPAQUE'}`);
-    for (const minutes of ev.kind === 'week' ? [] : REMINDERS[ev.kind] ?? []) {
+    // A deadline ticked off as done reminds nobody, like the week labels.
+    for (const minutes of ev.kind === 'week' || ev.done ? [] : times[ev.kind] ?? []) {
       lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsText(ev.title)}`, `TRIGGER:-PT${minutes}M`, 'END:VALARM');
     }
     lines.push('END:VEVENT');

@@ -12,6 +12,7 @@ import {
   cachedModuleFetcher,
   claimDueUsers,
   clearCalendar,
+  doneDeadlineIds,
   jsonList,
   memoModuleFetcher,
   saveFeed,
@@ -31,7 +32,8 @@ import {
 import type { Db } from './database.js';
 import { UserError } from './errors.js';
 import {
-  eventId, hashBody, moduleColors, startMs, toGoogleEvent, type CalEvent, type CalendarMode, type EventKind, type GoogleEventBody,
+  eventId, hashBody, moduleColors, REMINDERS, reminderTimes, startMs, toGoogleEvent, type CalEvent, type CalendarMode, type EventKind,
+  type GoogleEventBody, type ReminderTimes,
 } from './events.js';
 import { gzipBase64, toIcs } from './feed.js';
 import { noClassDates } from './holidays.js';
@@ -67,7 +69,9 @@ export type PlannedUpsert = {
 export type Plan = { upserts: PlannedUpsert[]; deletes: string[] };
 
 /** Works out what to send to Google: new or changed events, and upcoming events that disappeared. */
-export async function planSync(desired: CalEvent[], tracked: TrackedRow[], now: number, mode: CalendarMode = 'shared'): Promise<Plan> {
+export async function planSync(
+  desired: CalEvent[], tracked: TrackedRow[], now: number, mode: CalendarMode = 'shared', times: ReminderTimes = REMINDERS,
+): Promise<Plan> {
   const trackedById = new Map(tracked.map((t) => [t.event_id, t]));
   const firstSync = tracked.length === 0;
   const seen = new Set<string>();
@@ -80,7 +84,7 @@ export async function planSync(desired: CalEvent[], tracked: TrackedRow[], now: 
     const existing = trackedById.get(id);
     // After the first sync, don't back-fill the past (e.g. a newly picked tutorial slot in earlier weeks).
     if (!existing && !firstSync && startMs(ev.start) < now - DAY_MS) continue;
-    const body = toGoogleEvent(ev, mode);
+    const body = toGoogleEvent(ev, mode, times);
     const hash = await hashBody(body);
     if (existing?.hash === hash) continue;
     upserts.push({
@@ -258,6 +262,12 @@ export function timetableNotice(user: UserRow, now = new Date()): { saved: strin
   return { saved: term.label, wanted: wanted.label };
 }
 
+/** Marks the deadlines the user ticked off as done (by event id), so they go out greyed and without reminders. */
+export async function markDone(events: CalEvent[], done: Set<string>): Promise<CalEvent[]> {
+  if (done.size === 0) return events;
+  return Promise.all(events.map(async (e) => (e.kind === 'deadline' && done.has(await eventId(e.key)) ? { ...e, done: true } : e)));
+}
+
 /** Everything that should be in a user's calendar right now. Throws if any source fails, so nothing gets deleted by mistake. */
 export async function desiredEvents(
   env: Env, user: UserRow, canvas: CalEvent[], now = new Date(),
@@ -283,16 +293,22 @@ export async function desiredEvents(
 
 // Bump when the same inputs should now give different events (new rules, titles or kinds), so the next run does
 // everyone's sync in full once.
-const SYNC_VERSION = '2026-11-06';
+export const SYNC_VERSION = '2026-11-06';
 // NUSMods data, holidays and the date-based parts can change without the inputs changing, so a full sync runs at
 // least this often anyway.
 const FULL_SYNC_EVERY_MS = 20 * 3600_000;
 
-/** A fingerprint of everything a sync is built from, so a run can tell when nothing has changed. */
-async function syncInputHash(user: UserRow, canvas: CalEvent[]): Promise<string> {
+/**
+ * A fingerprint of everything a sync is built from, so a run can tell when nothing has changed. Reminder times and
+ * ticked off deadlines only count once someone has some: for everyone else the fingerprint is what it always was, so
+ * adding them didn't send anyone a sync they didn't need.
+ */
+export async function syncInputHash(user: UserRow, canvas: CalEvent[], done: Set<string> = new Set()): Promise<string> {
   return hashBody({
     v: SYNC_VERSION, canvas, nusmods: user.nusmods_link, ay: user.nusmods_ay, hidden: user.hidden_courses,
     weeks: user.week_labels, mode: user.mode, calendar: user.calendar_id, feed: !!user.feed_token_hash,
+    reminders: user.deadline_reminders ?? undefined, examReminders: user.exam_reminders ?? undefined,
+    done: done.size ? [...done].sort().join(',') : undefined,
   });
 }
 
@@ -365,7 +381,8 @@ export async function syncUser(env: Env, user: UserRow, opts: SyncOptions = {}):
   try {
     const calendarId = await timed('calendar', () => ensureCalendar(env, backend, user));
     const canvas = await timed('canvas', () => canvasFeedEvents(env, user));
-    const inputHash = await syncInputHash(user, canvas);
+    const done = await doneDeadlineIds(env.DB, user.id);
+    const inputHash = await syncInputHash(user, canvas, done);
     // Most hours nothing has changed: stop here, before reading anything else or calling Google.
     const fresh = user.full_sync_at !== null && Date.now() - user.full_sync_at < FULL_SYNC_EVERY_MS;
     if (!opts.force && fresh && user.last_sync_ok === 1 && user.input_hash === inputHash) {
@@ -374,13 +391,16 @@ export async function syncUser(env: Env, user: UserRow, opts: SyncOptions = {}):
       return { upserts: [], deletes: [], failed: 0, remaining: 0, unchanged: true };
     }
 
-    const { events, warnings, courses } = await timed('nusmods', () => desiredEvents(env, user, canvas));
+    const desired = await timed('nusmods', () => desiredEvents(env, user, canvas));
+    const { warnings, courses } = desired;
+    const events = await markDone(desired.events, done);
+    const times = reminderTimes(user.deadline_reminders, user.exam_reminders);
     if (JSON.stringify(courses) !== user.courses) await setCourses(env.DB, user.id, courses);
-    const plan = await timed('plan', async () => planSync(events, await trackedEvents(env.DB, user.id), Date.now(), user.mode));
+    const plan = await timed('plan', async () => planSync(events, await trackedEvents(env.DB, user.id), Date.now(), user.mode, times));
     const applied = await timed('google calendar', () => applyPlan(backend, calendarId, plan));
     await timed('save', () => storeApplied(env.DB, user.id, applied));
     if (user.feed_token_hash) {
-      const ics = await toIcs(events, { name: 'NUS semester', now: Date.now(), appUrl: env.APP_URL });
+      const ics = await toIcs(events, { name: 'NUS semester', now: Date.now(), appUrl: env.APP_URL, reminders: times });
       await timed('feed', async () => saveFeed(env.DB, user.id, await gzipBase64(ics)));
     }
     console.log('sync', user.id, {

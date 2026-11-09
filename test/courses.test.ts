@@ -78,7 +78,7 @@ describe('the course tiles on the Settings page', () => {
   const user: UserRow = {
     id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', nusmods_link: null, mode: 'main', calendar_id: 'primary',
     google_refresh_enc: 'x', needs_reconnect: 0, created_at: 0, last_sync_at: Date.now(), last_sync_ok: 1, last_sync_message: null,
-    week_labels: 0, hidden_courses: '["MA1521"]', nusmods_ay: null, input_hash: null, full_sync_at: null, sync_claimed_at: null, feed_token_hash: null, feed_token_enc: null,
+    week_labels: 0, hidden_courses: '["MA1521"]', nusmods_ay: null, input_hash: null, full_sync_at: null, sync_claimed_at: null, feed_token_hash: null, feed_token_enc: null, deadline_reminders: null, exam_reminders: null,
     courses: JSON.stringify([{ key: 'CS2040', label: 'CS2040 Data Structures and Algorithms' }, { key: 'MA1521', label: 'MA1521 Calculus for Computing' }]),
   };
   const page = async (u: UserRow) =>

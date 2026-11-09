@@ -29,6 +29,8 @@ export type CalEvent = {
   courseAliases?: string[];
   /** A Google Calendar colour id, overriding the colour for its kind. */
   color?: string;
+  /** A deadline the user ticked off: no reminders, greyed out, with a tick in front of its title. */
+  done?: boolean;
 };
 
 // Google Calendar event colour ids.
@@ -60,15 +62,62 @@ export const REMINDERS: Partial<Record<EventKind, number[]>> = {
   exam: [7 * 24 * 60, 24 * 60],
 };
 
+/** When each kind's reminders go off, in minutes before. Classes and events aren't listed: they follow the calendar's own. */
+export type ReminderTimes = Partial<Record<EventKind, number[]>>;
+
+/** The times Settings offers, longest first. Google allows five reminders an event, so a whole row always fits. */
+export const REMINDER_CHOICES = {
+  deadline: [7 * 24 * 60, 3 * 24 * 60, 24 * 60, 3 * 60, 60],
+  exam: [14 * 24 * 60, 7 * 24 * 60, 3 * 24 * 60, 24 * 60],
+} as const;
+
+export type RemindedKind = keyof typeof REMINDER_CHOICES;
+
+/** "3 days", "1 hour": a reminder time as Settings shows it. */
+export function reminderLabel(minutes: number): string {
+  const [n, unit] = minutes % (7 * 1440) === 0 ? [minutes / (7 * 1440), 'week'] : minutes % 1440 === 0 ? [minutes / 1440, 'day'] : [minutes / 60, 'hour'];
+  return `${n} ${unit}${n === 1 ? '' : 's'}`;
+}
+
+/**
+ * Only times Settings offers, each once, longest first. Anything else (an old or tampered value) is dropped rather than
+ * sent to Google.
+ */
+export function cleanReminders(kind: RemindedKind, minutes: unknown[]): number[] {
+  const wanted = new Set(minutes.map(Number));
+  return REMINDER_CHOICES[kind].filter((m) => wanted.has(m));
+}
+
+/**
+ * Someone's reminder times: the ones they picked in Settings (stored as JSON lists), or the usual ones where they
+ * haven't. An empty list is a choice too: no reminders.
+ */
+export function reminderTimes(deadline: string | null, exam: string | null): ReminderTimes {
+  const picked = (kind: RemindedKind, text: string | null) => {
+    if (text === null) return REMINDERS[kind]!;
+    try {
+      const value = JSON.parse(text);
+      return Array.isArray(value) ? cleanReminders(kind, value) : REMINDERS[kind]!;
+    } catch {
+      return REMINDERS[kind]!;
+    }
+  };
+  return { ...REMINDERS, deadline: picked('deadline', deadline), exam: picked('exam', exam) };
+}
+
+/** What the calendar shows for a deadline ticked off as done. Grey (Graphite) like the week labels, so it recedes. */
+export const DONE_MARK = '✓ ';
+const DONE_COLOR = '8';
+
 export type GoogleEventBody = Record<string, unknown>;
 
-export function toGoogleEvent(ev: CalEvent, mode: CalendarMode = 'shared'): GoogleEventBody {
-  // Week labels never remind anyone of anything.
-  const reminders = ev.kind === 'week' ? [] : mode === 'main' ? REMINDERS[ev.kind] : undefined;
+export function toGoogleEvent(ev: CalEvent, mode: CalendarMode = 'shared', times: ReminderTimes = REMINDERS): GoogleEventBody {
+  // Week labels never remind anyone of anything, and nor does a deadline that's done.
+  const reminders = ev.kind === 'week' || ev.done ? [] : mode === 'main' ? times[ev.kind] : undefined;
   // The footer lets people find (and if needed, delete) everything Semsync added by searching "Semsync".
   const description = [ev.description, ev.url, 'Added by Semsync.'].filter(Boolean).join('\n\n');
   const body: GoogleEventBody = {
-    summary: ev.title,
+    summary: ev.done ? `${DONE_MARK}${ev.title}` : ev.title,
     start: withTimeZone(ev.start),
     end: withTimeZone(ev.end),
     status: 'confirmed',
@@ -82,7 +131,7 @@ export function toGoogleEvent(ev: CalEvent, mode: CalendarMode = 'shared'): Goog
   };
   if (description) body.description = description;
   if (ev.location) body.location = ev.location;
-  const colorId = ev.color ?? COLORS[ev.kind];
+  const colorId = ev.done ? DONE_COLOR : ev.color ?? COLORS[ev.kind];
   if (colorId) body.colorId = colorId;
   return body;
 }

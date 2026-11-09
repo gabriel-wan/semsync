@@ -8,11 +8,14 @@ import { numberPlaceholders, type Db } from '../src/lib/database';
 import {
   cachedModuleFetcher,
   claimDueUsers,
+  deadlineList,
   deleteUserData,
+  doneDeadlineIds,
   eventCounts,
   getUser,
   recordSync,
   saveFeed,
+  setDeadlinesDone,
   upcomingEvents,
   upsertUserOnLogin,
 } from '../src/lib/db';
@@ -95,13 +98,14 @@ describe('Postgres database adapter', () => {
       '0003_feeds_and_rollover.sql',
       '0004_clear_rows_left_after_deletion.sql',
       '0005_ai_app_access.sql',
+      '0006_reminders_and_done.sql',
     ]);
     expect(await migrate(db)).toEqual([]);
     const { results } = await db
       .prepare("SELECT relname, relrowsecurity FROM pg_class WHERE relkind = 'r' AND relnamespace = 'public'::regnamespace ORDER BY relname")
       .all<{ relname: string; relrowsecurity: boolean }>();
     expect(results.map((r) => r.relname)).toEqual([
-      '_migrations', 'fake_calendars', 'fake_events', 'feeds', 'kv', 'module_cache',
+      '_migrations', 'done_deadlines', 'fake_calendars', 'fake_events', 'feeds', 'kv', 'module_cache',
       'oauth_clients', 'oauth_codes', 'oauth_grants', 'oauth_tokens', 'synced_events', 'users',
     ]);
     expect(results.every((r) => r.relrowsecurity)).toBe(true);
@@ -142,9 +146,25 @@ describe('Postgres database adapter', () => {
     ]);
     expect(await eventCounts(db, 'google:1')).toEqual({ class: 1, deadline: 1, exam: 1 });
     expect(await upcomingEvents(db, 'google:1', ['deadline', 'exam'], 8)).toEqual([
-      { title: 'PS5', kind: 'deadline', start_ms: soon, all_day: 0 },
-      { title: 'Final', kind: 'exam', start_ms: soon + 1, all_day: 1 },
+      { event_id: 'e1', title: 'PS5', kind: 'deadline', start_ms: soon, all_day: 0, done: 0 },
+      { event_id: 'e3', title: 'Final', kind: 'exam', start_ms: soon + 1, all_day: 1, done: 0 },
     ]);
+
+    // Ticking a deadline off: only your own deadlines (not a class, not someone else's), and only once.
+    await db.prepare("INSERT INTO synced_events VALUES ('google:2', 'e9', 'h', 'deadline', 'Theirs', ?, 0)").bind(soon).run();
+    expect(await setDeadlinesDone(db, 'google:1', ['e1', 'e2', 'e9'], [])).toBe(true);
+    expect(await setDeadlinesDone(db, 'google:1', ['e1'], [])).toBe(false);
+    expect([...await doneDeadlineIds(db, 'google:1')]).toEqual(['e1']);
+    expect(await doneDeadlineIds(db, 'google:2')).toEqual(new Set());
+    expect(await deadlineList(db, 'google:1', 0)).toEqual([{ event_id: 'e1', title: 'PS5', kind: 'deadline', start_ms: soon, all_day: 0, done: 1 }]);
+    expect((await upcomingEvents(db, 'google:1', ['deadline'], 8))[0].done).toBe(1);
+    // Starting the calendar over keeps the tick; ticking it back on takes it off.
+    await db.prepare("DELETE FROM synced_events WHERE user_id = 'google:1' AND event_id = 'e1'").run();
+    expect([...await doneDeadlineIds(db, 'google:1')]).toEqual(['e1']);
+    expect(await setDeadlinesDone(db, 'google:1', [], ['e1'])).toBe(true);
+    expect(await doneDeadlineIds(db, 'google:1')).toEqual(new Set());
+    await db.prepare("INSERT INTO synced_events VALUES ('google:1', 'e1', 'h', 'deadline', 'PS5', ?, 0)").bind(soon).run();
+    await setDeadlinesDone(db, 'google:1', ['e1'], []);
 
     let fetches = 0;
     const fetchModule = cachedModuleFetcher(db, async () => ({ moduleCode: `CS${++fetches}` }) as never);
@@ -155,6 +175,7 @@ describe('Postgres database adapter', () => {
     await deleteUserData(db, 'google:1');
     expect(await getUser(db, 'google:1')).toBeNull();
     expect(await eventCounts(db, 'google:1')).toEqual({});
+    expect(await doneDeadlineIds(db, 'google:1')).toEqual(new Set());
   });
 });
 

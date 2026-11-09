@@ -39,6 +39,9 @@ export type UserRow = {
   /** The subscribe link's secret: hashed to look it up, encrypted to show it again. */
   feed_token_hash: string | null;
   feed_token_enc: string | null;
+  /** JSON: when deadline and exam reminders go off, in minutes before. Null for Semsync's usual times. */
+  deadline_reminders: string | null;
+  exam_reminders: string | null;
 };
 
 export type Course = { key: string; label: string };
@@ -65,7 +68,62 @@ export async function saveCourseSettings(db: Db, id: string, hidden: string[], w
 }
 
 export type TrackedRow = { event_id: string; hash: string; start_ms: number };
-export type UpcomingRow = { title: string; kind: EventKind; start_ms: number; all_day: number };
+/** An event as the Semsync page lists it. Deadlines carry their id and whether they're ticked off, for the tick. */
+export type UpcomingRow = { title: string; kind: EventKind; start_ms: number; all_day: number; event_id?: string; done?: number };
+
+/** Saves reminder times from Settings: JSON lists of minutes before, or null to go back to the usual ones. */
+export async function saveReminders(db: Db, id: string, deadline: string | null, exam: string | null) {
+  await db.prepare('UPDATE users SET deadline_reminders = ?, exam_reminders = ? WHERE id = ?').bind(deadline, exam, id).run();
+}
+
+/** The ids of every deadline the user ticked off as done. */
+export async function doneDeadlineIds(db: Db, userId: string): Promise<Set<string>> {
+  const { results } = await db.prepare('SELECT event_id FROM done_deadlines WHERE user_id = ?').bind(userId).all<{ event_id: string }>();
+  return new Set(results.map((r) => r.event_id));
+}
+
+/**
+ * Ticks deadlines off, or back on. Only the user's own deadlines can be ticked: an id that isn't one of theirs is
+ * ignored. Returns whether anything changed, so ticking something already ticked doesn't sync for nothing.
+ */
+export async function setDeadlinesDone(db: Db, userId: string, done: string[], undone: string[]): Promise<boolean> {
+  let changed = 0;
+  if (done.length) {
+    const r = await db
+      .prepare(
+        `${WHILE_USER_EXISTS}
+         INSERT INTO done_deadlines (user_id, event_id, done_at)
+         SELECT s.user_id, s.event_id, ? FROM synced_events s, owner
+         WHERE s.user_id = owner.id AND s.kind = 'deadline' AND s.event_id IN (${done.map(() => '?').join(',')})
+         ON CONFLICT (user_id, event_id) DO NOTHING`,
+      )
+      .bind(userId, Date.now(), ...done)
+      .run();
+    changed += r.changes;
+  }
+  if (undone.length) {
+    const r = await db
+      .prepare(`DELETE FROM done_deadlines WHERE user_id = ? AND event_id IN (${undone.map(() => '?').join(',')})`)
+      .bind(userId, ...undone)
+      .run();
+    changed += r.changes;
+  }
+  return changed > 0;
+}
+
+/** Every deadline from `fromMs` on, soonest first, each with whether it's ticked off. */
+export async function deadlineList(db: Db, userId: string, fromMs: number): Promise<UpcomingRow[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT s.event_id, s.title, s.kind, s.start_ms, s.all_day, CASE WHEN d.event_id IS NULL THEN 0 ELSE 1 END AS done
+       FROM synced_events s LEFT JOIN done_deadlines d ON d.user_id = s.user_id AND d.event_id = s.event_id
+       WHERE s.user_id = ? AND s.kind = 'deadline' AND s.start_ms >= ?
+       ORDER BY s.start_ms, s.title`,
+    )
+    .bind(userId, fromMs)
+    .all<UpcomingRow>();
+  return results;
+}
 
 export const getUser = (db: Db, id: string) =>
   db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first<UserRow>();
@@ -224,9 +282,10 @@ export async function trackedEvents(db: Db, userId: string): Promise<TrackedRow[
 export async function upcomingEvents(db: Db, userId: string, kinds: EventKind[], limit: number) {
   const { results } = await db
     .prepare(
-      `SELECT title, kind, start_ms, all_day FROM synced_events
-       WHERE user_id = ? AND start_ms >= ? AND kind IN (${kinds.map(() => '?').join(',')})
-       ORDER BY start_ms LIMIT ?`,
+      `SELECT s.event_id, s.title, s.kind, s.start_ms, s.all_day, CASE WHEN d.event_id IS NULL THEN 0 ELSE 1 END AS done
+       FROM synced_events s LEFT JOIN done_deadlines d ON d.user_id = s.user_id AND d.event_id = s.event_id
+       WHERE s.user_id = ? AND s.start_ms >= ? AND s.kind IN (${kinds.map(() => '?').join(',')})
+       ORDER BY s.start_ms LIMIT ?`,
     )
     .bind(userId, Date.now() - 3600_000, ...kinds, limit)
     .all<UpcomingRow>();
@@ -248,6 +307,7 @@ export async function deleteUserData(db: Db, id: string) {
     db.prepare('DELETE FROM users WHERE id = ?').bind(id),
     db.prepare('DELETE FROM synced_events WHERE user_id = ?').bind(id),
     db.prepare('DELETE FROM feeds WHERE user_id = ?').bind(id),
+    db.prepare('DELETE FROM done_deadlines WHERE user_id = ?').bind(id),
     db.prepare('DELETE FROM kv WHERE key = ?').bind(`token:user:${id}`),
     // AI apps they allowed, and every code and pass those apps hold.
     db.prepare('DELETE FROM oauth_tokens WHERE grant_id IN (SELECT id FROM oauth_grants WHERE user_id = ?)').bind(id),
