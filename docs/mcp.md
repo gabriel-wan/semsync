@@ -26,7 +26,8 @@ Each one only reads, and every input is optional.
   final exam.
 
 Each event comes back as its title, type, module code, date, weekday, start time (none for all day events) and NUS
-week, in Singapore time. Links, rooms and Canvas descriptions never leave Semsync.
+week, in Singapore time. A deadline the student ticked off as handed in also has `done: true`. Links, rooms and Canvas
+descriptions never leave Semsync.
 
 ## Sign in
 

@@ -41,7 +41,8 @@ export const TOOLS = [
     title: 'Upcoming deadlines, classes and exams',
     description:
       "What's coming up for the student, from the start of today (Singapore time) for a number of days: Canvas deadlines and " +
-      'events, NUSMods classes and final exams. Use it for questions like "what\'s due this week?" or "what do I have tomorrow?".',
+      'events, NUSMods classes and final exams. Use it for questions like "what\'s due this week?" or "what do I have tomorrow?". ' +
+      'A deadline the student ticked off as handed in has done: true.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -86,8 +87,10 @@ export const TOOLS = [
   },
 ];
 
-type Row = { title: string; kind: string; start_ms: number; all_day: number };
-type Item = { title: string; type: Kind; course: string | null; date: string; weekday: string; time: string | null; week: string | null };
+type Row = { title: string; kind: string; start_ms: number; all_day: number; done: number };
+type Item = {
+  title: string; type: Kind; course: string | null; date: string; weekday: string; time: string | null; week: string | null; done?: true;
+};
 
 const startOfDay = (date: string) => Date.parse(`${date}T00:00:00${TZ_OFFSET}`);
 
@@ -115,15 +118,18 @@ function toItem(row: Row, codes: Set<string>, now: Date): Item {
     weekday: WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()],
     time: row.all_day ? null : new Date(row.start_ms + 8 * 3600_000).toISOString().slice(11, 16),
     week: nusWeek(date, now)?.name ?? null,
+    // Only on deadlines the student ticked off, so an assistant doesn't list handed in work as still due.
+    ...(row.done ? { done: true as const } : {}),
   };
 }
 
 async function events(ctx: ToolContext, from: number, to: number, kinds: readonly Kind[]) {
   const { results } = await ctx.db
     .prepare(
-      `SELECT title, kind, start_ms, all_day FROM synced_events
-       WHERE user_id = ? AND start_ms >= ? AND start_ms < ? AND kind IN (${kinds.map(() => '?').join(',')})
-       ORDER BY start_ms, title LIMIT ?`,
+      `SELECT s.title, s.kind, s.start_ms, s.all_day, CASE WHEN d.event_id IS NULL THEN 0 ELSE 1 END AS done
+       FROM synced_events s LEFT JOIN done_deadlines d ON d.user_id = s.user_id AND d.event_id = s.event_id
+       WHERE s.user_id = ? AND s.start_ms >= ? AND s.start_ms < ? AND s.kind IN (${kinds.map(() => '?').join(',')})
+       ORDER BY s.start_ms, s.title LIMIT ?`,
     )
     .bind(ctx.user.id, from, to, ...kinds, MAX_ITEMS + 1)
     .all<Row>();

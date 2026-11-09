@@ -181,6 +181,21 @@ describe('ticking deadlines off and picking reminder times, through the app', ()
     expect(block(await feed(), 'Reflection')).toContain('VALARM');
   });
 
+  it('tells an AI assistant which deadlines are done', async () => {
+    const { handleMcp } = await import('../src/lib/mcp');
+    const items = async () => {
+      const answer = await handleMcp(
+        { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'upcoming', arguments: { days: 7, types: ['deadline'] } } },
+        { db, user: (await getUser(db, USER))!, now: Date.UTC(2026, 10, 10) },
+      );
+      return (answer as { result: { structuredContent: { items: { title: string; done?: true }[] } } }).result.structuredContent.items;
+    };
+    expect((await items()).find((i) => i.title.includes('Reflection'))!.done).toBeUndefined();
+    await send('/deadlines/done', post([['csrf', csrf], ['done', await reflection()]], { accept: 'application/json' }));
+    expect((await items()).find((i) => i.title.includes('Reflection'))!.done).toBe(true);
+    await send('/deadlines/done', post([['csrf', csrf], ['undone', await reflection()]], { accept: 'application/json' }));
+  });
+
   it('needs the form token, and ignores anything that is not one of your deadlines', async () => {
     const id = await reflection();
     const forged = await send('/deadlines/done', post([['done', id]], { accept: 'application/json' }));
