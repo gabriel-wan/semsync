@@ -3920,6 +3920,170 @@ legend.step-head {
   gap: var(--space-100);
 }
 
+/* Ticking deadlines off: the tick beside each one (on the Deadlines page and in Coming up), the Deadlines page's list and
+   search, and Undo in the confirmation. The button is bigger than the box it draws, so it's easy to hit on a phone. */
+.tick-form {
+  flex: none;
+  margin: calc(-1 * var(--space-75)) 0 calc(-1 * var(--space-75)) calc(-1 * var(--space-75));
+}
+
+.tick {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-8);
+  background: transparent;
+  cursor: pointer;
+}
+
+.tick-box {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-6);
+  border: 1.5px solid var(--border-action-secondary);
+  background: var(--surface-primary);
+  color: transparent;
+  transition:
+    background-color 200ms var(--ease),
+    border-color 200ms var(--ease),
+    color 200ms var(--ease);
+}
+
+.tick:hover .tick-box {
+  border-color: var(--border-action-primary);
+}
+
+.tick:focus-visible {
+  outline: none;
+}
+
+.tick:focus-visible .tick-box {
+  outline: 2px solid var(--border-action-primary);
+  outline-offset: 2px;
+}
+
+.tick[aria-pressed='true'] .tick-box {
+  border-color: transparent;
+  background: var(--surface-brand);
+  color: var(--text-on-brand);
+}
+
+.is-done .dl-title {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+}
+
+.agenda-ev.has-tick {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-75);
+}
+
+.agenda-ev-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-25);
+  min-width: 0;
+}
+
+.agenda-more {
+  margin-top: var(--space-100);
+}
+
+.dl-search {
+  position: relative;
+  margin-top: var(--space-300);
+}
+
+.dl-search svg {
+  position: absolute;
+  left: var(--space-100);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--icon-secondary);
+  pointer-events: none;
+}
+
+.dl-search .input {
+  width: 100%;
+  padding-left: var(--space-500);
+}
+
+.dl-panel {
+  margin-top: var(--space-200);
+}
+
+.dl-group + .dl-group {
+  margin-top: var(--space-300);
+}
+
+.dl-group[hidden],
+.dl-row[hidden],
+.dl-panel .empty[hidden] {
+  display: none;
+}
+
+.dl-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-100);
+}
+
+.dl-list {
+  list-style: none;
+  margin: var(--space-75) 0 0;
+  padding: 0;
+}
+
+.dl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-100);
+  padding: var(--space-100) 0;
+  border-top: 1px solid var(--border-primary);
+}
+
+.dl-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-25);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dl-title .course-dot {
+  display: inline-block;
+  margin-right: var(--space-75);
+  vertical-align: 1px;
+}
+
+.done-toast-undo {
+  flex: none;
+  align-self: center;
+  min-height: 32px;
+  padding: 0 var(--space-100);
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: var(--text-info);
+  cursor: pointer;
+}
+
+.done-toast-undo:hover {
+  background: var(--surface-primary-hover);
+}
+
+.done-toast-undo:focus-visible {
+  outline: 2px solid var(--border-action-primary);
+  outline-offset: 1px;
+}
+
 /* Reminder times in Settings: a row of boxes to tick for deadlines, and one for exams. */
 .remind-row {
   min-width: 0;
@@ -3993,6 +4157,7 @@ legend.step-head {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .tick-box,
   .remind-choice span {
     transition: none;
   }

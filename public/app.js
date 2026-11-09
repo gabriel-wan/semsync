@@ -1,6 +1,7 @@
 // Semsync's browser script, loaded with defer on every page. Everything works without it; it adds the light and dark
-// toggle, reveal on scroll, the link guides and hero demo, the account menu, confirmation dialogs, copy buttons, checks
-// and a loading state for the setup form, and taking a shown confirmation off the address. The theme key matches
+// toggle, reveal on scroll, the link guides and hero demo, the account menu, confirmation dialogs, copy buttons, ticking
+// deadlines off in the background with Undo, searching deadlines as you type, checks and a loading state for the setup
+// form, and taking a shown confirmation off the address. The theme key matches
 // THEME_KEY in src/views/styles.ts.
 (() => {
   const toggle = document.querySelector('[data-theme-toggle]');
@@ -252,6 +253,107 @@
       setTimeout(() => { label.textContent = own; }, 1800);
     }
   }));
+
+  // Ticking a deadline off: the tick changes at once, a confirmation offers Undo, and the change goes to Semsync in the
+  // background. Ticks made while one is on its way go together in the next request. Without this, each tick is a form.
+  const ticks = [...document.querySelectorAll('form[data-tick]')];
+  const toastTemplate = document.getElementById('tick-toast');
+  if (ticks.length) {
+    const csrf = ticks[0].elements.namedItem('csrf').value;
+    const field = (form) => form.querySelector('input[name=done], input[name=undone]');
+    const byId = new Map(ticks.map((form) => [field(form).value, form]));
+    const pending = new Map();
+    let sending = false;
+    let toast = null;
+
+    const recount = () => document.querySelectorAll('[data-group]').forEach((group) => {
+      const left = group.querySelectorAll('[data-deadline]:not(.is-done)').length;
+      const out = group.querySelector('[data-left]');
+      if (out) out.textContent = left ? left + ' left' : 'All done';
+    });
+    // The hidden field says what the next press does, so it flips with the tick.
+    const show = (form, done) => {
+      field(form).name = done ? 'undone' : 'done';
+      form.querySelector('.tick').setAttribute('aria-pressed', String(done));
+      const row = form.closest('[data-deadline]');
+      if (row) row.classList.toggle('is-done', done);
+      recount();
+    };
+    const say = (title, body, undo) => {
+      if (toast) toast.remove();
+      if (!toastTemplate) return;
+      toast = toastTemplate.content.firstElementChild.cloneNode(true);
+      toast.querySelector('[data-title]').textContent = title;
+      toast.querySelector('[data-body]').textContent = body;
+      const undoButton = toast.querySelector('[data-undo]');
+      if (undo) undoButton.addEventListener('click', undo); else undoButton.remove();
+      const closing = toast;
+      toast.querySelector('[data-dismiss]').addEventListener('click', () => {
+        closing.classList.add('is-closing');
+        setTimeout(() => closing.remove(), 150);
+      });
+      document.body.append(toast);
+    };
+    const send = async () => {
+      if (sending || !pending.size) return;
+      sending = true;
+      const batch = new Map(pending);
+      pending.clear();
+      const body = new URLSearchParams({ csrf });
+      batch.forEach((done, id) => body.append(done ? 'done' : 'undone', id));
+      let ok = false;
+      try {
+        const res = await fetch('/deadlines/done', { method: 'POST', body, headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+        ok = res.ok && (await res.json()).ok === true;
+      } catch {
+        ok = false;
+      }
+      sending = false;
+      if (!ok) {
+        // Put back what didn't save (unless it was pressed again meanwhile), and say so.
+        batch.forEach((done, id) => { if (!pending.has(id) && byId.has(id)) show(byId.get(id), !done); });
+        say("Couldn't save that", 'Check your connection and try again.');
+      }
+      send();
+    };
+    ticks.forEach((form) => form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const id = field(form).value;
+      const done = field(form).name === 'done';
+      show(form, done);
+      pending.set(id, done);
+      say(
+        done ? 'Marked as done' : 'Not done after all',
+        done ? 'Its reminders are off, and it turns grey in your calendar.' : 'Its reminders are back on.',
+        () => form.requestSubmit(),
+      );
+      send();
+    }));
+  }
+
+  // The Deadlines search narrows the list as you type. Without this, Enter sends it and the page comes back narrowed.
+  const filter = document.querySelector('[data-filter]');
+  const list = filter && document.getElementById(filter.dataset.filter);
+  if (filter && list) {
+    const none = list.querySelector('[data-nomatch]');
+    const run = () => {
+      const q = filter.value.trim().toLowerCase();
+      let any = false;
+      list.querySelectorAll('[data-group]').forEach((group) => {
+        let shown = 0;
+        group.querySelectorAll('[data-deadline]').forEach((row) => {
+          const match = !q || row.dataset.search.includes(q);
+          row.hidden = !match;
+          if (match) shown++;
+        });
+        group.hidden = shown === 0;
+        if (shown) any = true;
+      });
+      if (none) none.hidden = any;
+    };
+    filter.addEventListener('input', run);
+    filter.form.addEventListener('submit', (event) => { event.preventDefault(); run(); });
+  }
 
   const setup = document.querySelector('form[data-setup]');
   if (!setup) return;

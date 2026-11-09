@@ -115,7 +115,7 @@ describe('reminder times', () => {
   });
 });
 
-describe('picking reminder times, through the app', () => {
+describe('ticking deadlines off and picking reminder times, through the app', () => {
   const APP_URL = 'https://semsync.example';
   const SECRET = 'test session secret';
   const KEY = 'test key';
@@ -163,6 +163,39 @@ describe('picking reminder times, through the app', () => {
   });
   const feed = async () => gunzipBase64((await feedBody(db, USER))!);
   const block = (ics: string, title: string) => ics.split('BEGIN:VEVENT').find((b) => b.includes(title))!;
+  const reflection = async () =>
+    (await db.prepare("SELECT event_id FROM synced_events WHERE user_id = ? AND title LIKE '%Reflection%'").bind(USER).first<{ event_id: string }>())!.event_id;
+
+  it('ticks a deadline off in the background, and the calendar shows it at once', async () => {
+    const id = await reflection();
+    expect(block(await feed(), 'Reflection')).toContain('VALARM');
+    const res = await send('/deadlines/done', post([['csrf', csrf], ['done', id]], { accept: 'application/json' }));
+    expect(await res.json()).toEqual({ ok: true, synced: true });
+    const ticked = block(await feed(), 'Reflection');
+    expect(ticked).toContain('SUMMARY:✓ [UTC2402] Reflection [Part 2]');
+    expect(ticked).not.toContain('VALARM');
+
+    // Without the page's script, the same tick is a form that comes back with a confirmation.
+    const back = await send('/deadlines/done', post([['csrf', csrf], ['undone', id], ['back', 'home']]));
+    expect(back.headers.get('location')).toBe('/home?done=unticked');
+    expect(block(await feed(), 'Reflection')).toContain('VALARM');
+  });
+
+  it('needs the form token, and ignores anything that is not one of your deadlines', async () => {
+    const id = await reflection();
+    const forged = await send('/deadlines/done', post([['done', id]], { accept: 'application/json' }));
+    expect(forged.status).toBe(403);
+    const junk = await send('/deadlines/done', post([['csrf', csrf], ['done', 'not an id'], ['done', `ss${'0'.repeat(30)}`]], { accept: 'application/json' }));
+    expect(await junk.json()).toEqual({ ok: true, synced: true });
+    expect((await db.prepare('SELECT COUNT(*) AS n FROM done_deadlines').first<{ n: number }>())!.n).toBe(0);
+  });
+
+  it('shows the Deadlines page with a tick for each, and the search kept', async () => {
+    const page = await (await send('/deadlines?q=reflection', { headers: { cookie } })).text();
+    expect(page).toContain('<h1 class="heading-3">Deadlines</h1>');
+    expect(page).toContain('value="reflection"');
+    expect((await send('/deadlines')).headers.get('location')).toBe('/');
+  });
 
   it('saves reminder times, and the usual ones as nothing at all', async () => {
     await send('/reminders', post([['csrf', csrf], ['deadline', '4320'], ['deadline', '60'], ['exam', '1440']]));

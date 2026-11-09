@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UserRow } from '../src/lib/db';
-import { Approve, Help, Home, Landing, Message, NotFound, Privacy, Settings, Setup, Terms } from '../src/views/pages';
+import { Approve, Deadlines, Help, Home, Landing, Message, NotFound, Privacy, Settings, Setup, Terms } from '../src/views/pages';
 
 const user: UserRow = {
   id: 'dev:a@example.com', email: 'a@example.com', name: 'A', canvas_feed_enc: 'x', nusmods_link: null, mode: 'main',
@@ -32,6 +32,15 @@ const PAGES: [string, unknown][] = [
   ['help', Help({})],
   ['settings', Settings({ user, csrf: 't', counts: { deadline: 3 }, dev: false })],
   ['settings, subscribe link', Settings({ user: { ...user, mode: 'feed', deadline_reminders: '[4320]' }, csrf: 't', counts: {}, dev: false })],
+  ['deadlines', Deadlines({ user, csrf: 't', deadlines: [
+    { event_id: `ss${'a'.repeat(30)}`, title: '[CS2040] Problem Set 5', kind: 'deadline', start_ms: Date.now() + 3_600_000, all_day: 0, done: 1 },
+    { event_id: `ss${'b'.repeat(30)}`, title: '[MA1521] Quiz 3', kind: 'deadline', start_ms: Date.now() + 9 * 86_400_000, all_day: 0, done: 0 },
+    { event_id: `ss${'c'.repeat(30)}`, title: '[ES2660] Essay', kind: 'deadline', start_ms: Date.now() + 30 * 86_400_000, all_day: 1, done: 0 },
+  ] })],
+  ['deadlines, none', Deadlines({ user: { ...user, mode: 'feed' }, csrf: 't', deadlines: [] })],
+  ['deadlines, search with no match', Deadlines({ user, csrf: 't', q: 'zzz', deadlines: [
+    { event_id: `ss${'a'.repeat(30)}`, title: '[CS2040] Problem Set 5', kind: 'deadline', start_ms: Date.now() + 3_600_000, all_day: 0, done: 0 },
+  ] })],
   ['settings, with AI assistants', Settings({
     user, csrf: 't', counts: { deadline: 3 }, dev: false, mcpUrl: 'https://semsync.example/mcp',
     apps: [

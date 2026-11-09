@@ -101,6 +101,7 @@ export const Layout: FC<LayoutProps> = ({
               ) : signedIn ? (
                 <>
                   <a class="nav-link title-4" href="/home" aria-current={current === 'home' ? 'page' : undefined}>Your calendar</a>
+                  <a class="nav-link section-link title-4" href="/deadlines" aria-current={current === 'deadlines' ? 'page' : undefined}>Deadlines</a>
                   <a class="nav-link section-link title-4" href="/settings" aria-current={current === 'settings' ? 'page' : undefined}>Settings</a>
                 </>
               ) : (
@@ -471,6 +472,7 @@ const FAQ: [string, string][] = [
   ['Can I leave a course out?', 'Yes. In Settings, untick the course and save, and its upcoming events come out. You can turn off the "Week 7" labels there too.'],
   ['How quickly do changes show up?', 'Semsync checks Canvas about once an hour. If a deadline moves, your calendar follows within the hour.'],
   ['Do I get reminders?', 'Yes: 1 day and 3 hours before each deadline, and 1 week and 1 day before each exam. You can pick other times in Settings, under Reminders.'],
+  ["Can I turn off reminders for work I've handed in?", 'Yes. Tick it off on the Deadlines page, or in Coming up. Its reminders stop and it turns grey in your calendar. Untick it to bring them back.'],
   ['Does it work with Outlook or Apple Calendar?', 'Yes. Choose "Outlook or Apple Calendar" when you set up, or get a subscribe link in Settings, and add it to any calendar app. It stays up to date, though those apps only check it every few hours, and some ignore its reminders.'],
   ['Does it work with Notion Calendar?', 'Yes. Notion Calendar shows the calendars in your Google account, so "NUS semester" is there once you connect that account to it.'],
   ['What happens next semester?', 'Canvas deadlines keep coming by themselves, and each new term\'s weeks and holidays are worked out for you. NUSMods links are made one semester at a time, so two weeks before the next one starts, Semsync puts a reminder in your calendar to paste its link.'],
@@ -760,8 +762,27 @@ function timeAgo(ms: number) {
   return hours < 48 ? `${hours} h ago` : `${Math.round(hours / 24)} days ago`;
 }
 
+/**
+ * The tick beside a deadline. It's a small form, so it works without JavaScript; app.js sends it in the background and
+ * offers Undo instead. The hidden field says what pressing it does next: tick it off (done) or back on (undone).
+ */
+const DeadlineTick: FC<{ e: UpcomingRow; csrf: string; back: 'home' | 'deadlines'; q?: string }> = ({ e, csrf, back, q }) => {
+  const done = e.done === 1;
+  return (
+    <form class="tick-form" method="post" action="/deadlines/done" data-tick>
+      <input type="hidden" name="csrf" value={csrf} />
+      <input type="hidden" name={done ? 'undone' : 'done'} value={e.event_id} />
+      <input type="hidden" name="back" value={back} />
+      {q && <input type="hidden" name="q" value={q} />}
+      <button class="tick" type="submit" aria-pressed={done ? 'true' : 'false'} aria-label={`Done: ${e.title}`}>
+        <span class="tick-box" aria-hidden="true"><Icon name="check" size={14} /></span>
+      </button>
+    </form>
+  );
+};
+
 /** Deadlines and exams grouped by day, each day with a date block like Google Calendar's schedule view. */
-const UpcomingList: FC<{ upcoming: UpcomingRow[]; failed?: boolean; now?: number }> = ({ upcoming, failed, now = Date.now() }) => {
+const UpcomingList: FC<{ upcoming: UpcomingRow[]; failed?: boolean; now?: number; csrf?: string }> = ({ upcoming, failed, now = Date.now(), csrf }) => {
   if (upcoming.length === 0) {
     return failed ? (
       <p class="empty failed body-6"><Icon name="warningCircle" size={18} />Couldn't load your events. The last sync didn't finish: try Sync now, or check your links.</p>
@@ -790,14 +811,25 @@ const UpcomingList: FC<{ upcoming: UpcomingRow[]; failed?: boolean; now?: number
               </div>
               <div class="agenda-events">
                 <p class="caption-4 text-secondary">{when}</p>
-                {events.map((e) => (
-                  <div class={`agenda-ev ${KIND_CLASS[e.kind]}`}>
-                    <span class="body-5">{e.title}</span>
+                {events.map((e) => {
+                  const time = (
                     <time class="caption-5 mono" datetime={new Date(e.start_ms).toISOString()}>
                       {KIND_LABEL[e.kind]} · {e.all_day === 1 ? 'all day' : part(e.start_ms, { hour: '2-digit', minute: '2-digit', hour12: false })}
                     </time>
-                  </div>
-                ))}
+                  );
+                  // With the page's form token at hand, a deadline can be ticked off right here.
+                  return csrf && e.kind === 'deadline' && e.event_id ? (
+                    <div class={`agenda-ev ${KIND_CLASS[e.kind]} has-tick${e.done === 1 ? ' is-done' : ''}`} data-deadline>
+                      <DeadlineTick e={e} csrf={csrf} back="home" />
+                      <div class="agenda-ev-text"><span class="body-5 dl-title">{e.title}</span>{time}</div>
+                    </div>
+                  ) : (
+                    <div class={`agenda-ev ${KIND_CLASS[e.kind]}`}>
+                      <span class="body-5">{e.title}</span>
+                      {time}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </>
@@ -1040,6 +1072,109 @@ const RemindersPanel: FC<{ user: UserRow; csrf: string }> = ({ user, csrf }) => 
   );
 };
 
+/** The confirmation app.js shows after a tick, with Undo. A template, so the page's script fills in only plain text. */
+const TickToast: FC = () => (
+  <template id="tick-toast">
+    <div class="done-toast has-body" role="status">
+      <Icon name="checkCircle" size={18} cls="done-toast-icon" />
+      <div class="done-toast-text">
+        <p class="title-4" data-title></p>
+        <p class="caption-2 text-secondary" data-body></p>
+      </div>
+      <button class="done-toast-undo title-4" type="button" data-undo>Undo</button>
+      <button class="done-toast-close" type="button" aria-label="Dismiss" data-dismiss><Icon name="x" size={14} /></button>
+    </div>
+  </template>
+);
+
+/** The Monday of the week a day is in, for days written "2026-11-09". */
+const mondayOf = (day: string) => {
+  const d = new Date(`${day}T00:00:00Z`);
+  return new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
+};
+
+/**
+ * Every deadline from today on, by week, each with a tick. Ticking one off stops its reminders and greys it out in the
+ * calendar. A search narrows the list as you type (app.js), or on Enter without JavaScript.
+ */
+export const Deadlines: FC<{
+  user: UserRow; csrf: string; deadlines: UpcomingRow[]; q?: string; flash?: Flash; now?: number;
+}> = ({ user, csrf, deadlines, q = '', flash, now = Date.now() }) => {
+  const needle = q.toLowerCase();
+  const thisWeek = mondayOf(dayKey(now));
+  const nextWeek = mondayOf(dayKey(now + 7 * 86_400_000));
+  const groups: [string, UpcomingRow[]][] = [['This week', []], ['Next week', []], ['Later', []]];
+  for (const e of deadlines) {
+    const week = mondayOf(dayKey(e.start_ms));
+    groups[week <= thisWeek ? 0 : week === nextWeek ? 1 : 2][1].push(e);
+  }
+  const matches = (e: UpcomingRow) => !needle || e.title.toLowerCase().includes(needle);
+  const anyMatch = deadlines.some(matches);
+  const colors = user.mode === 'main' ? moduleColors(jsonList<Course>(user.courses).map((c) => c.key)) : new Map<string, string>();
+  const colorOf = (title: string) => colors.get(/^\[([^\]]+)\]/.exec(title)?.[1] ?? '');
+  return (
+    <Layout title="Deadlines · Semsync" signedIn current="deadlines" noindex account={{ email: user.email, name: user.name, csrf }}>
+      <div class="wrap narrow page">
+        <BackLink signedIn />
+        <h1 class="heading-3">Deadlines</h1>
+        <p class="caption-2 text-secondary mt-75">
+          Tick off what you've handed in, and its reminders stop.
+          {user.mode === 'feed' ? ' Your calendar app shows the change when it next checks, within a few hours.' : ' It turns grey in your calendar too.'}
+        </p>
+        {flash && <Toast flash={flash} />}
+        {deadlines.length > 0 && (
+          <form class="dl-search" method="get" action="/deadlines" role="search">
+            <Icon name="magnifyingGlass" size={18} />
+            <input class="input" type="search" name="q" value={q} placeholder="Module code or title" aria-label="Search deadlines"
+              autocomplete="off" data-filter="dl-list" />
+          </form>
+        )}
+        <section class="panel dl-panel" id="dl-list" aria-label="Deadlines">
+          {deadlines.length === 0 ? (
+            <p class="empty body-6">No deadlines coming up. New Canvas deadlines show up here within the hour.</p>
+          ) : (
+            <>
+              {groups.filter(([, rows]) => rows.length).map(([label, rows]) => {
+                const left = rows.filter((e) => e.done !== 1).length;
+                return (
+                  <div class="dl-group" data-group hidden={!rows.some(matches)}>
+                    <div class="dl-group-head">
+                      <h2 class="title-4">{label}</h2>
+                      <span class="caption-2 text-secondary" data-left>{left ? `${left} left` : 'All done'}</span>
+                    </div>
+                    <ul class="dl-list">
+                      {rows.map((e) => {
+                        const color = colorOf(e.title);
+                        return (
+                          <li class={`dl-row${e.done === 1 ? ' is-done' : ''}`} data-deadline data-search={e.title.toLowerCase()} hidden={!matches(e)}>
+                            <DeadlineTick e={e} csrf={csrf} back="deadlines" q={q} />
+                            <div class="dl-text">
+                              <span class="body-5 dl-title">
+                                {color && <span class="course-dot" style={`background: ${GOOGLE_EVENT_COLORS[color]};`} aria-hidden="true" />}
+                                {e.title}
+                              </span>
+                              <time class="caption-2 text-secondary" datetime={new Date(e.start_ms).toISOString()}>
+                                {part(e.start_ms, { weekday: 'short', day: 'numeric', month: 'short' })} ·{' '}
+                                {e.all_day === 1 ? 'all day' : part(e.start_ms, { hour: '2-digit', minute: '2-digit', hour12: false })}
+                              </time>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+              <p class="empty body-6" data-nomatch hidden={anyMatch}>Nothing matches that. <a href="/deadlines">Show every deadline</a></p>
+            </>
+          )}
+        </section>
+        <TickToast />
+      </div>
+    </Layout>
+  );
+};
+
 /** What deleting does, in the confirmation dialog and on its fallback page for when JavaScript is off. */
 const DeleteConfirm: FC<{ user: UserRow; csrf: string; total: number; dialog?: boolean }> = ({ user, csrf, total, dialog }) => (
   <form method="post" action="/account/delete" data-busy-label="Deleting…">
@@ -1151,8 +1286,14 @@ export const Home: FC<{
               <h2 id="coming-up" class="title-1">Coming up</h2>
               <span class="caption-2 text-secondary">{countsLine(counts)} this semester</span>
             </div>
-            <UpcomingList upcoming={upcoming} failed={failing} />
+            <UpcomingList upcoming={upcoming} failed={failing} csrf={csrf} />
+            {(counts.deadline ?? 0) > 0 && (
+              <div class="agenda-more">
+                <a class="btn btn-tertiary button-md" href="/deadlines">All deadlines<Icon name="arrowRight" size={16} /></a>
+              </div>
+            )}
           </section>
+          <TickToast />
           <div class="dash-side">
             <div class="dash-dest"><Destination user={user} csrf={csrf} addUrl={addUrl} needsConnect={needsConnect} feedLink={feedLink} dev={dev} /></div>
             <SetupSummary user={user} />

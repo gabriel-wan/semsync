@@ -2,11 +2,11 @@ import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { allowedCanvasHosts, getEnv, isDev, type Env } from './env.js';
 import { validateCanvasFeedUrl } from './lib/canvas.js';
-import { linkAcadYear } from './config.js';
+import { linkAcadYear, sgDate } from './config.js';
 import { decrypt, encrypt, safeEqual } from './lib/crypto.js';
 import {
-  clearFeed, deleteUserData, eventCounts, feedBody, feedByHash, getUser, jsonList, saveCourseSettings, saveReminders, saveSources, setFeedToken,
-  setMode, setRefreshToken, upcomingEvents, upsertUserOnLogin,
+  clearFeed, deadlineList, deleteUserData, eventCounts, feedBody, feedByHash, getUser, jsonList, saveCourseSettings, saveReminders, saveSources,
+  setDeadlinesDone, setFeedToken, setMode, setRefreshToken, upcomingEvents, upsertUserOnLogin,
   type Course, type UserRow,
 } from './lib/db.js';
 import { UserError } from './lib/errors.js';
@@ -23,7 +23,7 @@ import {
 import { csrfToken, readSession, sessionValue, SESSION_MAX_AGE } from './lib/session.js';
 import { disconnectCalendar, hasCalendarAccess, removeFromCalendar, runDueSyncs, SAMPLE_FEED, syncUser, timetableNotice } from './lib/sync.js';
 import {
-  Approve, DeleteData, DevCalendar, DevLogin, Foundations, Help, Settings, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms,
+  Approve, Deadlines, DeleteData, DevCalendar, DevLogin, Foundations, Help, Settings, Home, Landing, Message, NotFound, OgCard, Privacy, Setup, Terms,
   type Flash, type SetupErrors, type Viewer,
 } from './views/pages.js';
 
@@ -48,6 +48,8 @@ const FLASH: Record<string, Flash> = {
   'feed-reset': { title: 'New link made', body: 'The old one has stopped working, so add this one to your calendar app.' },
   'feed-off': { title: 'Subscribe link turned off' },
   'app-removed': { title: 'Removed', body: "That assistant can't see your semester any more." },
+  ticked: { title: 'Marked as done', body: 'Its reminders are off, and it turns grey in your calendar.' },
+  unticked: { title: 'Not done after all', body: 'Its reminders are back on.' },
 };
 
 /** The confirmation ?done= names, if it's one of ours (own keys only, so ?done=toString finds nothing). */
@@ -172,7 +174,7 @@ app.get('/privacy', async (c) => c.html(<Privacy {...await viewer(c)} />));
 const PUBLIC_PAGES = ['/', '/help', '/privacy', '/terms'];
 app.get('/robots.txt', (c) =>
   c.text(
-    ['User-agent: *', ...['/home', '/settings', '/setup', '/auth/', '/account/', '/connect', '/api/', '/feed/', '/dev/', '/oauth/', '/mcp', '/apps/']
+    ['User-agent: *', ...['/home', '/deadlines', '/settings', '/setup', '/auth/', '/account/', '/connect', '/api/', '/feed/', '/dev/', '/oauth/', '/mcp', '/apps/']
       .map((p) => `Disallow: ${p}`),
       '', `Sitemap: ${origin(c)}/sitemap.xml`, ''].join('\n'),
   ),
@@ -427,6 +429,44 @@ app.post('/reminders', async (c) => {
   await saveReminders(c.env.DB, user.id, picked('deadline'), picked('exam'));
   const ok = await syncUser(c.env, (await getUser(c.env.DB, user.id))!, { force: true });
   return c.redirect(ok ? '/settings?done=updated#reminders' : '/settings?done=saved#reminders');
+});
+
+/** Every deadline from the start of today, Singapore time, so one due earlier today can still be ticked off. */
+const startOfToday = () => Date.parse(`${sgDate()}T00:00:00+08:00`);
+
+app.get('/deadlines', async (c) => {
+  const user = c.get('user');
+  if (!user) return c.redirect('/');
+  if (!user.calendar_id && !user.canvas_feed_enc && !user.nusmods_link) return c.redirect('/setup');
+  const q = (c.req.query('q') ?? '').trim().slice(0, 100);
+  return c.html(
+    <Deadlines user={user} csrf={await csrfToken(c.env.SESSION_SECRET, user.id)} deadlines={await deadlineList(c.env.DB, user.id, startOfToday())}
+      q={q} flash={flashOf(c)} />,
+  );
+});
+
+/** A Google Calendar event id as Semsync makes them (see eventId in src/lib/events.ts). */
+const EVENT_ID = /^ss[0-9a-v]{30}$/;
+
+/**
+ * Ticks deadlines off as done, or back on, then syncs so the calendar shows it now. The page's script sends several at
+ * once and asks for JSON; without the script, each tick is a form that comes back to the page it was on.
+ */
+app.post('/deadlines/done', async (c) => {
+  const user = c.get('user');
+  const form = await c.req.parseBody({ all: true });
+  const wantsJson = (c.req.header('accept') ?? '').includes('application/json');
+  if (!user || !(await validCsrf(c, user, form))) return wantsJson ? c.json({ ok: false }, 403) : c.redirect('/');
+  const ids = (name: string) => [form[name] ?? []].flat().map(String).filter((id) => EVENT_ID.test(id)).slice(0, 200);
+  const done = ids('done');
+  const undone = ids('undone').filter((id) => !done.includes(id));
+  const changed = await setDeadlinesDone(c.env.DB, user.id, done, undone);
+  // Nothing new (a tick sent twice) needs no sync. Otherwise sync now, rather than on the next run up to 20 minutes away.
+  const synced = changed ? !!(await syncUser(c.env, user)) : true;
+  if (wantsJson) return c.json({ ok: true, synced });
+  const back = form.back === 'home' ? '/home' : '/deadlines';
+  const q = back === '/deadlines' && typeof form.q === 'string' && form.q.trim() ? `&q=${encodeURIComponent(form.q.trim().slice(0, 100))}` : '';
+  return c.redirect(`${back}?done=${done.length ? 'ticked' : 'unticked'}${q}`);
 });
 
 // The confirmation as a page, for when JavaScript is off and the confirmation dialog can't open.
