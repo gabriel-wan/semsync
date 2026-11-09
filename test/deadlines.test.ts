@@ -241,5 +241,11 @@ describe('ticking deadlines off and picking reminder times, through the app', ()
     const renewed = await send('/settings', { headers: { cookie: old } });
     expect(renewed.status).toBe(200);
     expect(renewed.headers.get('set-cookie')).toMatch(/^ss_session=.+Max-Age=2592000/);
+
+    // Signing out still signs out, even on a visit that renews the sign in first: the last word is the deletion.
+    const out = await send('/auth/logout', post({ csrf }, { cookie: old }));
+    const cookies = out.headers.getSetCookie();
+    expect(cookies).toHaveLength(2);
+    expect(cookies.at(-1)).toMatch(/^ss_session=; Max-Age=0/);
   });
 });
