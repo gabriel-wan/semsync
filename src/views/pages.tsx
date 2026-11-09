@@ -101,7 +101,7 @@ export const Layout: FC<LayoutProps> = ({
               ) : signedIn ? (
                 <>
                   <a class="nav-link title-4" href="/home" aria-current={current === 'home' ? 'page' : undefined}>Your calendar</a>
-                  <a class="nav-link section-link title-4" href="/deadlines" aria-current={current === 'deadlines' ? 'page' : undefined}>Deadlines</a>
+                  <a class="nav-link section-link nav-deadlines title-4" href="/deadlines" aria-current={current === 'deadlines' ? 'page' : undefined}>Deadlines</a>
                   <a class="nav-link section-link title-4" href="/settings" aria-current={current === 'settings' ? 'page' : undefined}>Settings</a>
                 </>
               ) : (

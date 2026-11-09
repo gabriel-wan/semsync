@@ -205,6 +205,14 @@ code,
   }
 }
 
+/* Deadlines joins the nav only where it fits with the screen's usual margin. Narrower than that, the nav stays as it
+   was, and "All deadlines" under Coming up leads to the page. */
+@media (max-width: 520px) {
+  .nav-link.nav-deadlines {
+    display: none;
+  }
+}
+
 /* Light and dark toggle: the moon shows in light mode, the sun in dark mode, and they turn and fade into each other.
    It needs JavaScript, so it only appears once the head script has marked the page with .js. */
 .theme-toggle {
